@@ -7,7 +7,7 @@ function clearAll(): void {
   for (const code of [...pressedCodes]) {
     pressedCodes.delete(code);
     const binding = KEYBINDS[code];
-    if (binding) bus.emit(binding.stop, undefined);
+    if (binding?.stop) bus.emit(binding.stop, undefined);
   }
 }
 
@@ -22,7 +22,7 @@ export function initKeyboard(): void {
   window.addEventListener("keyup", (event) => {
     if (!pressedCodes.delete(event.code)) return;
     const binding = KEYBINDS[event.code];
-    if (binding) bus.emit(binding.stop, undefined);
+    if (binding?.stop) bus.emit(binding.stop, undefined);
   });
 
   window.addEventListener("blur", clearAll);

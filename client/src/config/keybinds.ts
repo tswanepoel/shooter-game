@@ -6,7 +6,7 @@ type MomentaryEvent = {
 
 interface Binding {
   start: MomentaryEvent;
-  stop: MomentaryEvent;
+  stop?: MomentaryEvent;
 }
 
 export const KEYBINDS: Record<string, Binding> = {
@@ -15,4 +15,5 @@ export const KEYBINDS: Record<string, Binding> = {
   KeyA: { start: "moveLeftStarted", stop: "moveLeftStopped" },
   KeyD: { start: "moveRightStarted", stop: "moveRightStopped" },
   ShiftLeft: { start: "sprintStarted", stop: "sprintStopped" },
+  Space: { start: "jumped" },
 };

@@ -6,6 +6,9 @@ export interface LocalPlayerState {
   headPitch: number;
   stamina: number;
   sprinting: boolean;
+  velocityY: number;
+  grounded: boolean;
+  airHorizontal: { x: number; z: number };
 }
 
 export const localPlayer: LocalPlayerState = {
@@ -14,4 +17,7 @@ export const localPlayer: LocalPlayerState = {
   headPitch: 0,
   stamina: STAMINA.max,
   sprinting: false,
+  velocityY: 0,
+  grounded: true,
+  airHorizontal: { x: 0, z: 0 },
 };

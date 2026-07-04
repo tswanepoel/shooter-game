@@ -1,17 +1,50 @@
 import { bus } from "../bus.ts";
-import type { Action } from "../config/keybinds.ts";
-import { MAX_PITCH, MOUSE_SENSITIVITY, MOVE_SPEED, WORLD_BOUNDARY } from "../config/physics.ts";
+import { MAX_PITCH, MOUSE_SENSITIVITY, MOVE_SPEED, STAMINA, WORLD_BOUNDARY } from "../config/physics.ts";
 import { localPlayer } from "../state/world.ts";
 
-let activeActions = new Set<Action>();
+let forwardHeld = false;
+let backwardHeld = false;
+let leftHeld = false;
+let rightHeld = false;
+let sprintKeyHeld = false;
 let controlEngaged = false;
 
-bus.on("actionsChanged", (actions) => {
-  activeActions = new Set(actions);
+bus.on("moveForwardStarted", () => {
+  forwardHeld = true;
+});
+bus.on("moveForwardStopped", () => {
+  forwardHeld = false;
+});
+bus.on("moveBackwardStarted", () => {
+  backwardHeld = true;
+});
+bus.on("moveBackwardStopped", () => {
+  backwardHeld = false;
+});
+bus.on("moveLeftStarted", () => {
+  leftHeld = true;
+});
+bus.on("moveLeftStopped", () => {
+  leftHeld = false;
+});
+bus.on("moveRightStarted", () => {
+  rightHeld = true;
+});
+bus.on("moveRightStopped", () => {
+  rightHeld = false;
+});
+bus.on("sprintStarted", () => {
+  sprintKeyHeld = true;
+});
+bus.on("sprintStopped", () => {
+  sprintKeyHeld = false;
 });
 
-bus.on("controlChanged", ({ engaged }) => {
-  controlEngaged = engaged;
+bus.on("controlEngaged", () => {
+  controlEngaged = true;
+});
+bus.on("controlReleased", () => {
+  controlEngaged = false;
 });
 
 bus.on("turned", ({ dx, dy }) => {
@@ -22,20 +55,21 @@ bus.on("turned", ({ dx, dy }) => {
 });
 
 export function tickMovement(dt: number): void {
-  const forwardInput =
-    (activeActions.has("moveForward") ? 1 : 0) - (activeActions.has("moveBackward") ? 1 : 0);
-  const strafeInput =
-    (activeActions.has("moveRight") ? 1 : 0) - (activeActions.has("moveLeft") ? 1 : 0);
+  const forwardInput = (forwardHeld ? 1 : 0) - (backwardHeld ? 1 : 0);
+  const strafeInput = (rightHeld ? 1 : 0) - (leftHeld ? 1 : 0);
+
+  updateSprint(dt);
 
   if (forwardInput === 0 && strafeInput === 0) return;
 
-  const forwardSpeed = forwardInput > 0 ? MOVE_SPEED.forward : MOVE_SPEED.backward;
+  const forwardCap = localPlayer.sprinting ? MOVE_SPEED.sprint : MOVE_SPEED.forward;
+  const forwardSpeed = forwardInput > 0 ? forwardCap : MOVE_SPEED.backward;
   let localForward = forwardInput * forwardSpeed;
   let localRight = strafeInput * MOVE_SPEED.lateral;
 
   const rawSpeed = Math.hypot(localForward, localRight);
-  if (rawSpeed > MOVE_SPEED.forward) {
-    const scale = MOVE_SPEED.forward / rawSpeed;
+  if (rawSpeed > forwardCap) {
+    const scale = forwardCap / rawSpeed;
     localForward *= scale;
     localRight *= scale;
   }
@@ -51,6 +85,25 @@ export function tickMovement(dt: number): void {
 
   localPlayer.position.x = clamp(localPlayer.position.x, -WORLD_BOUNDARY, WORLD_BOUNDARY);
   localPlayer.position.z = clamp(localPlayer.position.z, -WORLD_BOUNDARY, WORLD_BOUNDARY);
+}
+
+function updateSprint(dt: number): void {
+  if (
+    !localPlayer.sprinting &&
+    sprintKeyHeld &&
+    forwardHeld &&
+    localPlayer.stamina > STAMINA.enterFloor
+  ) {
+    localPlayer.sprinting = true;
+  }
+
+  if (localPlayer.sprinting && (!forwardHeld || localPlayer.stamina <= 0)) {
+    localPlayer.sprinting = false;
+  }
+
+  localPlayer.stamina = localPlayer.sprinting
+    ? Math.max(0, localPlayer.stamina - STAMINA.drainPerSecond * dt)
+    : Math.min(STAMINA.max, localPlayer.stamina + STAMINA.recoverPerSecond * dt);
 }
 
 function clamp(value: number, min: number, max: number): number {

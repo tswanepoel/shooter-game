@@ -1,8 +1,18 @@
-export type Action = "moveForward" | "moveBackward" | "moveLeft" | "moveRight";
+import type { BusEvents } from "../bus.ts";
 
-export const KEYBINDS: Record<string, Action> = {
-  KeyW: "moveForward",
-  KeyS: "moveBackward",
-  KeyA: "moveLeft",
-  KeyD: "moveRight",
+type MomentaryEvent = {
+  [K in keyof BusEvents]: BusEvents[K] extends undefined ? K : never;
+}[keyof BusEvents];
+
+interface Binding {
+  start: MomentaryEvent;
+  stop: MomentaryEvent;
+}
+
+export const KEYBINDS: Record<string, Binding> = {
+  KeyW: { start: "moveForwardStarted", stop: "moveForwardStopped" },
+  KeyS: { start: "moveBackwardStarted", stop: "moveBackwardStopped" },
+  KeyA: { start: "moveLeftStarted", stop: "moveLeftStopped" },
+  KeyD: { start: "moveRightStarted", stop: "moveRightStopped" },
+  ShiftLeft: { start: "sprintStarted", stop: "sprintStopped" },
 };

@@ -6,7 +6,11 @@ export function initMouse(target: HTMLElement): void {
   });
 
   document.addEventListener("pointerlockchange", () => {
-    bus.emit("controlChanged", { engaged: document.pointerLockElement === target });
+    if (document.pointerLockElement === target) {
+      bus.emit("controlEngaged", undefined);
+    } else {
+      bus.emit("controlReleased", undefined);
+    }
   });
 
   document.addEventListener("mousemove", (event) => {

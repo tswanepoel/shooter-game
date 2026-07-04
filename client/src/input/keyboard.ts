@@ -1,32 +1,28 @@
 import { bus } from "../bus.ts";
-import { KEYBINDS, type Action } from "../config/keybinds.ts";
+import { KEYBINDS } from "../config/keybinds.ts";
 
 const pressedCodes = new Set<string>();
 
-function publish(): void {
-  const actions = new Set<Action>();
-  for (const code of pressedCodes) {
-    actions.add(KEYBINDS[code]);
-  }
-  bus.emit("actionsChanged", [...actions]);
-}
-
 function clearAll(): void {
-  pressedCodes.clear();
-  publish();
+  for (const code of [...pressedCodes]) {
+    pressedCodes.delete(code);
+    const binding = KEYBINDS[code];
+    if (binding) bus.emit(binding.stop, undefined);
+  }
 }
 
 export function initKeyboard(): void {
   window.addEventListener("keydown", (event) => {
-    const action = KEYBINDS[event.code];
-    if (!action || pressedCodes.has(event.code)) return;
+    const binding = KEYBINDS[event.code];
+    if (!binding || pressedCodes.has(event.code)) return;
     pressedCodes.add(event.code);
-    publish();
+    bus.emit(binding.start, undefined);
   });
 
   window.addEventListener("keyup", (event) => {
     if (!pressedCodes.delete(event.code)) return;
-    publish();
+    const binding = KEYBINDS[event.code];
+    if (binding) bus.emit(binding.stop, undefined);
   });
 
   window.addEventListener("blur", clearAll);

@@ -1,5 +1,3 @@
-import type { Action } from "./config/keybinds.ts";
-
 type Listener<T> = (payload: T) => void;
 
 export class EventBus<Events extends object> {
@@ -22,9 +20,19 @@ export class EventBus<Events extends object> {
 }
 
 export interface BusEvents {
-  actionsChanged: Action[];
+  moveForwardStarted: undefined;
+  moveForwardStopped: undefined;
+  moveBackwardStarted: undefined;
+  moveBackwardStopped: undefined;
+  moveLeftStarted: undefined;
+  moveLeftStopped: undefined;
+  moveRightStarted: undefined;
+  moveRightStopped: undefined;
+  sprintStarted: undefined;
+  sprintStopped: undefined;
   turned: { dx: number; dy: number };
-  controlChanged: { engaged: boolean };
+  controlEngaged: undefined;
+  controlReleased: undefined;
 }
 
 export const bus = new EventBus<BusEvents>();

@@ -1,6 +1,8 @@
+import type { Action } from "./config/keybinds.ts";
+
 type Listener<T> = (payload: T) => void;
 
-export class EventBus<Events extends Record<string, unknown>> {
+export class EventBus<Events extends object> {
   private listeners: { [K in keyof Events]?: Set<Listener<Events[K]>> } = {};
 
   on<K extends keyof Events>(event: K, listener: Listener<Events[K]>): () => void {
@@ -19,6 +21,10 @@ export class EventBus<Events extends Record<string, unknown>> {
   }
 }
 
-export type BusEvents = Record<string, never>;
+export interface BusEvents {
+  actionsChanged: Action[];
+  turned: { dx: number; dy: number };
+  controlChanged: { engaged: boolean };
+}
 
 export const bus = new EventBus<BusEvents>();

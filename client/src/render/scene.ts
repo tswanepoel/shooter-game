@@ -16,7 +16,7 @@ export function createScene(): SceneContext {
     0.1,
     1000,
   );
-  camera.position.set(0, 1.7, 5);
+  camera.rotation.order = "YXZ";
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -29,6 +29,10 @@ export function createScene(): SceneContext {
   );
   ground.rotation.x = -Math.PI / 2;
   scene.add(ground);
+
+  const grid = new THREE.GridHelper(200, 40, 0x1f2f1f, 0x1f2f1f);
+  grid.position.y = 0.01;
+  scene.add(grid);
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.6);
   scene.add(ambient);

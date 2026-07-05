@@ -120,7 +120,7 @@ function loop(now: number): void {
     tick(dt);
     weaponView?.update(dt);
     crosshair.update(camera);
-    tickCombatFeedback(dt, hitMarker, damageIndicator);
+    tickCombatFeedback(dt, camera, hitMarker, damageIndicator);
     statusBars.update();
     deathOverlay.update();
     killFeed.tick(dt);

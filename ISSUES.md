@@ -16,8 +16,9 @@ Tracked tuning, polish, and feature gaps.
 ## Combat feedback
 
 - [x] **6. Muzzle bloom unimpressive** — hide local first-person projectile mesh at muzzle (remote muzzle flash kept).
-- [ ] **7. Hit marker misaligned** — height off; not centered over crosshair.
+- [x] **7. Hit marker misaligned** — height off; not centered over crosshair.
 - [ ] **8. Damage-hit cue weak** — vignette/indicator needs a more impactful being-hit cue.
+- [ ] **24. Hit marker unimpressive** — alignment fixed but feedback still too subtle; needs stronger visual punch.
 
 ## Weapons & projectiles
 

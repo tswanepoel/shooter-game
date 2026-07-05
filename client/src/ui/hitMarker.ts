@@ -1,20 +1,23 @@
+import * as THREE from "three";
 import { HIT_MARKER } from "../config/feedback.ts";
+import { applyAimScreenPosition, projectGunAimToScreen } from "./aimScreen.ts";
 
 export interface HitMarker {
   flash(): void;
-  tick(dt: number): void;
+  tick(dt: number, camera: THREE.Camera): void;
 }
 
 export function createHitMarker(): HitMarker {
   const root = document.createElement("div");
   root.style.cssText = [
     "position:fixed",
-    "left:50%",
-    "top:50%",
+    "left:0",
+    "top:0",
     "width:0",
     "height:0",
     "pointer-events:none",
     "z-index:20",
+    "display:none",
   ].join(";");
 
   const lineA = document.createElement("div");
@@ -53,8 +56,14 @@ export function createHitMarker(): HitMarker {
     lineB.style.opacity = "1";
   }
 
-  function tick(dt: number): void {
-    if (remaining <= 0) return;
+  function tick(dt: number, camera: THREE.Camera): void {
+    if (remaining <= 0) {
+      root.style.display = "none";
+      return;
+    }
+
+    applyAimScreenPosition(root, projectGunAimToScreen(camera));
+
     remaining -= dt;
     const t = Math.max(0, remaining / HIT_MARKER.duration);
     const opacity = t.toFixed(3);

@@ -17,7 +17,7 @@ export function createAimDebugHud(): AimDebugHud {
   element.style.cssText = [
     "position:fixed",
     "top:12px",
-    "right:12px",
+    "left:12px",
     "padding:8px 10px",
     "border-radius:4px",
     "background:rgba(0,0,0,0.55)",

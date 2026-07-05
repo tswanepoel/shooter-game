@@ -19,9 +19,12 @@ import { advanceProjectiles, tickProjectileFire } from "./sim/projectiles.ts";
 import { tickRemoteSync } from "./sim/remoteSync.ts";
 import { localPlayer } from "./state/world.ts";
 import { createDamageIndicator } from "./ui/damageIndicator.ts";
+import { createDeathOverlay } from "./ui/deathOverlay.ts";
 import { showLobby } from "./ui/lobby.ts";
 import { createAimDebugHud } from "./ui/aimDebugHud.ts";
 import { createHitMarker } from "./ui/hitMarker.ts";
+import { createKillFeed } from "./ui/killFeed.ts";
+import { createStatusBars } from "./ui/statusBars.ts";
 import { createWeaponHud } from "./ui/weaponHud.ts";
 
 const MAX_DT = 0.1;
@@ -36,6 +39,9 @@ const crosshair = createCrosshair();
 const hitMarker = createHitMarker();
 const damageIndicator = createDamageIndicator();
 const weaponHud = createWeaponHud();
+const statusBars = createStatusBars();
+const killFeed = createKillFeed();
+const deathOverlay = createDeathOverlay();
 const aimDebugHud = createAimDebugHud();
 const remotePlayerManager = createRemotePlayerManager(scene);
 
@@ -115,6 +121,9 @@ function loop(now: number): void {
     weaponView?.update(dt);
     crosshair.update(camera);
     tickCombatFeedback(dt, hitMarker, damageIndicator);
+    statusBars.update();
+    deathOverlay.update();
+    killFeed.tick(dt);
     projectileRenderer?.update();
     remotePlayerManager.update(dt);
     advanceProjectiles(dt, getCharacterHitRoots());

@@ -27,8 +27,8 @@ public static class GameConfig
     public const double RegenQuietPeriodSeconds = 6;
     public const double RegenPerTick = 4;
     public const double RespawnDelaySeconds = 3;
-    public const double DefaultWeaponDamage = 20;
-    public const double BlasterEDamage = 30;
+    public const double DefaultWeaponDamage = 16;
+    public const double BlasterEDamage = 24;
 
     public static double DamageForWeapon(string weaponId) =>
         weaponId == "blaster-e" ? BlasterEDamage : DefaultWeaponDamage;

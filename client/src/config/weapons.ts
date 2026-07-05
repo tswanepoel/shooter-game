@@ -81,7 +81,7 @@ function weapon(
     recoilDecayRate: 8,
     muzzleFlashOffset: muzzleFlashOffset(gripOffset),
     muzzleFlashDuration: 0.06,
-    damage: 20,
+    damage: 16,
     ...overrides,
   };
 }
@@ -149,7 +149,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     recoilKickPitch: 0.015,
     recoilDecayRate: 5,
     muzzleFlashDuration: 0.08,
-    damage: 30,
+    damage: 24,
   }),
   "blaster-g": weapon("blaster-g"),
   "blaster-h": weapon("blaster-h", {

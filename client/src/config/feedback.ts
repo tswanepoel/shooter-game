@@ -23,10 +23,10 @@ export const CAMERA_FEEDBACK = {
 export const HIT_MARKER = {
   holdDuration: 0.04,
   fadeDuration: 0.08,
-  tickLength: 8,
+  tickLength: 6,
   centerGap: 4,
-  strokePx: 2,
-  outlinePx: 1,
+  strokePx: 1.5,
+  outlinePx: 0.75,
   cornerRadius: 999,
   scale: 1,
   tickAngles: [45, 135, 225, 315],

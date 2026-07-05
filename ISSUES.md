@@ -40,6 +40,7 @@ Tracked tuning, polish, and feature gaps.
 ## Combat tuning
 
 - [ ] **16. TTK too fast** — time-to-kill feels too quick; tune damage, fire rate, or health.
+- [x] **25. Health regen pacing** — longer quiet period after damage before regen starts; faster recovery once it kicks in (`combat.ts` / `GameConfig.cs`).
 
 ## Input & weapons (future)
 

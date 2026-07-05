@@ -1,8 +1,8 @@
 // Must match server/GameConfig.cs combat constants exactly.
 export const HEALTH = {
   max: 100,
-  regenTickInterval: 1,
-  regenQuietPeriod: 3,
-  regenPerTick: 5,
+  regenTickInterval: 0.1,
+  regenQuietPeriod: 6,
+  regenPerTick: 4,
   respawnDelay: 3,
 } as const;

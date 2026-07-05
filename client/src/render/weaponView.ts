@@ -47,7 +47,11 @@ export async function loadWeaponViewModel(
   const onFired = (): void => {
     recoil = 1;
   };
+  const onFeedbackReset = (): void => {
+    recoil = 0;
+  };
   bus.on("fired", onFired);
+  bus.on("feedbackReset", onFeedbackReset);
 
   function update(dt: number): void {
     recoil *= Math.exp(-weapon.recoilDecayRate * dt);
@@ -72,6 +76,7 @@ export async function loadWeaponViewModel(
 
   function dispose(): void {
     bus.off("fired", onFired);
+    bus.off("feedbackReset", onFeedbackReset);
     camera.remove(rig);
   }
 

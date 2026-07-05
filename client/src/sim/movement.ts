@@ -56,14 +56,14 @@ bus.on("controlReleased", () => {
 });
 
 bus.on("turned", ({ dx, dy }) => {
-  if (!controlEngaged) return;
+  if (!controlEngaged || !localPlayer.alive) return;
   localPlayer.targetYaw -= dx * MOUSE_SENSITIVITY;
   localPlayer.targetPitch -= dy * MOUSE_SENSITIVITY;
   localPlayer.targetPitch = clamp(localPlayer.targetPitch, -MAX_PITCH, MAX_PITCH);
 });
 
 bus.on("jumped", () => {
-  if (!localPlayer.grounded) return;
+  if (!localPlayer.alive || !localPlayer.grounded) return;
   const velocity = computeHorizontalVelocity();
   localPlayer.airHorizontal.x = velocity.x;
   localPlayer.airHorizontal.z = velocity.z;
@@ -73,6 +73,11 @@ bus.on("jumped", () => {
 });
 
 export function tickMovement(dt: number): void {
+  if (!localPlayer.alive) {
+    localPlayer.horizontalSpeed = 0;
+    return;
+  }
+
   updateSprint(dt);
 
   if (localPlayer.grounded) {
@@ -95,6 +100,13 @@ export function tickMovement(dt: number): void {
 
   localPlayer.position.x = clamp(localPlayer.position.x, -WORLD_BOUNDARY, WORLD_BOUNDARY);
   localPlayer.position.z = clamp(localPlayer.position.z, -WORLD_BOUNDARY, WORLD_BOUNDARY);
+
+  if (localPlayer.grounded) {
+    const velocity = computeHorizontalVelocity();
+    localPlayer.horizontalSpeed = Math.hypot(velocity.x, velocity.z);
+  } else {
+    localPlayer.horizontalSpeed = Math.hypot(localPlayer.airHorizontal.x, localPlayer.airHorizontal.z);
+  }
 }
 
 function computeHorizontalVelocity(): { x: number; z: number } {

@@ -1,9 +1,12 @@
 import type {
+  DeathMessage,
   FireMessage,
+  HealthMessage,
   JoinMessage,
   JumpMessage,
   LeaveMessage,
   PosMessage,
+  RespawnMessage,
   WeaponMessage,
   WelcomeMessage,
 } from "./net/wire.ts";
@@ -63,6 +66,12 @@ export interface BusEvents {
   jumpReceived: JumpMessage;
   fireReceived: FireMessage;
   weaponReceived: WeaponMessage;
+  healthReceived: HealthMessage;
+  deathReceived: DeathMessage;
+  respawnReceived: RespawnMessage;
+  hitConfirmed: undefined;
+  damageTaken: { attackerId: string };
+  feedbackReset: undefined;
 }
 
 export const bus = new EventBus<BusEvents>();

@@ -9,6 +9,8 @@ public sealed class PlayerState
     public double Yaw { get; set; }
     public double Pitch { get; set; }
     public bool Alive { get; set; } = true;
+    public double Health { get; set; } = GameConfig.MaxHealth;
+    public DateTime LastDamageUtc { get; set; } = DateTime.MinValue;
     public string CharacterId { get; set; } = GameConfig.DefaultCharacterId;
     public string WeaponId { get; set; } = GameConfig.DefaultWeaponId;
 }
@@ -41,3 +43,11 @@ public sealed record JoinMessage(
     string WeaponId);
 
 public sealed record LeaveMessage(string Type, string Id);
+
+public sealed record HitMessage(string Type, string Id, string TargetId);
+
+public sealed record HealthMessage(string Type, string Id, double Health, string? AttackerId);
+
+public sealed record DeathMessage(string Type, string VictimId, string KillerId);
+
+public sealed record RespawnMessage(string Type, string Id, Vector3Dto Position);

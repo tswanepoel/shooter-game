@@ -1,4 +1,5 @@
 import { bus } from "../bus.ts";
+import { HEALTH } from "../config/combat.ts";
 import { resolveCharacterId, setCurrentCharacterId } from "../config/characters.ts";
 import { resolveWeaponId, setCurrentWeaponId } from "../config/weapons.ts";
 import { STAMINA } from "../config/physics.ts";
@@ -6,9 +7,13 @@ import type { AimCascadeState } from "../sim/aimCascade.ts";
 import { snapCascadeToTarget } from "../sim/aimCascade.ts";
 
 export interface LocalPlayerState extends AimCascadeState {
+  id?: string;
   position: { x: number; y: number; z: number };
+  health: number;
+  alive: boolean;
   stamina: number;
   sprinting: boolean;
+  horizontalSpeed: number;
   velocityY: number;
   grounded: boolean;
   airHorizontal: { x: number; z: number };
@@ -16,6 +21,8 @@ export interface LocalPlayerState extends AimCascadeState {
 
 export const localPlayer: LocalPlayerState = {
   position: { x: 0, y: 0, z: 0 },
+  health: 0,
+  alive: true,
   targetYaw: 0,
   targetPitch: 0,
   lastTargetPitch: 0,
@@ -27,6 +34,7 @@ export const localPlayer: LocalPlayerState = {
   gunPitch: 0,
   stamina: STAMINA.max,
   sprinting: false,
+  horizontalSpeed: 0,
   velocityY: 0,
   grounded: true,
   airHorizontal: { x: 0, z: 0 },
@@ -34,7 +42,9 @@ export const localPlayer: LocalPlayerState = {
 
 export interface Projectile {
   id: number;
+  ownerId?: string;
   position: { x: number; y: number; z: number };
+  previousPosition: { x: number; y: number; z: number };
   direction: { x: number; y: number; z: number };
   distanceTraveled: number;
 }
@@ -51,6 +61,7 @@ export interface RemotePlayerState extends AimCascadeState {
   grounded: boolean;
   cascadeInitialized: boolean;
   alive: boolean;
+  health: number;
   characterId: string;
   weaponId: string;
 }
@@ -60,6 +71,7 @@ export let localPlayerId: string | undefined;
 
 bus.on("welcomed", (message) => {
   localPlayerId = message.id;
+  localPlayer.id = message.id;
   setCurrentCharacterId(resolveCharacterId(message.characterId));
   setCurrentWeaponId(resolveWeaponId(message.weaponId));
   localPlayer.position.x = message.position.x;
@@ -113,6 +125,7 @@ function createRemotePlayer(snapshot: {
     gunPitch: 0,
     cascadeInitialized: false,
     alive: snapshot.alive,
+    health: HEALTH.max,
     characterId: resolveCharacterId(snapshot.characterId),
     weaponId: resolveWeaponId(snapshot.weaponId),
   };

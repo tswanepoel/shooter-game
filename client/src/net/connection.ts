@@ -63,6 +63,18 @@ export function connect(characterId: string): void {
       case "weapon":
         bus.emit("weaponReceived", message);
         break;
+      case "health":
+        console.log("health", message);
+        bus.emit("healthReceived", message);
+        break;
+      case "death":
+        console.log("death", message);
+        bus.emit("deathReceived", message);
+        break;
+      case "respawn":
+        console.log("respawn", message);
+        bus.emit("respawnReceived", message);
+        break;
     }
   });
 
@@ -82,6 +94,11 @@ export function sendPosition(position: Vector3, yaw: number, pitch: number): voi
 function sendIdOnly(type: "jump" | "fire"): void {
   if (!localId) return;
   send({ type, id: localId });
+}
+
+export function sendHit(targetId: string): void {
+  if (!localId) return;
+  send({ type: "hit", id: localId, targetId });
 }
 
 function send(message: ClientMessage): void {

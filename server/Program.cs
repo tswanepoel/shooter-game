@@ -10,6 +10,22 @@ app.UseWebSockets();
 
 var players = new ConcurrentDictionary<string, (WebSocket Socket, PlayerState State)>();
 var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+var combatCts = new CancellationTokenSource();
+
+async Task BroadcastToAllAsync(byte[] payload)
+{
+    foreach (var (_, (socket, _)) in players)
+    {
+        if (socket.State == WebSocketState.Open)
+        {
+            await socket.SendAsync(new ArraySegment<byte>(payload), WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+    }
+}
+
+var combat = new CombatService(players, jsonOptions, RandomSpawnPosition, BroadcastToAllAsync);
+combat.StartRegenLoop(combatCts.Token);
+app.Lifetime.ApplicationStopping.Register(() => combatCts.Cancel());
 
 app.MapGet("/", () => "Shooter server running");
 
@@ -192,6 +208,7 @@ async Task ReceiveLoopAsync(WebSocket socket, string senderId)
         if (result.MessageType == WebSocketMessageType.Text)
         {
             var payload = stream.ToArray();
+            if (combat.TryApplyHit(senderId, payload)) continue;
             TryApplyWeaponChange(senderId, payload);
             await RelayRawAsync(senderId, payload);
         }

@@ -63,6 +63,31 @@ export interface WeaponMessage {
   weaponId: string;
 }
 
+export interface HitMessage {
+  type: "hit";
+  id: string;
+  targetId: string;
+}
+
+export interface HealthMessage {
+  type: "health";
+  id: string;
+  health: number;
+  attackerId?: string;
+}
+
+export interface DeathMessage {
+  type: "death";
+  victimId: string;
+  killerId: string;
+}
+
+export interface RespawnMessage {
+  type: "respawn";
+  id: string;
+  position: Vector3;
+}
+
 export interface SelectMessage {
   type: "select";
   characterId: string;
@@ -75,9 +100,18 @@ export type ServerMessage =
   | PosMessage
   | JumpMessage
   | FireMessage
-  | WeaponMessage;
+  | WeaponMessage
+  | HealthMessage
+  | DeathMessage
+  | RespawnMessage;
 
-export type ClientMessage = SelectMessage | PosMessage | JumpMessage | FireMessage | WeaponMessage;
+export type ClientMessage =
+  | SelectMessage
+  | PosMessage
+  | JumpMessage
+  | FireMessage
+  | WeaponMessage
+  | HitMessage;
 
 export function decodeServerMessage(raw: string): ServerMessage | undefined {
   const parsed: unknown = JSON.parse(raw);

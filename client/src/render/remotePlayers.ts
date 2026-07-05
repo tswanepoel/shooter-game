@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { bus } from "../bus.ts";
 import { getCharacterRecipe, type CharacterRecipe } from "../config/characters.ts";
+import { DEATH_POSE_PITCH } from "../config/feedback.ts";
 import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
 import { getWeaponRecipe, type WeaponRecipe } from "../config/weapons.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
@@ -210,6 +211,12 @@ function classifyLocomotion(speed: number): LocomotionState {
   return "idle";
 }
 
+export function getCharacterHitRoots(): THREE.Object3D[] {
+  return Array.from(hitRoots.values());
+}
+
+const hitRoots = new Map<string, THREE.Object3D>();
+
 export function createRemotePlayerManager(scene: THREE.Scene): RemotePlayerManager {
   const loaded = new Map<string, LoadedRemote>();
   const pending = new Set<string>();
@@ -223,6 +230,7 @@ export function createRemotePlayerManager(scene: THREE.Scene): RemotePlayerManag
     const entry = loaded.get(id);
     if (!entry) return;
     scene.remove(entry.instance.object);
+    hitRoots.delete(id);
     loaded.delete(id);
   }
 
@@ -264,7 +272,9 @@ export function createRemotePlayerManager(scene: THREE.Scene): RemotePlayerManag
       ) {
         return; // stale load; a newer recipe is already queued
       }
+      instance.object.userData.playerId = id;
       scene.add(instance.object);
+      hitRoots.set(id, instance.object);
       loaded.set(id, { instance, characterId: character.id, weaponId: weapon.id });
     });
   }
@@ -288,8 +298,14 @@ export function createRemotePlayerManager(scene: THREE.Scene): RemotePlayerManag
 
       entry.instance.object.position.set(remote.position.x, remote.position.y, remote.position.z);
       entry.instance.object.rotation.y = remote.torsoYaw + Math.PI;
-      entry.instance.setLocomotion(classifyLocomotion(remote.measuredSpeed));
-      entry.instance.update(dt, remote);
+
+      if (remote.alive) {
+        entry.instance.object.rotation.x = 0;
+        entry.instance.setLocomotion(classifyLocomotion(remote.measuredSpeed));
+        entry.instance.update(dt, remote);
+      } else {
+        entry.instance.object.rotation.x = DEATH_POSE_PITCH;
+      }
     }
   }
 

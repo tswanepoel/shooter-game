@@ -7,16 +7,21 @@ import { initMouse } from "./input/mouse.ts";
 import { connect, sendPosition } from "./net/connection.ts";
 import { createCrosshair } from "./render/crosshair.ts";
 import { createProjectileRenderer, type ProjectileRenderer } from "./render/projectiles.ts";
-import { createRemotePlayerManager } from "./render/remotePlayers.ts";
+import { createRemotePlayerManager, getCharacterHitRoots } from "./render/remotePlayers.ts";
 import { createScene } from "./render/scene.ts";
 import { loadWeaponViewModel, type WeaponViewModel } from "./render/weaponView.ts";
 import { tickAimCascade, viewPitch } from "./sim/aimCascade.ts";
+import { initCombatFeedback, tickCombatFeedback } from "./sim/combatFeedback.ts";
+import { tickCameraEffects, type CameraEffectOffsets } from "./sim/cameraEffects.ts";
+import { initHealth } from "./sim/health.ts";
 import { tickMovement } from "./sim/movement.ts";
-import { tickProjectiles } from "./sim/projectiles.ts";
+import { advanceProjectiles, tickProjectileFire } from "./sim/projectiles.ts";
 import { tickRemoteSync } from "./sim/remoteSync.ts";
 import { localPlayer } from "./state/world.ts";
+import { createDamageIndicator } from "./ui/damageIndicator.ts";
 import { showLobby } from "./ui/lobby.ts";
 import { createAimDebugHud } from "./ui/aimDebugHud.ts";
+import { createHitMarker } from "./ui/hitMarker.ts";
 import { createWeaponHud } from "./ui/weaponHud.ts";
 
 const MAX_DT = 0.1;
@@ -28,9 +33,14 @@ let projectileRenderer: ProjectileRenderer | undefined;
 let currentBulletModelUrl: string | undefined;
 
 const crosshair = createCrosshair();
+const hitMarker = createHitMarker();
+const damageIndicator = createDamageIndicator();
 const weaponHud = createWeaponHud();
 const aimDebugHud = createAimDebugHud();
 const remotePlayerManager = createRemotePlayerManager(scene);
+
+initHealth();
+initCombatFeedback(hitMarker, damageIndicator);
 
 let lastTime = performance.now();
 let posBroadcastElapsed = 0;
@@ -68,12 +78,15 @@ bus.on("weaponCycleRequested", () => {
   });
 });
 
-function tick(dt: number): void {
+function tick(dt: number): CameraEffectOffsets {
   tickMovement(dt);
   tickAimCascade(dt);
-  tickProjectiles(dt);
+  const effects = tickCameraEffects(dt);
+  updateCamera(effects);
+  tickProjectileFire(dt, camera);
   tickRemoteSync(dt);
   tickPosBroadcast(dt);
+  return effects;
 }
 
 function tickPosBroadcast(dt: number): void {
@@ -83,14 +96,14 @@ function tickPosBroadcast(dt: number): void {
   sendPosition(localPlayer.position, localPlayer.targetYaw, localPlayer.targetPitch);
 }
 
-function updateCamera(): void {
+function updateCamera(effects: CameraEffectOffsets = { pitch: 0, yaw: 0, bobY: 0 }): void {
   camera.position.set(
     localPlayer.position.x,
-    localPlayer.position.y + getCurrentCharacter().eyeHeight,
+    localPlayer.position.y + getCurrentCharacter().eyeHeight + effects.bobY,
     localPlayer.position.z,
   );
-  camera.rotation.y = localPlayer.targetYaw;
-  camera.rotation.x = viewPitch(localPlayer);
+  camera.rotation.y = localPlayer.targetYaw + effects.yaw;
+  camera.rotation.x = viewPitch(localPlayer) + effects.pitch;
 }
 
 function loop(now: number): void {
@@ -99,11 +112,12 @@ function loop(now: number): void {
 
   if (gameStarted) {
     tick(dt);
-    updateCamera();
     weaponView?.update(dt);
     crosshair.update(camera);
+    tickCombatFeedback(dt, hitMarker, damageIndicator);
     projectileRenderer?.update();
     remotePlayerManager.update(dt);
+    advanceProjectiles(dt, getCharacterHitRoots());
     aimDebugHud.update(localPlayer);
   }
 

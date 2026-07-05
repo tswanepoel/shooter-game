@@ -20,4 +20,16 @@ public static class GameConfig
     [
         "blaster-a", "blaster-b", "blaster-c", "blaster-d", "blaster-e", "blaster-g", "blaster-h",
     ];
+
+    // Must match client/src/config/combat.ts and weapon damage defaults.
+    public const double MaxHealth = 100;
+    public const double RegenTickIntervalSeconds = 1;
+    public const double RegenQuietPeriodSeconds = 3;
+    public const double RegenPerTick = 5;
+    public const double RespawnDelaySeconds = 3;
+    public const double DefaultWeaponDamage = 34;
+    public const double BlasterEDamage = 50;
+
+    public static double DamageForWeapon(string weaponId) =>
+        weaponId == "blaster-e" ? BlasterEDamage : DefaultWeaponDamage;
 }

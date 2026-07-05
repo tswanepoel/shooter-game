@@ -1,12 +1,19 @@
+import * as THREE from "three";
 import { bus } from "../bus.ts";
 import { getCurrentCharacter } from "../config/characters.ts";
 import { getCurrentWeapon } from "../config/weapons.ts";
-import { localPlayer, projectiles, remotePlayers } from "../state/world.ts";
+import { sendHit } from "../net/connection.ts";
+import { localPlayer, localPlayerId, projectiles, remotePlayers } from "../state/world.ts";
+import { computeAimDirection } from "./aimDirection.ts";
 
 let fireHeld = false;
 let controlEngaged = false;
 let cooldown = 0;
 let nextId = 1;
+
+const raycaster = new THREE.Raycaster();
+const rayDirection = new THREE.Vector3();
+const rayOrigin = new THREE.Vector3();
 
 bus.on("fireStarted", () => {
   fireHeld = true;
@@ -29,60 +36,124 @@ bus.on("fireReceived", ({ id }) => {
   const { eyeHeight } = getCurrentCharacter();
   spawnProjectile(
     { x: remote.position.x, y: remote.position.y + eyeHeight, z: remote.position.z },
-    remote.gunYaw,
-    remote.gunPitch,
+    { yaw: remote.gunYaw, pitch: remote.gunPitch },
+    id,
   );
 });
 
-export function tickProjectiles(dt: number): void {
+export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
   const weapon = getCurrentWeapon();
   const fireInterval = 1 / weapon.fireRate;
 
   cooldown = Math.max(0, cooldown - dt);
 
-  if (fireHeld && controlEngaged && cooldown <= 0) {
+  if (fireHeld && controlEngaged && localPlayer.alive && cooldown <= 0) {
     const { eyeHeight } = getCurrentCharacter();
+    const direction = computeAimDirection(camera, localPlayer);
     spawnProjectile(
       {
         x: localPlayer.position.x,
         y: localPlayer.position.y + eyeHeight,
         z: localPlayer.position.z,
       },
-      localPlayer.gunYaw,
-      localPlayer.gunPitch,
+      direction,
     );
     cooldown += fireInterval;
     bus.emit("fired", undefined);
   }
-
-  advanceProjectiles(dt, weapon);
 }
 
-function spawnProjectile(origin: { x: number; y: number; z: number }, yaw: number, pitch: number): void {
-  projectiles.push({
-    id: nextId++,
-    position: { ...origin },
-    direction: {
-      x: -Math.sin(yaw) * Math.cos(pitch),
-      y: Math.sin(pitch),
-      z: -Math.cos(yaw) * Math.cos(pitch),
-    },
-    distanceTraveled: 0,
-  });
-}
-
-function advanceProjectiles(dt: number, weapon: ReturnType<typeof getCurrentWeapon>): void {
+export function advanceProjectiles(dt: number, hitRoots: THREE.Object3D[]): void {
+  const weapon = getCurrentWeapon();
   const step = weapon.projectileSpeed * dt;
 
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const projectile = projectiles[i];
+    const previous = projectile.previousPosition;
+
     projectile.position.x += projectile.direction.x * step;
     projectile.position.y += projectile.direction.y * step;
     projectile.position.z += projectile.direction.z * step;
     projectile.distanceTraveled += step;
 
+    if (projectile.ownerId === localPlayerId && hitRoots.length > 0) {
+      const hitPlayerId = sweepHit(previous, projectile.position, hitRoots);
+      if (hitPlayerId) {
+        sendHit(hitPlayerId);
+        bus.emit("hitConfirmed", undefined);
+        projectiles.splice(i, 1);
+        continue;
+      }
+    }
+
+    projectile.previousPosition.x = projectile.position.x;
+    projectile.previousPosition.y = projectile.position.y;
+    projectile.previousPosition.z = projectile.position.z;
+
     if (projectile.distanceTraveled >= weapon.projectileMaxRange) {
       projectiles.splice(i, 1);
     }
   }
+}
+
+function spawnProjectile(
+  origin: { x: number; y: number; z: number },
+  direction: THREE.Vector3 | { yaw: number; pitch: number },
+  ownerId: string = localPlayerId ?? "",
+): void {
+  let dir: { x: number; y: number; z: number };
+  if (direction instanceof THREE.Vector3) {
+    dir = { x: direction.x, y: direction.y, z: direction.z };
+  } else {
+    const { yaw, pitch } = direction;
+    dir = {
+      x: -Math.sin(yaw) * Math.cos(pitch),
+      y: Math.sin(pitch),
+      z: -Math.cos(yaw) * Math.cos(pitch),
+    };
+  }
+
+  projectiles.push({
+    id: nextId++,
+    ownerId,
+    position: { ...origin },
+    previousPosition: { ...origin },
+    direction: dir,
+    distanceTraveled: 0,
+  });
+}
+
+function sweepHit(
+  from: { x: number; y: number; z: number },
+  to: { x: number; y: number; z: number },
+  hitRoots: THREE.Object3D[],
+): string | undefined {
+  rayDirection.set(to.x - from.x, to.y - from.y, to.z - from.z);
+  const distance = rayDirection.length();
+  if (distance <= 0) return undefined;
+
+  rayDirection.divideScalar(distance);
+  rayOrigin.set(from.x, from.y, from.z);
+  raycaster.set(rayOrigin, rayDirection);
+  raycaster.far = distance;
+
+  const hits = raycaster.intersectObjects(hitRoots, true);
+  for (const hit of hits) {
+    const playerId = findPlayerId(hit.object);
+    if (playerId && playerId !== localPlayerId) {
+      const remote = remotePlayers.get(playerId);
+      if (remote?.alive) return playerId;
+    }
+  }
+  return undefined;
+}
+
+function findPlayerId(object: THREE.Object3D): string | undefined {
+  let node: THREE.Object3D | null = object;
+  while (node) {
+    const id = node.userData.playerId;
+    if (typeof id === "string") return id;
+    node = node.parent;
+  }
+  return undefined;
 }

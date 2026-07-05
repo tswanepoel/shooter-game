@@ -30,6 +30,7 @@ export interface WeaponRecipe {
   recoilDecayRate: number;
   muzzleFlashOffset: Vec3;
   muzzleFlashDuration: number;
+  damage: number;
 }
 
 // Shared Kenney blaster-kit rig tuning; per-weapon overrides capture feel differences.
@@ -80,6 +81,7 @@ function weapon(
     recoilDecayRate: 8,
     muzzleFlashOffset: muzzleFlashOffset(gripOffset),
     muzzleFlashDuration: 0.06,
+    damage: 34,
     ...overrides,
   };
 }
@@ -147,6 +149,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     recoilKickPitch: 0.015,
     recoilDecayRate: 5,
     muzzleFlashDuration: 0.08,
+    damage: 50,
   }),
   "blaster-g": weapon("blaster-g"),
   "blaster-h": weapon("blaster-h", {

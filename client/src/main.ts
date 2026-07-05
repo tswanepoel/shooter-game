@@ -117,7 +117,7 @@ function loop(now: number): void {
   if (gameStarted) {
     tick(dt);
     weaponView?.update(dt);
-    crosshair.update(camera);
+    crosshair.update(camera, dt);
     tickCombatFeedback(dt, camera, hitMarker, damageIndicator, damageOverlay);
     deathOverlay.update();
     killFeed.tick(dt);

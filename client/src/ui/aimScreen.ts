@@ -39,7 +39,25 @@ export function applyAimScreenPosition(
   centerOffsetX = 0,
   centerOffsetY = 0,
 ): void {
-  element.style.left = `${position.x + centerOffsetX}px`;
-  element.style.top = `${position.y + centerOffsetY}px`;
+  const x = position.x + centerOffsetX;
+  const y = position.y + centerOffsetY;
+  element.style.transform = `translate3d(${x}px, ${y}px, 0) translate(-50%, -50%)`;
   element.style.display = position.visible ? "" : "none";
+}
+
+export function smoothAimScreenPosition(
+  current: AimScreenPosition | undefined,
+  target: AimScreenPosition,
+  dt: number,
+  rate: number,
+): AimScreenPosition {
+  if (!target.visible) return target;
+  if (!current || !current.visible) return target;
+
+  const blend = 1 - Math.exp(-rate * dt);
+  return {
+    x: current.x + (target.x - current.x) * blend,
+    y: current.y + (target.y - current.y) * blend,
+    visible: true,
+  };
 }

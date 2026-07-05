@@ -15,6 +15,7 @@ Tracked tuning, polish, and feature gaps.
 - [x] **5. Walk/sprint bob too strong** — reduce head-bob amplitude in camera feedback (magnitude + frequency tuned).
 - [ ] **17. ADS** — aim-down-sights on right mouse button.
 - [ ] **38. No hip-fire crosshair** — crosshair hidden by default; visual aim aids only while ADS.
+- [x] **44. Crosshair jitters when turning** — horizontal look causes the crosshair to shake or stutter side to side.
 
 ## Combat feel
 

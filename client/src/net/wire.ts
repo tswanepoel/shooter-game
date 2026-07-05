@@ -85,6 +85,7 @@ export interface DeathMessage {
   type: "death";
   victimId: string;
   killerId: string;
+  deathAt?: number;
 }
 
 export interface RespawnMessage {

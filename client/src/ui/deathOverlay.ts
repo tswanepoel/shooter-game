@@ -1,9 +1,10 @@
+import { bus } from "../bus.ts";
 import { RESPAWN } from "../config/combat.ts";
 import { DEATH_OVERLAY } from "../config/ui.ts";
-import { localPlayer } from "../state/world.ts";
+import { localPlayer, localPlayerId } from "../state/world.ts";
 
 export interface DeathOverlay {
-  update(now: number): void;
+  update(): void;
 }
 
 export function createDeathOverlay(): DeathOverlay {
@@ -35,25 +36,32 @@ export function createDeathOverlay(): DeathOverlay {
   hint.style.cssText = "font-size:0.95rem;opacity:0.9;";
   element.appendChild(hint);
 
-  let deathTime: number | undefined;
+  let deathAtMs: number | undefined;
+
+  bus.on("deathReceived", ({ victimId, deathAt }) => {
+    if (victimId === localPlayerId) deathAtMs = deathAt ?? Date.now();
+  });
+
+  bus.on("respawnReceived", ({ id }) => {
+    if (id === localPlayerId) deathAtMs = undefined;
+  });
 
   return {
-    update(now: number): void {
+    update(): void {
       if (localPlayer.alive) {
-        deathTime = undefined;
         element.style.background = "transparent";
         title.style.display = "none";
         hint.style.display = "none";
         return;
       }
 
-      if (deathTime === undefined) deathTime = now;
-
       element.style.background = DEATH_OVERLAY.color;
       title.style.display = "block";
       hint.style.display = "block";
 
-      const elapsed = (now - deathTime) / 1000;
+      const now = Date.now();
+      const anchor = deathAtMs ?? now;
+      const elapsed = (now - anchor) / 1000;
       const untilManual = RESPAWN.minDelay - elapsed;
       const untilForced = RESPAWN.maxDelay - elapsed;
 

@@ -80,7 +80,8 @@ public sealed class CombatService
         {
             target.Alive = false;
             target.DeathUtc = DateTime.UtcNow;
-            _ = BroadcastDeathAsync(target.Id, attackerId);
+            var deathAt = new DateTimeOffset(target.DeathUtc).ToUnixTimeMilliseconds();
+            _ = BroadcastDeathAsync(target.Id, attackerId, deathAt);
             ScheduleForcedRespawn(target.Id);
         }
     }
@@ -161,9 +162,9 @@ public sealed class CombatService
         await _broadcastToAllAsync(Serialize(new HealthMessage("health", playerId, health, attackerId)));
     }
 
-    private async Task BroadcastDeathAsync(string victimId, string killerId)
+    private async Task BroadcastDeathAsync(string victimId, string killerId, long deathAt)
     {
-        await _broadcastToAllAsync(Serialize(new DeathMessage("death", victimId, killerId)));
+        await _broadcastToAllAsync(Serialize(new DeathMessage("death", victimId, killerId, deathAt)));
     }
 
     private async Task BroadcastRespawnAsync(string playerId, Vector3Dto position)

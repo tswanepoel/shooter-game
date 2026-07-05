@@ -49,7 +49,7 @@ public sealed record HitMessage(string Type, string Id, string TargetId);
 
 public sealed record HealthMessage(string Type, string Id, double Health, string? AttackerId);
 
-public sealed record DeathMessage(string Type, string VictimId, string KillerId);
+public sealed record DeathMessage(string Type, string VictimId, string KillerId, long DeathAt);
 
 public sealed record RespawnMessage(string Type, string Id, Vector3Dto Position);
 

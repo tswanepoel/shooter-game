@@ -1,10 +1,12 @@
 import { bus } from "../bus.ts";
+import { RESPAWN } from "../config/combat.ts";
 import { WS_PATH, WS_PORT } from "../config/network.ts";
 import { decodeServerMessage, type ClientMessage, type Vector3 } from "./wire.ts";
 
 let socket: WebSocket | undefined;
 let localId: string | undefined;
 let pendingCharacterId: string | undefined;
+let deathAtMs: number | undefined;
 
 export function connect(characterId: string): void {
   pendingCharacterId = characterId;
@@ -69,10 +71,12 @@ export function connect(characterId: string): void {
         break;
       case "death":
         console.log("death", message);
+        if (message.victimId === localId) deathAtMs = message.deathAt ?? Date.now();
         bus.emit("deathReceived", message);
         break;
       case "respawn":
         console.log("respawn", message);
+        if (message.id === localId) deathAtMs = undefined;
         bus.emit("respawnReceived", message);
         break;
     }
@@ -81,7 +85,9 @@ export function connect(characterId: string): void {
   bus.on("jumpLaunched", () => sendIdOnly("jump"));
   bus.on("fired", () => sendIdOnly("fire"));
   bus.on("respawnRequested", () => {
-    if (!localId) return;
+    if (!localId || deathAtMs === undefined) return;
+    const elapsed = Date.now() - deathAtMs;
+    if (elapsed < RESPAWN.minDelay * 1000) return;
     send({ type: "respawn", id: localId });
   });
   bus.on("weaponSwitched", ({ weaponId }) => {

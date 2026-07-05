@@ -1,6 +1,10 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { bus } from "../bus.ts";
 import {
+  RECOIL_DECAY_RATE,
+  RECOIL_KICK_DISTANCE,
+  RECOIL_KICK_PITCH,
   VIEW_MODEL_OFFSET,
   VIEW_MODEL_SWING_SCALE,
   WEAPON_FORWARD_AXIS,
@@ -11,7 +15,7 @@ import { localPlayer } from "../state/world.ts";
 
 export interface WeaponViewModel {
   object: THREE.Object3D;
-  update(): void;
+  update(dt: number): void;
 }
 
 const loader = new GLTFLoader();
@@ -36,11 +40,18 @@ export async function loadWeaponViewModel(camera: THREE.Camera): Promise<WeaponV
 
   camera.add(weapon);
 
+  let recoil = 0;
+  bus.on("fired", () => {
+    recoil = 1;
+  });
+
   const wristQuaternion = new THREE.Quaternion();
   const wristEuler = new THREE.Euler(0, 0, 0, "YXZ");
 
-  function update(): void {
-    wristEuler.x = localPlayer.gunPitch - localPlayer.headPitch;
+  function update(dt: number): void {
+    recoil *= Math.exp(-RECOIL_DECAY_RATE * dt);
+
+    wristEuler.x = localPlayer.gunPitch - localPlayer.headPitch + recoil * RECOIL_KICK_PITCH;
     wristEuler.y = localPlayer.gunYaw - localPlayer.headYaw;
     wristQuaternion.setFromEuler(wristEuler);
     weapon.quaternion.copy(wristQuaternion).multiply(baseOrientation);
@@ -51,11 +62,11 @@ export async function loadWeaponViewModel(camera: THREE.Camera): Promise<WeaponV
     weapon.position.set(
       VIEW_MODEL_OFFSET.x - swingYaw * VIEW_MODEL_SWING_SCALE,
       VIEW_MODEL_OFFSET.y - swingPitch * VIEW_MODEL_SWING_SCALE,
-      VIEW_MODEL_OFFSET.z,
+      VIEW_MODEL_OFFSET.z + recoil * RECOIL_KICK_DISTANCE,
     );
   }
 
-  update();
+  update(0);
 
   return { object: weapon, update };
 }

@@ -31,6 +31,9 @@ export interface BusEvents {
   sprintStarted: undefined;
   sprintStopped: undefined;
   jumped: undefined;
+  fireStarted: undefined;
+  fireStopped: undefined;
+  fired: undefined;
   turned: { dx: number; dy: number };
   controlEngaged: undefined;
   controlReleased: undefined;

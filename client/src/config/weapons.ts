@@ -28,3 +28,17 @@ export const GUN_LAG_THRESHOLD_HIGH = 0.2;
 // simulating mass directly — a multiplier on the gap-based pitch rate.
 export const GUN_PITCH_UP_RATE_SCALE = 0.6;
 export const GUN_PITCH_DOWN_RATE_SCALE = 1.3;
+
+export const FIRE_RATE = 10;
+export const PROJECTILE_SPEED = 800;
+export const PROJECTILE_MAX_RANGE = 100;
+
+export const BULLET_MODEL_URL = "/models/bullet-foam-tip.glb";
+export const BULLET_LENGTH = 0.12;
+// Authored nose axis: the model's origin sits at its base, tip at local +Y.
+export const BULLET_FORWARD_AXIS = { x: 0, y: 1, z: 0 } as const;
+
+// Weapon-mesh-only recoil; must never feed the camera or the fire direction.
+export const RECOIL_KICK_DISTANCE = 0.06;
+export const RECOIL_KICK_PITCH = 0.05;
+export const RECOIL_DECAY_RATE = 8;

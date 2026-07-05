@@ -17,4 +17,12 @@ export function initMouse(target: HTMLElement): void {
     if (document.pointerLockElement !== target) return;
     bus.emit("turned", { dx: event.movementX, dy: event.movementY });
   });
+
+  document.addEventListener("mousedown", (event) => {
+    if (event.button === 0) bus.emit("fireStarted", undefined);
+  });
+
+  document.addEventListener("mouseup", (event) => {
+    if (event.button === 0) bus.emit("fireStopped", undefined);
+  });
 }

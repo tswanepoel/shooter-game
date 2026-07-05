@@ -2,11 +2,13 @@ import { EYE_HEIGHT } from "./config/characters.ts";
 import { initKeyboard } from "./input/keyboard.ts";
 import { initMouse } from "./input/mouse.ts";
 import { createCrosshair } from "./render/crosshair.ts";
+import { createProjectileRenderer, type ProjectileRenderer } from "./render/projectiles.ts";
 import { type CharacterInstance, type LocomotionState, loadCharacterWithWeapon } from "./render/remotePlayers.ts";
 import { createScene } from "./render/scene.ts";
 import { loadWeaponViewModel, type WeaponViewModel } from "./render/weaponView.ts";
 import { tickAimCascade } from "./sim/aimCascade.ts";
 import { tickMovement } from "./sim/movement.ts";
+import { tickProjectiles } from "./sim/projectiles.ts";
 import { localPlayer } from "./state/world.ts";
 
 const MAX_DT = 0.1;
@@ -19,6 +21,11 @@ initKeyboard();
 initMouse(renderer.domElement);
 
 const crosshair = createCrosshair();
+
+let projectileRenderer: ProjectileRenderer | undefined;
+createProjectileRenderer(scene).then((instance) => {
+  projectileRenderer = instance;
+});
 
 let weaponView: WeaponViewModel | undefined;
 loadWeaponViewModel(camera).then((instance) => {
@@ -40,6 +47,7 @@ let lastTime = performance.now();
 function tick(dt: number): void {
   tickMovement(dt);
   tickAimCascade(dt);
+  tickProjectiles(dt);
   tickLocomotionPreview(dt);
 }
 
@@ -68,8 +76,9 @@ function loop(now: number): void {
 
   tick(dt);
   updateCamera();
-  weaponView?.update();
+  weaponView?.update(dt);
   crosshair.update(camera);
+  projectileRenderer?.update();
   renderer.render(scene, camera);
 
   requestAnimationFrame(loop);

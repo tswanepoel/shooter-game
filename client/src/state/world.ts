@@ -29,3 +29,12 @@ export const localPlayer: LocalPlayerState = {
   grounded: true,
   airHorizontal: { x: 0, z: 0 },
 };
+
+export interface Projectile {
+  id: number;
+  position: { x: number; y: number; z: number };
+  direction: { x: number; y: number; z: number };
+  distanceTraveled: number;
+}
+
+export const projectiles: Projectile[] = [];

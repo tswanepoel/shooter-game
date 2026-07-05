@@ -1,15 +1,11 @@
 import type * as THREE from "three";
 import { CROSSHAIR } from "../config/feedback.ts";
 import { localPlayer } from "../state/world.ts";
-import {
-  applyAimScreenPosition,
-  projectGunAimToScreen,
-  smoothAimScreenPosition,
-  type AimScreenPosition,
-} from "../ui/aimScreen.ts";
+import { armAimDelta } from "../sim/aimCascade.ts";
+import { applyAimScreenPosition, projectAimDeltaToScreen } from "../ui/aimScreen.ts";
 
 export interface Crosshair {
-  update(camera: THREE.Camera, dt: number): void;
+  update(camera: THREE.Camera): void;
 }
 
 export function createCrosshair(): Crosshair {
@@ -28,30 +24,20 @@ export function createCrosshair(): Crosshair {
   ].join(";");
   document.body.appendChild(element);
 
-  let smoothed: AimScreenPosition | undefined;
-
-  function update(camera: THREE.Camera, dt: number): void {
+  function update(camera: THREE.Camera): void {
     if (!localPlayer.alive) {
       element.style.display = "none";
-      smoothed = undefined;
       return;
     }
 
-    const projected = projectGunAimToScreen(camera);
+    const projected = projectAimDeltaToScreen(camera, armAimDelta(localPlayer));
     if (!projected.visible) {
       element.style.display = "none";
-      smoothed = undefined;
       return;
     }
 
-    smoothed = smoothAimScreenPosition(
-      smoothed,
-      projected,
-      dt,
-      CROSSHAIR.screenSmoothing,
-    );
     element.style.display = "block";
-    applyAimScreenPosition(element, smoothed);
+    applyAimScreenPosition(element, projected);
   }
 
   return { update };

@@ -21,7 +21,6 @@ export const CAMERA_FEEDBACK = {
 } as const;
 
 export const CROSSHAIR = {
-  screenSmoothing: 36,
   sizePx: 4,
 } as const;
 

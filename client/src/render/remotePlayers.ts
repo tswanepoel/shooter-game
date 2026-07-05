@@ -171,13 +171,11 @@ export async function loadCharacterWithWeapon(
     // Cascade pitch is camera convention (positive = look up); rig local X is
     // opposite, so only the bone mapping is negated — wire/cascade stay as-is.
     //
-    // Pivots nest torso → (head, arm). Each child gets its own cascade slice
-    // only — torso-aim already carries torsoPitch, so head adds neck and arm
-    // adds gun-above-torso. Absolute shoulder/gun on children double-counts
-    // torso and folds the mesh past 90° at extreme pitch.
+    // Pelvis/root rotation.y already faces torsoYaw (+ π model forward). Pivots only
+    // add local bend: neck yaw relative to torso, pitch slices on the chain.
     setAimPivot(torsoAimPivot, -aim.torsoPitch, 0);
-    setAimPivot(headAimPivot, -aim.neckPitch, aim.torsoYawLag);
-    setAimPivot(armAimPivot, -(aim.gunPitch - aim.torsoPitch), aim.gunYawLag + aim.torsoYawLag);
+    setAimPivot(headAimPivot, -aim.headPitch, aim.headYaw - aim.torsoYaw);
+    setAimPivot(armAimPivot, -(aim.armPitch - aim.torsoPitch - aim.headPitch), 0);
   }
 
   function update(dt: number, aim?: AimCascadeState): void {

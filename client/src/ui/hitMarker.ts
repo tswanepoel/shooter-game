@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { HIT_MARKER } from "../config/feedback.ts";
-import { applyAimScreenPosition, projectGunAimToScreen } from "./aimScreen.ts";
+import { armAimDelta } from "../sim/aimCascade.ts";
+import { localPlayer } from "../state/world.ts";
+import { applyAimScreenPosition, projectAimDeltaToScreen } from "./aimScreen.ts";
 
 export interface HitMarker {
   flash(): void;
@@ -74,7 +76,7 @@ export function createHitMarker(): HitMarker {
       return;
     }
 
-    applyAimScreenPosition(root, projectGunAimToScreen(camera));
+    applyAimScreenPosition(root, projectAimDeltaToScreen(camera, armAimDelta(localPlayer)));
     root.style.display = "block";
 
     if (elapsed < HIT_MARKER.holdDuration) {

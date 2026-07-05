@@ -10,7 +10,8 @@ import { createProjectileRenderer, type ProjectileRenderer } from "./render/proj
 import { createRemotePlayerManager, getCharacterHitRoots } from "./render/remotePlayers.ts";
 import { createScene } from "./render/scene.ts";
 import { loadWeaponViewModel, type WeaponViewModel } from "./render/weaponView.ts";
-import { tickAimCascade, viewPitch } from "./sim/aimCascade.ts";
+import { tickAimCascade } from "./sim/aimCascade.ts";
+
 import { initCombatFeedback, tickCombatFeedback } from "./sim/combatFeedback.ts";
 import { tickCameraEffects, type CameraEffectOffsets } from "./sim/cameraEffects.ts";
 import { initHealth } from "./sim/health.ts";
@@ -24,6 +25,7 @@ import { createDeathOverlay } from "./ui/deathOverlay.ts";
 import { showLobby } from "./ui/lobby.ts";
 import { createHitMarker } from "./ui/hitMarker.ts";
 import { createKillFeed } from "./ui/killFeed.ts";
+import { createAimDebugHud } from "./ui/aimDebugHud.ts";
 import { createWeaponHud } from "./ui/weaponHud.ts";
 
 const MAX_DT = 0.1;
@@ -41,6 +43,7 @@ const damageOverlay = createDamageOverlay();
 const weaponHud = createWeaponHud();
 const killFeed = createKillFeed();
 const deathOverlay = createDeathOverlay();
+const aimDebugHud = createAimDebugHud();
 const remotePlayerManager = createRemotePlayerManager(scene);
 
 initHealth();
@@ -82,15 +85,13 @@ bus.on("weaponCycleRequested", () => {
   });
 });
 
-function tick(dt: number): CameraEffectOffsets {
+function tick(dt: number): void {
   tickMovement(dt);
   tickAimCascade(dt);
-  const effects = tickCameraEffects(dt);
-  updateCamera(effects);
+  updateCamera(tickCameraEffects(dt));
   tickProjectileFire(dt, camera);
   tickRemoteSync(dt);
   tickPosBroadcast(dt);
-  return effects;
 }
 
 function tickPosBroadcast(dt: number): void {
@@ -100,14 +101,16 @@ function tickPosBroadcast(dt: number): void {
   sendPosition(localPlayer.position, localPlayer.targetYaw, localPlayer.targetPitch);
 }
 
-function updateCamera(effects: CameraEffectOffsets = { pitch: 0, yaw: 0, bobY: 0 }): void {
+function updateCamera(
+  effects: CameraEffectOffsets = { pitch: 0, yaw: 0, bobY: 0 },
+): void {
   camera.position.set(
     localPlayer.position.x,
     localPlayer.position.y + getCurrentCharacter().eyeHeight + effects.bobY,
     localPlayer.position.z,
   );
   camera.rotation.y = localPlayer.targetYaw + effects.yaw;
-  camera.rotation.x = viewPitch(localPlayer) + effects.pitch;
+  camera.rotation.x = localPlayer.targetPitch + effects.pitch;
 }
 
 function loop(now: number): void {
@@ -117,9 +120,10 @@ function loop(now: number): void {
   if (gameStarted) {
     tick(dt);
     weaponView?.update(dt);
-    crosshair.update(camera, dt);
+    crosshair.update(camera);
     tickCombatFeedback(dt, camera, hitMarker, damageIndicator, damageOverlay);
     deathOverlay.update();
+    aimDebugHud.update();
     killFeed.tick(dt);
     projectileRenderer?.update();
     remotePlayerManager.update(dt);

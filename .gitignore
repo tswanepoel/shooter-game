@@ -1,2 +1,5 @@
 server/bin/
 server/obj/
+
+# Live aim debug dumps from vite dev (client POSTs while HUD is open)
+/debug/

@@ -1,206 +1,145 @@
-import { GUN_REMAINDER_SHARE, PITCH_LAG, PITCH_SHARE, YAW_LAG } from "../config/aim.ts";
+import {
+  AIM_ARM_EYE_REMAINDER,
+  AIM_CHASE,
+  AIM_EYE_REMAINDER,
+  AIM_LAG_SHARE,
+  AIM_SHARE,
+  type AxisChase,
+} from "../config/aim.ts";
 import { getCurrentWeapon, type WeaponRecipe } from "../config/weapons.ts";
 import { localPlayer } from "../state/world.ts";
+
+export interface AimDelta {
+  pitch: number;
+  yaw: number;
+}
 
 export interface AimCascadeState {
   targetYaw: number;
   targetPitch: number;
-  lastTargetPitch: number;
   lastTargetYaw: number;
-  inputYawSpeed: number;
-  smoothedTorsoYawRate: number;
-  smoothedGunYawRate: number;
-  torsoYawLag: number;
-  gunYawLag: number;
-  displayTorsoYawLag: number;
-  displayGunYawLag: number;
+  lastTargetPitch: number;
+  smoothedInputSpeed: number;
+  smoothedYawSpeed: number;
+  smoothedPitchSpeed: number;
   torsoYaw: number;
   torsoPitch: number;
-  neckPitch: number;
-  eyePitch: number;
-  gunYaw: number;
-  gunPitch: number;
+  headYaw: number;
+  headPitch: number;
+  armPitch: number;
 }
 
-export function viewPitch(state: AimCascadeState): number {
-  return state.torsoPitch + state.neckPitch + state.eyePitch;
-}
-
+/** Pelvis is implicit: locomotion root / torso anchor carries world yaw; rig bones are torso → head → arm. */
 export function shoulderPitch(state: AimCascadeState): number {
-  return state.torsoPitch + state.neckPitch;
+  return state.torsoPitch + state.headPitch;
 }
 
-/** Gun aim offset — simulation truth for projectiles. */
-export function gunAimDelta(state: AimCascadeState): { pitch: number; yaw: number } {
+export function armPitchTarget(targetPitch: number): number {
+  return (
+    AIM_SHARE.torso * targetPitch +
+    AIM_SHARE.head * targetPitch +
+    AIM_ARM_EYE_REMAINDER * AIM_EYE_REMAINDER * targetPitch
+  );
+}
+
+export function laggedShareTotals(): { azimuth: number; elevation: number } {
   return {
-    pitch: state.gunPitch - viewPitch(state),
-    yaw: state.gunYawLag,
+    azimuth: AIM_LAG_SHARE.azimuth.head + AIM_LAG_SHARE.azimuth.torso,
+    elevation:
+      AIM_LAG_SHARE.elevation.head +
+      AIM_LAG_SHARE.elevation.torso +
+      AIM_LAG_SHARE.elevation.arm,
   };
 }
 
-/** Smoothed gun aim offset for crosshair and view-model (reduces visual jitter). */
-export function gunAimDeltaVisual(state: AimCascadeState): { pitch: number; yaw: number } {
+/** Arm aim relative to instant eye (target) — drives crosshair, view-model, projectiles. */
+export function armAimDelta(state: AimCascadeState): AimDelta {
   return {
-    pitch: state.gunPitch - viewPitch(state),
-    yaw: state.displayGunYawLag,
+    pitch: state.armPitch - state.targetPitch,
+    yaw: state.torsoYaw - state.targetYaw,
   };
-}
-
-export function splitTargetPitch(targetPitch: number): {
-  torso: number;
-  neck: number;
-  eye: number;
-  shoulder: number;
-  gun: number;
-} {
-  const torso = PITCH_SHARE.torso * targetPitch;
-  const neck = PITCH_SHARE.neck * targetPitch;
-  const shoulder = torso + neck;
-  const remainder = targetPitch - shoulder;
-  const eye = remainder;
-  const gun = shoulder + GUN_REMAINDER_SHARE * remainder;
-  return { torso, neck, eye, shoulder, gun };
 }
 
 export function snapCascadeToTarget(state: AimCascadeState): void {
-  const { torso, neck, eye, gun } = splitTargetPitch(state.targetPitch);
-  state.torsoYawLag = 0;
-  state.gunYawLag = 0;
-  state.displayTorsoYawLag = 0;
-  state.displayGunYawLag = 0;
-  state.torsoYaw = state.gunYaw = state.targetYaw;
-  state.torsoPitch = torso;
-  state.neckPitch = neck;
-  state.eyePitch = eye;
-  state.gunPitch = gun;
+  state.headPitch = AIM_SHARE.head * state.targetPitch;
+  state.torsoPitch = AIM_SHARE.torso * state.targetPitch;
+  state.armPitch = armPitchTarget(state.targetPitch);
+  state.headYaw = state.targetYaw;
+  state.torsoYaw = state.targetYaw;
   state.lastTargetPitch = state.targetPitch;
   state.lastTargetYaw = state.targetYaw;
-  state.inputYawSpeed = 0;
-  state.smoothedTorsoYawRate = YAW_LAG.torso.snappy;
-  state.smoothedGunYawRate = YAW_LAG.gun.snappy;
-}
-
-export function angularDelta(from: number, to: number): number {
-  let delta = to - from;
-  while (delta > Math.PI) delta -= 2 * Math.PI;
-  while (delta < -Math.PI) delta += 2 * Math.PI;
-  return delta;
+  state.smoothedInputSpeed = 0;
+  state.smoothedYawSpeed = 0;
+  state.smoothedPitchSpeed = 0;
 }
 
 function chase(current: number, target: number, rate: number, dt: number): number {
   return current + (target - current) * (1 - Math.exp(-rate * dt));
 }
 
-function speedWeightedChaseRate(
-  snappy: number,
-  laggy: number,
-  speed: number,
-  speedScale: number,
-): number {
-  return laggy + (snappy - laggy) * Math.exp(-speedScale * speed);
+function chaseRate(config: AxisChase, inputSpeed: number): number {
+  const { snappy, laggy, speedScale } = config;
+  return laggy + (snappy - laggy) * Math.exp(-speedScale * inputSpeed);
 }
 
-function eyeChaseRate(pitchSpeed: number): number {
-  const { eyeFast, eyeSlow, eyeSpeedScale } = PITCH_LAG;
-  return speedWeightedChaseRate(eyeSlow, eyeFast, pitchSpeed, eyeSpeedScale);
-}
-
-function torsoPitchChaseRate(pitchSpeed: number): number {
-  const { snappy, laggy, speedScale } = PITCH_LAG.torso;
-  return speedWeightedChaseRate(snappy, laggy, pitchSpeed, speedScale);
-}
-
-function neckPitchChaseRate(pitchSpeed: number): number {
-  const { snappy, laggy, speedScale } = PITCH_LAG.neck;
-  return speedWeightedChaseRate(snappy, laggy, pitchSpeed, speedScale);
-}
-
-function gunPitchChaseRate(pitchSpeed: number): number {
-  const { snappy, laggy, speedScale } = PITCH_LAG.gun;
-  return speedWeightedChaseRate(snappy, laggy, pitchSpeed, speedScale);
-}
-
-function torsoYawChaseRate(yawSpeed: number): number {
-  const { snappy, laggy, speedScale } = YAW_LAG.torso;
-  return speedWeightedChaseRate(snappy, laggy, yawSpeed, speedScale);
-}
-
-function gunYawSpeedChaseRate(yawSpeed: number): number {
-  const { snappy, laggy, speedScale } = YAW_LAG.gun;
-  return speedWeightedChaseRate(snappy, laggy, yawSpeed, speedScale);
+export function aimChaseRates(inputSpeed: number): {
+  head: number;
+  torso: number;
+  arm: number;
+} {
+  return {
+    head: chaseRate(AIM_CHASE.head, inputSpeed),
+    torso: chaseRate(AIM_CHASE.torso, inputSpeed),
+    arm: chaseRate(AIM_CHASE.arm, inputSpeed),
+  };
 }
 
 function smoothToward(current: number, target: number, rate: number, dt: number): number {
   return current + (target - current) * (1 - Math.exp(-rate * dt));
 }
 
-function applyLagDeadzone(lag: number, deadzone: number): number {
-  return Math.abs(lag) < deadzone ? 0 : lag;
-}
-
-export function tickCascade(state: AimCascadeState, dt: number, _weapon: WeaponRecipe = getCurrentWeapon()): void {
-  const { torso, neck, eye, gun } = splitTargetPitch(state.targetPitch);
-  const { rateSmoothing, speedSmoothing, lagDisplaySmoothing, lagDeadzone, maxInputSpeed } = YAW_LAG;
-
-  const pitchSpeed = Math.abs(state.targetPitch - state.lastTargetPitch) / Math.max(dt, 1e-6);
+export function tickCascade(
+  state: AimCascadeState,
+  dt: number,
+  _weapon: WeaponRecipe = getCurrentWeapon(),
+): void {
+  const pitchStep = state.targetPitch - state.lastTargetPitch;
+  const pitchSpeed = Math.abs(pitchStep) / Math.max(dt, 1e-6);
   state.lastTargetPitch = state.targetPitch;
 
-  const targetYawStep = angularDelta(state.lastTargetYaw, state.targetYaw);
-  const instantYawSpeed = Math.min(
-    Math.abs(targetYawStep) / Math.max(dt, 1e-6),
-    maxInputSpeed,
-  );
-  state.inputYawSpeed = smoothToward(state.inputYawSpeed, instantYawSpeed, speedSmoothing, dt);
+  const yawStep = state.targetYaw - state.lastTargetYaw;
+  const yawSpeed = Math.abs(yawStep) / Math.max(dt, 1e-6);
   state.lastTargetYaw = state.targetYaw;
 
-  state.torsoPitch = chase(state.torsoPitch, torso, torsoPitchChaseRate(pitchSpeed), dt);
-  state.neckPitch = chase(state.neckPitch, neck, neckPitchChaseRate(pitchSpeed), dt);
-  state.eyePitch = chase(state.eyePitch, eye, eyeChaseRate(pitchSpeed), dt);
-
-  // Lag-offset yaw: stays near zero, anchored to target — avoids unbounded-angle delta jitter.
-  state.torsoYawLag += targetYawStep;
-  state.gunYawLag -= targetYawStep;
-
-  const targetTorsoYawRate = torsoYawChaseRate(state.inputYawSpeed);
-  state.smoothedTorsoYawRate = smoothToward(
-    state.smoothedTorsoYawRate,
-    targetTorsoYawRate,
-    rateSmoothing,
+  const instantInputSpeed = Math.hypot(pitchSpeed, yawSpeed);
+  const speedSmoothing = AIM_CHASE.speedSmoothing;
+  state.smoothedInputSpeed = smoothToward(
+    state.smoothedInputSpeed,
+    instantInputSpeed,
+    speedSmoothing,
     dt,
   );
-  state.torsoYawLag = applyLagDeadzone(
-    chase(state.torsoYawLag, 0, state.smoothedTorsoYawRate, dt),
-    lagDeadzone,
-  );
-
-  const targetGunYawRate = gunYawSpeedChaseRate(state.inputYawSpeed);
-  state.smoothedGunYawRate = smoothToward(
-    state.smoothedGunYawRate,
-    targetGunYawRate,
-    rateSmoothing,
-    dt,
-  );
-  state.gunYawLag = applyLagDeadzone(
-    chase(state.gunYawLag, 0, state.smoothedGunYawRate, dt),
-    lagDeadzone,
-  );
-
-  state.displayTorsoYawLag = smoothToward(
-    state.displayTorsoYawLag,
-    state.torsoYawLag,
-    lagDisplaySmoothing,
-    dt,
-  );
-  state.displayGunYawLag = smoothToward(
-    state.displayGunYawLag,
-    state.gunYawLag,
-    lagDisplaySmoothing,
+  state.smoothedYawSpeed = smoothToward(state.smoothedYawSpeed, yawSpeed, speedSmoothing, dt);
+  state.smoothedPitchSpeed = smoothToward(
+    state.smoothedPitchSpeed,
+    pitchSpeed,
+    speedSmoothing,
     dt,
   );
 
-  state.torsoYaw = state.targetYaw - state.torsoYawLag;
-  state.gunYaw = state.targetYaw + state.gunYawLag;
-  state.gunPitch = chase(state.gunPitch, gun, gunPitchChaseRate(pitchSpeed), dt);
+  const rates = aimChaseRates(state.smoothedInputSpeed);
+
+  // Serial chain: ocular → head → torso → arm (weapon line reads torso yaw + arm pitch).
+  state.headYaw = chase(state.headYaw, state.targetYaw, rates.head, dt);
+  state.torsoYaw = chase(state.torsoYaw, state.headYaw, rates.torso, dt);
+
+  const headPitchTarget = AIM_SHARE.head * state.targetPitch;
+  state.headPitch = chase(state.headPitch, headPitchTarget, rates.head, dt);
+
+  const torsoPitchTarget = state.headPitch * (AIM_SHARE.torso / AIM_SHARE.head);
+  state.torsoPitch = chase(state.torsoPitch, torsoPitchTarget, rates.torso, dt);
+
+  state.armPitch = chase(state.armPitch, armPitchTarget(state.targetPitch), rates.arm, dt);
 }
 
 export function tickAimCascade(dt: number): void {

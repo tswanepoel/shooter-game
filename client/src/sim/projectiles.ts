@@ -36,7 +36,7 @@ bus.on("fireReceived", ({ id }) => {
   const { eyeHeight } = getCurrentCharacter();
   spawnProjectile(
     { x: remote.position.x, y: remote.position.y + eyeHeight, z: remote.position.z },
-    { yaw: remote.gunYaw, pitch: remote.gunPitch },
+    { yaw: remote.torsoYaw, pitch: remote.armPitch },
     id,
   );
 });
@@ -49,7 +49,7 @@ export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
 
   if (fireHeld && controlEngaged && localPlayer.alive && cooldown <= 0) {
     const { eyeHeight } = getCurrentCharacter();
-    const direction = computeAimDirection(camera, localPlayer);
+    const direction = computeAimDirection(camera);
     spawnProjectile(
       {
         x: localPlayer.position.x,

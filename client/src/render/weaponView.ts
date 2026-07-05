@@ -1,8 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { bus } from "../bus.ts";
 import { getCurrentWeapon, type WeaponRecipe } from "../config/weapons.ts";
-import { gunAimDeltaVisual, shoulderPitch, viewPitch } from "../sim/aimCascade.ts";
+import { armAimDelta } from "../sim/aimCascade.ts";
 import { localPlayer } from "../state/world.ts";
 
 export interface WeaponViewModel {
@@ -43,43 +42,25 @@ export async function loadWeaponViewModel(
   rig.add(mesh);
   camera.add(rig);
 
-  let recoil = 0;
-  const onFired = (): void => {
-    recoil = 1;
-  };
-  const onFeedbackReset = (): void => {
-    recoil = 0;
-  };
-  bus.on("fired", onFired);
-  bus.on("feedbackReset", onFeedbackReset);
-
-  function update(dt: number): void {
+  function update(_dt: number): void {
     rig.visible = localPlayer.alive;
     if (!localPlayer.alive) return;
 
-    recoil *= Math.exp(-weapon.recoilDecayRate * dt);
+    const delta = armAimDelta(localPlayer);
 
-    const view = viewPitch(localPlayer);
-    const shoulder = shoulderPitch(localPlayer);
-    const eyeToGun = gunAimDeltaVisual(localPlayer);
-    const swing = weapon.viewModelSwingScale;
-
-    // Eye → gun: barrel matches crosshair aim (same delta crosshair uses).
-    rig.rotation.x = eyeToGun.pitch - recoil * weapon.recoilKickPitch;
-    rig.rotation.y = eyeToGun.yaw;
+    // Same arm–eye delta as crosshair; local Y is opposite world-up delta.
+    rig.rotation.x = delta.pitch;
+    rig.rotation.y = delta.yaw;
     rig.rotation.z = 0;
 
-    // Shoulder → eye: body lag slides the mount in frame (head/torso catch-up).
     rig.position.set(
-      weapon.viewModelOffset.x + localPlayer.displayTorsoYawLag * swing,
-      weapon.viewModelOffset.y + (view - shoulder) * swing,
-      weapon.viewModelOffset.z + recoil * weapon.recoilKickDistance,
+      weapon.viewModelOffset.x,
+      weapon.viewModelOffset.y,
+      weapon.viewModelOffset.z,
     );
   }
 
   function dispose(): void {
-    bus.off("fired", onFired);
-    bus.off("feedbackReset", onFeedbackReset);
     camera.remove(rig);
   }
 

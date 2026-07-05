@@ -46,6 +46,8 @@ export interface RemotePlayerState {
   targetPosition: { x: number; y: number; z: number };
   timeSinceLastPos: number;
   measuredSpeed: number;
+  velocityY: number;
+  grounded: boolean;
   headYaw: number;
   headPitch: number;
   gunYaw: number;
@@ -92,6 +94,8 @@ function createRemotePlayer(
     targetPosition: { ...position },
     timeSinceLastPos: 0,
     measuredSpeed: 0,
+    velocityY: 0,
+    grounded: true,
     headYaw: yaw,
     headPitch: pitch,
     gunYaw: yaw,

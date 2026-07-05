@@ -1,4 +1,4 @@
-import type { JoinMessage, LeaveMessage, PosMessage, WelcomeMessage } from "./net/wire.ts";
+import type { FireMessage, JoinMessage, JumpMessage, LeaveMessage, PosMessage, WelcomeMessage } from "./net/wire.ts";
 
 type Listener<T> = (payload: T) => void;
 
@@ -33,6 +33,7 @@ export interface BusEvents {
   sprintStarted: undefined;
   sprintStopped: undefined;
   jumped: undefined;
+  jumpLaunched: undefined;
   fireStarted: undefined;
   fireStopped: undefined;
   fired: undefined;
@@ -43,6 +44,8 @@ export interface BusEvents {
   playerJoined: JoinMessage;
   playerLeft: LeaveMessage;
   positionReceived: PosMessage;
+  jumpReceived: JumpMessage;
+  fireReceived: FireMessage;
 }
 
 export const bus = new EventBus<BusEvents>();

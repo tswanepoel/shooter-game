@@ -40,5 +40,10 @@ export const BULLET_FORWARD_AXIS = { x: 0, y: 1, z: 0 } as const;
 
 // Weapon-mesh-only recoil; must never feed the camera or the fire direction.
 export const RECOIL_KICK_DISTANCE = 0.015;
-export const RECOIL_KICK_PITCH = 0.01;
+export const RECOIL_KICK_PITCH = 0.005;
 export const RECOIL_DECAY_RATE = 8;
+
+// Muzzle flash placement on an opponent's held weapon, relative to the
+// character's arm-right node — a touch further out than the grip itself.
+export const MUZZLE_FLASH_OFFSET = { x: WEAPON_GRIP_OFFSET.x, y: WEAPON_GRIP_OFFSET.y - 0.3, z: WEAPON_GRIP_OFFSET.z } as const;
+export const MUZZLE_FLASH_DURATION = 0.06;

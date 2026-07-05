@@ -1,5 +1,5 @@
 import { bus } from "../bus.ts";
-import { REMOTE_POSITION_LERP_RATE } from "../config/physics.ts";
+import { GRAVITY, JUMP_SPEED, REMOTE_POSITION_LERP_RATE } from "../config/physics.ts";
 import { remotePlayers } from "../state/world.ts";
 import { tickCascade } from "./aimCascade.ts";
 
@@ -29,6 +29,13 @@ bus.on("positionReceived", (message) => {
   remote.timeSinceLastPos = 0;
 });
 
+bus.on("jumpReceived", ({ id }) => {
+  const remote = remotePlayers.get(id);
+  if (!remote || !remote.grounded) return;
+  remote.velocityY = JUMP_SPEED;
+  remote.grounded = false;
+});
+
 export function tickRemoteSync(dt: number): void {
   const lerpFactor = 1 - Math.exp(-REMOTE_POSITION_LERP_RATE * dt);
 
@@ -36,8 +43,22 @@ export function tickRemoteSync(dt: number): void {
     remote.timeSinceLastPos += dt;
 
     remote.position.x += (remote.targetPosition.x - remote.position.x) * lerpFactor;
-    remote.position.y += (remote.targetPosition.y - remote.position.y) * lerpFactor;
     remote.position.z += (remote.targetPosition.z - remote.position.z) * lerpFactor;
+
+    if (remote.grounded) {
+      // pos is horizontal-authoritative; only lerp Y here while grounded, so
+      // a mid-jump pos update can never drag the simulated arc down.
+      remote.position.y += (remote.targetPosition.y - remote.position.y) * lerpFactor;
+    } else {
+      remote.velocityY += GRAVITY * dt;
+      remote.position.y += remote.velocityY * dt;
+
+      if (remote.position.y <= 0) {
+        remote.position.y = 0;
+        remote.velocityY = 0;
+        remote.grounded = true;
+      }
+    }
 
     tickCascade(remote, dt);
   }

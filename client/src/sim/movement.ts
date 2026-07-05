@@ -69,6 +69,7 @@ bus.on("jumped", () => {
   localPlayer.airHorizontal.z = velocity.z;
   localPlayer.velocityY = JUMP_SPEED;
   localPlayer.grounded = false;
+  bus.emit("jumpLaunched", undefined);
 });
 
 export function tickMovement(dt: number): void {

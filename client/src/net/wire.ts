@@ -41,8 +41,18 @@ export interface PosMessage {
   pitch: number;
 }
 
-export type ServerMessage = WelcomeMessage | JoinMessage | LeaveMessage | PosMessage;
-export type ClientMessage = PosMessage;
+export interface JumpMessage {
+  type: "jump";
+  id: string;
+}
+
+export interface FireMessage {
+  type: "fire";
+  id: string;
+}
+
+export type ServerMessage = WelcomeMessage | JoinMessage | LeaveMessage | PosMessage | JumpMessage | FireMessage;
+export type ClientMessage = PosMessage | JumpMessage | FireMessage;
 
 export function decodeServerMessage(raw: string): ServerMessage | undefined {
   const parsed: unknown = JSON.parse(raw);

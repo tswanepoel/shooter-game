@@ -1,8 +1,16 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { bus } from "../bus.ts";
 import { CHARACTER_HEIGHT, CHARACTER_MODEL_URL } from "../config/characters.ts";
 import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
-import { WEAPON_FORWARD_AXIS, WEAPON_GRIP_OFFSET, WEAPON_MODEL_URL, WEAPON_SIZE } from "../config/weapons.ts";
+import {
+  MUZZLE_FLASH_DURATION,
+  MUZZLE_FLASH_OFFSET,
+  WEAPON_FORWARD_AXIS,
+  WEAPON_GRIP_OFFSET,
+  WEAPON_MODEL_URL,
+  WEAPON_SIZE,
+} from "../config/weapons.ts";
 import { remotePlayers } from "../state/world.ts";
 
 export type LocomotionState = "idle" | "walk" | "sprint";
@@ -10,6 +18,7 @@ export type LocomotionState = "idle" | "walk" | "sprint";
 export interface CharacterInstance {
   object: THREE.Object3D;
   setLocomotion(state: LocomotionState): void;
+  triggerMuzzleFlash(): void;
   update(dt: number): void;
 }
 
@@ -82,6 +91,15 @@ export async function loadCharacterWithWeapon(): Promise<CharacterInstance> {
   gripNode.getWorldScale(gripWorldScale);
   weapon.scale.divideScalar(gripWorldScale.x);
 
+  const muzzleFlash = new THREE.Mesh(
+    new THREE.SphereGeometry(0.06, 6, 6),
+    new THREE.MeshBasicMaterial({ color: 0xfff2a8 }),
+  );
+  muzzleFlash.position.set(MUZZLE_FLASH_OFFSET.x, MUZZLE_FLASH_OFFSET.y, MUZZLE_FLASH_OFFSET.z);
+  muzzleFlash.visible = false;
+  gripNode.add(muzzleFlash);
+  let muzzleFlashTimer = 0;
+
   const mixer = new THREE.AnimationMixer(character);
   const clips = characterGltf.animations;
   const staticClip = findClip(clips, "static");
@@ -112,14 +130,24 @@ export async function loadCharacterWithWeapon(): Promise<CharacterInstance> {
     targetWeight.sprint = state === "sprint" ? 1 : 0;
   }
 
+  function triggerMuzzleFlash(): void {
+    muzzleFlashTimer = MUZZLE_FLASH_DURATION;
+    muzzleFlash.visible = true;
+  }
+
   function update(dt: number): void {
     idleAction.setEffectiveWeight(approach(idleAction.getEffectiveWeight(), targetWeight.idle, dt));
     walkAction.setEffectiveWeight(approach(walkAction.getEffectiveWeight(), targetWeight.walk, dt));
     sprintAction.setEffectiveWeight(approach(sprintAction.getEffectiveWeight(), targetWeight.sprint, dt));
     mixer.update(dt);
+
+    if (muzzleFlashTimer > 0) {
+      muzzleFlashTimer -= dt;
+      if (muzzleFlashTimer <= 0) muzzleFlash.visible = false;
+    }
   }
 
-  return { object: character, setLocomotion, update };
+  return { object: character, setLocomotion, triggerMuzzleFlash, update };
 }
 
 export interface RemotePlayerManager {
@@ -135,6 +163,10 @@ function classifyLocomotion(speed: number): LocomotionState {
 export function createRemotePlayerManager(scene: THREE.Scene): RemotePlayerManager {
   const instances = new Map<string, CharacterInstance>();
   const pending = new Set<string>();
+
+  bus.on("fireReceived", ({ id }) => {
+    instances.get(id)?.triggerMuzzleFlash();
+  });
 
   function ensureInstance(id: string): void {
     if (instances.has(id) || pending.has(id)) return;

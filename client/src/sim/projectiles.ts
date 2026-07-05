@@ -1,7 +1,7 @@
 import { bus } from "../bus.ts";
 import { EYE_HEIGHT } from "../config/characters.ts";
 import { FIRE_RATE, PROJECTILE_MAX_RANGE, PROJECTILE_SPEED } from "../config/weapons.ts";
-import { localPlayer, projectiles } from "../state/world.ts";
+import { localPlayer, projectiles, remotePlayers } from "../state/world.ts";
 
 const FIRE_INTERVAL = 1 / FIRE_RATE;
 
@@ -24,28 +24,41 @@ bus.on("controlReleased", () => {
   fireHeld = false;
 });
 
+bus.on("fireReceived", ({ id }) => {
+  // Cosmetic only: the remote's own client owns hit authority for its shots.
+  const remote = remotePlayers.get(id);
+  if (!remote) return;
+  spawnProjectile(
+    { x: remote.position.x, y: remote.position.y + EYE_HEIGHT, z: remote.position.z },
+    remote.gunYaw,
+    remote.gunPitch,
+  );
+});
+
 export function tickProjectiles(dt: number): void {
   cooldown = Math.max(0, cooldown - dt);
 
   if (fireHeld && controlEngaged && cooldown <= 0) {
-    spawnProjectile();
+    spawnProjectile(
+      {
+        x: localPlayer.position.x,
+        y: localPlayer.position.y + EYE_HEIGHT,
+        z: localPlayer.position.z,
+      },
+      localPlayer.gunYaw,
+      localPlayer.gunPitch,
+    );
     cooldown += FIRE_INTERVAL;
+    bus.emit("fired", undefined);
   }
 
   advanceProjectiles(dt);
 }
 
-function spawnProjectile(): void {
-  const yaw = localPlayer.gunYaw;
-  const pitch = localPlayer.gunPitch;
-
+function spawnProjectile(origin: { x: number; y: number; z: number }, yaw: number, pitch: number): void {
   projectiles.push({
     id: nextId++,
-    position: {
-      x: localPlayer.position.x,
-      y: localPlayer.position.y + EYE_HEIGHT,
-      z: localPlayer.position.z,
-    },
+    position: { ...origin },
     direction: {
       x: -Math.sin(yaw) * Math.cos(pitch),
       y: Math.sin(pitch),
@@ -53,8 +66,6 @@ function spawnProjectile(): void {
     },
     distanceTraveled: 0,
   });
-
-  bus.emit("fired", undefined);
 }
 
 function advanceProjectiles(dt: number): void {

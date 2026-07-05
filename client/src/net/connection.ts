@@ -32,13 +32,27 @@ export function connect(): void {
       case "pos":
         bus.emit("positionReceived", message);
         break;
+      case "jump":
+        bus.emit("jumpReceived", message);
+        break;
+      case "fire":
+        bus.emit("fireReceived", message);
+        break;
     }
   });
+
+  bus.on("jumpLaunched", () => sendIdOnly("jump"));
+  bus.on("fired", () => sendIdOnly("fire"));
 }
 
 export function sendPosition(position: Vector3, yaw: number, pitch: number): void {
   if (!localId) return;
   send({ type: "pos", id: localId, position, yaw, pitch });
+}
+
+function sendIdOnly(type: "jump" | "fire"): void {
+  if (!localId) return;
+  send({ type, id: localId });
 }
 
 function send(message: ClientMessage): void {

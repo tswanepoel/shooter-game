@@ -7,10 +7,10 @@ export const CAMERA_FEEDBACK = {
   },
   bob: {
     moveThreshold: 0.5,
-    heightAmplitude: 0.035,
-    pitchAmplitude: 0.01,
-    phasePerMeter: 0.85,
-    sprintMultiplier: 1.6,
+    heightAmplitude: 0.016,
+    pitchAmplitude: 0.0045,
+    phasePerMeter: 1.15,
+    sprintMultiplier: 1.35,
   },
   flinch: {
     decayRate: 14,

@@ -43,8 +43,16 @@ export const projectiles: Projectile[] = [];
 export interface RemotePlayerState {
   id: string;
   position: { x: number; y: number; z: number };
-  yaw: number;
-  pitch: number;
+  targetPosition: { x: number; y: number; z: number };
+  timeSinceLastPos: number;
+  measuredSpeed: number;
+  headYaw: number;
+  headPitch: number;
+  gunYaw: number;
+  gunPitch: number;
+  torsoYaw: number;
+  torsoPitch: number;
+  cascadeInitialized: boolean;
   alive: boolean;
 }
 
@@ -59,26 +67,38 @@ bus.on("welcomed", (message) => {
 
   remotePlayers.clear();
   for (const snapshot of message.roster) {
-    remotePlayers.set(snapshot.id, {
-      id: snapshot.id,
-      position: { ...snapshot.position },
-      yaw: snapshot.yaw,
-      pitch: snapshot.pitch,
-      alive: snapshot.alive,
-    });
+    remotePlayers.set(snapshot.id, createRemotePlayer(snapshot.id, snapshot.position, snapshot.yaw, snapshot.pitch, snapshot.alive));
   }
 });
 
 bus.on("playerJoined", (message) => {
-  remotePlayers.set(message.id, {
-    id: message.id,
-    position: { ...message.position },
-    yaw: message.yaw,
-    pitch: message.pitch,
-    alive: message.alive,
-  });
+  remotePlayers.set(message.id, createRemotePlayer(message.id, message.position, message.yaw, message.pitch, message.alive));
 });
 
 bus.on("playerLeft", (message) => {
   remotePlayers.delete(message.id);
 });
+
+function createRemotePlayer(
+  id: string,
+  position: { x: number; y: number; z: number },
+  yaw: number,
+  pitch: number,
+  alive: boolean,
+): RemotePlayerState {
+  return {
+    id,
+    position: { ...position },
+    targetPosition: { ...position },
+    timeSinceLastPos: 0,
+    measuredSpeed: 0,
+    headYaw: yaw,
+    headPitch: pitch,
+    gunYaw: yaw,
+    gunPitch: pitch,
+    torsoYaw: yaw,
+    torsoPitch: pitch,
+    cascadeInitialized: false,
+    alive,
+  };
+}

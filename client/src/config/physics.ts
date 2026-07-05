@@ -21,3 +21,13 @@ export const GRAVITY = -20;
 export const JUMP_SPEED = 8;
 
 export const CROSSHAIR_DISTANCE = 20;
+
+// Remote locomotion is inferred from measured horizontal speed against these
+// bounds — safe because movement's diagonal clamp keeps walk speed from ever
+// reaching sprint speed.
+export const LOCOMOTION_SPEED_THRESHOLD = {
+  walk: 0.5,
+  sprint: 7,
+} as const;
+
+export const REMOTE_POSITION_LERP_RATE = 12;

@@ -33,7 +33,16 @@ export interface LeaveMessage {
   id: string;
 }
 
-export type ServerMessage = WelcomeMessage | JoinMessage | LeaveMessage;
+export interface PosMessage {
+  type: "pos";
+  id: string;
+  position: Vector3;
+  yaw: number;
+  pitch: number;
+}
+
+export type ServerMessage = WelcomeMessage | JoinMessage | LeaveMessage | PosMessage;
+export type ClientMessage = PosMessage;
 
 export function decodeServerMessage(raw: string): ServerMessage | undefined {
   const parsed: unknown = JSON.parse(raw);

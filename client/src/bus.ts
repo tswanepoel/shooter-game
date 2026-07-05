@@ -1,4 +1,4 @@
-import type { JoinMessage, LeaveMessage, WelcomeMessage } from "./net/wire.ts";
+import type { JoinMessage, LeaveMessage, PosMessage, WelcomeMessage } from "./net/wire.ts";
 
 type Listener<T> = (payload: T) => void;
 
@@ -42,6 +42,7 @@ export interface BusEvents {
   welcomed: WelcomeMessage;
   playerJoined: JoinMessage;
   playerLeft: LeaveMessage;
+  positionReceived: PosMessage;
 }
 
 export const bus = new EventBus<BusEvents>();

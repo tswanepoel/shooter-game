@@ -9,6 +9,15 @@ import {
 } from "../config/weapons.ts";
 import { localPlayer } from "../state/world.ts";
 
+export interface AimCascadeState {
+  headYaw: number;
+  headPitch: number;
+  gunYaw: number;
+  gunPitch: number;
+  torsoYaw: number;
+  torsoPitch: number;
+}
+
 function chase(current: number, target: number, rate: number, dt: number): number {
   return current + (target - current) * (1 - Math.exp(-rate * dt));
 }
@@ -29,12 +38,18 @@ function gunPitchChaseRate(gap: number): number {
   return gunChaseRate(gap) * directionScale;
 }
 
-export function tickAimCascade(dt: number): void {
-  const yawRate = gunChaseRate(localPlayer.headYaw - localPlayer.gunYaw);
-  const pitchRate = gunPitchChaseRate(localPlayer.headPitch - localPlayer.gunPitch);
+// Shared by the local player and every remote player, so all clients run the
+// identical cascade from whatever head orientation they're fed.
+export function tickCascade(state: AimCascadeState, dt: number): void {
+  const yawRate = gunChaseRate(state.headYaw - state.gunYaw);
+  const pitchRate = gunPitchChaseRate(state.headPitch - state.gunPitch);
 
-  localPlayer.gunYaw = chase(localPlayer.gunYaw, localPlayer.headYaw, yawRate, dt);
-  localPlayer.gunPitch = chase(localPlayer.gunPitch, localPlayer.headPitch, pitchRate, dt);
-  localPlayer.torsoYaw = chase(localPlayer.torsoYaw, localPlayer.headYaw, TORSO_CHASE_RATE, dt);
-  localPlayer.torsoPitch = chase(localPlayer.torsoPitch, localPlayer.headPitch, TORSO_CHASE_RATE, dt);
+  state.gunYaw = chase(state.gunYaw, state.headYaw, yawRate, dt);
+  state.gunPitch = chase(state.gunPitch, state.headPitch, pitchRate, dt);
+  state.torsoYaw = chase(state.torsoYaw, state.headYaw, TORSO_CHASE_RATE, dt);
+  state.torsoPitch = chase(state.torsoPitch, state.headPitch, TORSO_CHASE_RATE, dt);
+}
+
+export function tickAimCascade(dt: number): void {
+  tickCascade(localPlayer, dt);
 }

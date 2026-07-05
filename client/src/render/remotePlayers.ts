@@ -1,7 +1,9 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { CHARACTER_HEIGHT, CHARACTER_MODEL_URL } from "../config/characters.ts";
+import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
 import { WEAPON_FORWARD_AXIS, WEAPON_GRIP_OFFSET, WEAPON_MODEL_URL, WEAPON_SIZE } from "../config/weapons.ts";
+import { remotePlayers } from "../state/world.ts";
 
 export type LocomotionState = "idle" | "walk" | "sprint";
 
@@ -118,4 +120,54 @@ export async function loadCharacterWithWeapon(): Promise<CharacterInstance> {
   }
 
   return { object: character, setLocomotion, update };
+}
+
+export interface RemotePlayerManager {
+  update(dt: number): void;
+}
+
+function classifyLocomotion(speed: number): LocomotionState {
+  if (speed >= LOCOMOTION_SPEED_THRESHOLD.sprint) return "sprint";
+  if (speed >= LOCOMOTION_SPEED_THRESHOLD.walk) return "walk";
+  return "idle";
+}
+
+export function createRemotePlayerManager(scene: THREE.Scene): RemotePlayerManager {
+  const instances = new Map<string, CharacterInstance>();
+  const pending = new Set<string>();
+
+  function ensureInstance(id: string): void {
+    if (instances.has(id) || pending.has(id)) return;
+    pending.add(id);
+    loadCharacterWithWeapon().then((instance) => {
+      pending.delete(id);
+      if (!remotePlayers.has(id)) return; // left while loading
+      scene.add(instance.object);
+      instances.set(id, instance);
+    });
+  }
+
+  function update(dt: number): void {
+    for (const id of remotePlayers.keys()) {
+      ensureInstance(id);
+    }
+
+    for (const [id, instance] of instances) {
+      const remote = remotePlayers.get(id);
+      if (!remote) {
+        scene.remove(instance.object);
+        instances.delete(id);
+        continue;
+      }
+
+      instance.object.position.set(remote.position.x, remote.position.y, remote.position.z);
+      // The rig's authored rest pose faces world +Z, but yaw 0 means "facing
+      // -Z" in our own convention — offset by half a turn to reconcile them.
+      instance.object.rotation.y = remote.torsoYaw + Math.PI;
+      instance.setLocomotion(classifyLocomotion(remote.measuredSpeed));
+      instance.update(dt);
+    }
+  }
+
+  return { update };
 }

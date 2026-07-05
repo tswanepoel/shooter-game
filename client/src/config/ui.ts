@@ -1,10 +1,3 @@
-export const STATUS_BARS = {
-  width: 200,
-  height: 10,
-  gap: 6,
-  bottom: 20,
-} as const;
-
 export const KILL_FEED = {
   entryLifetime: 5,
   fadeDuration: 0.8,

@@ -24,7 +24,6 @@ import { createDeathOverlay } from "./ui/deathOverlay.ts";
 import { showLobby } from "./ui/lobby.ts";
 import { createHitMarker } from "./ui/hitMarker.ts";
 import { createKillFeed } from "./ui/killFeed.ts";
-import { createStatusBars } from "./ui/statusBars.ts";
 import { createWeaponHud } from "./ui/weaponHud.ts";
 
 const MAX_DT = 0.1;
@@ -40,7 +39,6 @@ const hitMarker = createHitMarker();
 const damageIndicator = createDamageIndicator();
 const damageOverlay = createDamageOverlay();
 const weaponHud = createWeaponHud();
-const statusBars = createStatusBars();
 const killFeed = createKillFeed();
 const deathOverlay = createDeathOverlay();
 const remotePlayerManager = createRemotePlayerManager(scene);
@@ -121,7 +119,6 @@ function loop(now: number): void {
     weaponView?.update(dt);
     crosshair.update(camera);
     tickCombatFeedback(dt, camera, hitMarker, damageIndicator, damageOverlay);
-    statusBars.update();
     deathOverlay.update();
     killFeed.tick(dt);
     projectileRenderer?.update();

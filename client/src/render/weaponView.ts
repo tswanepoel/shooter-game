@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { bus } from "../bus.ts";
 import { getCurrentWeapon, type WeaponRecipe } from "../config/weapons.ts";
-import { gunAimDelta, shoulderPitch, viewPitch } from "../sim/aimCascade.ts";
+import { gunAimDeltaVisual, shoulderPitch, viewPitch } from "../sim/aimCascade.ts";
 import { localPlayer } from "../state/world.ts";
 
 export interface WeaponViewModel {
@@ -58,7 +58,7 @@ export async function loadWeaponViewModel(
 
     const view = viewPitch(localPlayer);
     const shoulder = shoulderPitch(localPlayer);
-    const eyeToGun = gunAimDelta(localPlayer);
+    const eyeToGun = gunAimDeltaVisual(localPlayer);
     const swing = weapon.viewModelSwingScale;
 
     // Eye → gun: barrel matches crosshair aim (same delta crosshair uses).
@@ -68,7 +68,7 @@ export async function loadWeaponViewModel(
 
     // Shoulder → eye: body lag slides the mount in frame (head/torso catch-up).
     rig.position.set(
-      weapon.viewModelOffset.x + (localPlayer.targetYaw - localPlayer.torsoYaw) * swing,
+      weapon.viewModelOffset.x + localPlayer.displayTorsoYawLag * swing,
       weapon.viewModelOffset.y + (view - shoulder) * swing,
       weapon.viewModelOffset.z + recoil * weapon.recoilKickDistance,
     );

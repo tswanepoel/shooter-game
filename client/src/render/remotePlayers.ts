@@ -5,7 +5,7 @@ import { getCharacterRecipe, type CharacterRecipe } from "../config/characters.t
 import { DEATH_POSE_PITCH } from "../config/feedback.ts";
 import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
 import { getWeaponRecipe, type WeaponRecipe } from "../config/weapons.ts";
-import type { AimCascadeState } from "../sim/aimCascade.ts";
+import { angularDelta, type AimCascadeState } from "../sim/aimCascade.ts";
 import { remotePlayers } from "../state/world.ts";
 
 export type LocomotionState = "idle" | "walk" | "sprint";
@@ -176,8 +176,8 @@ export async function loadCharacterWithWeapon(
     // adds gun-above-torso. Absolute shoulder/gun on children double-counts
     // torso and folds the mesh past 90° at extreme pitch.
     setAimPivot(torsoAimPivot, -aim.torsoPitch, 0);
-    setAimPivot(headAimPivot, -aim.neckPitch, aim.targetYaw - aim.torsoYaw);
-    setAimPivot(armAimPivot, -(aim.gunPitch - aim.torsoPitch), aim.gunYaw - aim.torsoYaw);
+    setAimPivot(headAimPivot, -aim.neckPitch, aim.torsoYawLag);
+    setAimPivot(armAimPivot, -(aim.gunPitch - aim.torsoPitch), aim.gunYawLag + aim.torsoYawLag);
   }
 
   function update(dt: number, aim?: AimCascadeState): void {

@@ -10,12 +10,23 @@ export const PITCH_SHARE = {
 // At share 2.4 and maxPitch 55°, gunΔ ≈ 35° — near the vertical screen edge at fov 75.
 export const GUN_REMAINDER_SHARE = 2.4;
 
-// Chase rates (higher = snappier). Neck faster than gun; eye rate is dynamic.
+// Chase rates (higher = snappier). Torso/neck/gun pitch and eye rate are speed-weighted.
 export const PITCH_LAG = {
-  torso: 10,
-  neck: 22,
-  gun: 14,
-  eyeFast: 45,
-  eyeSlow: 120,
-  eyeSpeedScale: 2.5,
+  torso: { snappy: 78, laggy: 18, speedScale: 2.5 },
+  neck: { snappy: 92, laggy: 24, speedScale: 2.5 },
+  gun: { snappy: 42, laggy: 14, speedScale: 2.5 },
+  eyeFast: 38,
+  eyeSlow: 88,
+  eyeSpeedScale: 2.2,
+} as const;
+
+// Horizontal chase — speed-weighted; gun yaw blends speed + gap (max, not min).
+export const YAW_LAG = {
+  torso: { snappy: 90, laggy: 35, speedScale: 3.5 },
+  gun: { snappy: 70, laggy: 28, speedScale: 3.5 },
+  rateSmoothing: 12,
+  speedSmoothing: 5,
+  lagDisplaySmoothing: 22,
+  lagDeadzone: 0.0002,
+  maxInputSpeed: 10,
 } as const;

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { CROSSHAIR_DISTANCE } from "../config/physics.ts";
-import { gunAimDelta } from "../sim/aimCascade.ts";
+import { gunAimDeltaVisual } from "../sim/aimCascade.ts";
 import { localPlayer } from "../state/world.ts";
 
 const direction = new THREE.Vector3();
@@ -16,7 +16,7 @@ export interface AimScreenPosition {
 }
 
 export function projectGunAimToScreen(camera: THREE.Camera): AimScreenPosition {
-  const { pitch, yaw } = gunAimDelta(localPlayer);
+  const { pitch, yaw } = gunAimDeltaVisual(localPlayer);
 
   deltaEuler.set(pitch, yaw, 0);
   deltaQuat.setFromEuler(deltaEuler);

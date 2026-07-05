@@ -71,6 +71,11 @@ Tracked tuning, polish, and feature gaps.
 - [ ] **31. Minimap** — small tactical map for orientation.
 - [ ] **33. Leaderboard (TAB)** — hold TAB to show scoreboard.
 - [ ] **34. Leaderboard map overlay** — TAB overlay expands to full-view map; live player models hidden while open.
+- [x] **39. Drop health bar** — vignette/splat cues are enough; remove the health bar from HUD.
+- [ ] **40. Stamina bar low value** — stamina bar isn't useful enough to keep; remove or replace with subtler feedback.
+- [x] **41. Remove aim debug overlay** — lose the on-screen angle debug HUD.
+- [ ] **42. Weapon HUD visuals** — weapon indicator is text-only; needs a proper visual (icon, silhouette, or view-model hint).
+- [ ] **43. FPS and ping overlay** — show frame rate and network latency (debug/readout HUD).
 
 ## Audio
 

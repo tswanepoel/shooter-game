@@ -22,7 +22,6 @@ import { createDamageIndicator } from "./ui/damageIndicator.ts";
 import { createDamageOverlay } from "./ui/damageOverlay.ts";
 import { createDeathOverlay } from "./ui/deathOverlay.ts";
 import { showLobby } from "./ui/lobby.ts";
-import { createAimDebugHud } from "./ui/aimDebugHud.ts";
 import { createHitMarker } from "./ui/hitMarker.ts";
 import { createKillFeed } from "./ui/killFeed.ts";
 import { createStatusBars } from "./ui/statusBars.ts";
@@ -44,7 +43,6 @@ const weaponHud = createWeaponHud();
 const statusBars = createStatusBars();
 const killFeed = createKillFeed();
 const deathOverlay = createDeathOverlay();
-const aimDebugHud = createAimDebugHud();
 const remotePlayerManager = createRemotePlayerManager(scene);
 
 initHealth();
@@ -129,7 +127,6 @@ function loop(now: number): void {
     projectileRenderer?.update();
     remotePlayerManager.update(dt);
     advanceProjectiles(dt, getCharacterHitRoots());
-    aimDebugHud.update(localPlayer);
   }
 
   if (gameStarted) {
@@ -167,7 +164,6 @@ function startGame(characterId: string): void {
     updateCamera();
     renderer.domElement.style.display = "block";
     gameStarted = true;
-    aimDebugHud.setVisible(true);
     void loadLocalWeaponAssets().catch((error) => {
       console.error("failed to load weapon assets", error);
     });

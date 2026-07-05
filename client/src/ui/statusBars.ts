@@ -1,4 +1,3 @@
-import { HEALTH } from "../config/combat.ts";
 import { STAMINA } from "../config/physics.ts";
 import { STATUS_BARS } from "../config/ui.ts";
 import { localPlayer } from "../state/world.ts";
@@ -65,9 +64,7 @@ export function createStatusBars(): StatusBars {
     "z-index:16",
   ].join(";");
 
-  const health = createBar("HEALTH", "#e74c3c");
   const stamina = createBar("STAMINA", "#3498db");
-  container.appendChild(health.root);
   container.appendChild(stamina.root);
   document.body.appendChild(container);
 
@@ -78,7 +75,6 @@ export function createStatusBars(): StatusBars {
 
   return {
     update(): void {
-      setFill(health.fill, localPlayer.health, HEALTH.max);
       setFill(stamina.fill, localPlayer.stamina, STAMINA.max);
     },
   };

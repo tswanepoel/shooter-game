@@ -11,7 +11,7 @@ Tracked tuning, polish, and feature gaps.
 
 ## Aim & camera
 
-- [ ] **4. Arm/torso lag too strong** — tune aim cascade down (shoulder/torso chase rates or shares).
+- [x] **4. Arm/torso lag too strong** — tune aim cascade down (shoulder/torso chase rates or shares).
 - [x] **5. Walk/sprint bob too strong** — reduce head-bob amplitude in camera feedback (magnitude + frequency tuned).
 - [ ] **17. ADS** — aim-down-sights on right mouse button.
 - [ ] **38. No hip-fire crosshair** — crosshair hidden by default; visual aim aids only while ADS.

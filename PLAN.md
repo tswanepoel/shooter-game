@@ -117,7 +117,27 @@ hand) are at:
   incoming `pos`; fire in one and confirm the other shows a cosmetic bullet and muzzle
   flash roughly matching the shooter's aim.
 
-## 11. Server-authoritative combat
+## 11. Character & weapon selection
+- Config model currently treats character and weapon as one fixed recipe
+  (`CHARACTER_MODEL_URL`, `WEAPON_MODEL_URL`); split it into two independent catalogs —
+  a list of character recipes and a list of weapon recipes, each entry naming its model
+  URL plus the per-model tuning that today lives as single constants (forward axis, grip
+  offset, size, fire/handling feel). Every other system keeps reading "the current
+  character" / "the current weapon" through an indirection instead of the old constants.
+- Pull in a handful more of each from the full Kenney packs (`blocky-characters`,
+  `blaster-kit`) — enough to make the catalogs real, not one-plus-a-stub.
+- Character choice is locked in at lobby join: a pre-join picker screen, sent once to the
+  server as part of (or just before) the initial handshake, and included in the roster/
+  join snapshot so every client renders the right model for every player from the start.
+- Weapon choice is switchable anytime while playing: a key/UI switches the local weapon
+  recipe on demand, reloading the view-model and held-weapon mesh from the new recipe's
+  tuning; broadcast the change so remote clients swap the opponent's held weapon too.
+- Verify: pick different characters in two tabs at join and confirm each renders as
+  chosen on both ends; mid-match, switch weapons and confirm the local view-model and the
+  opponent's held weapon both swap to match, with grip/fire feel matching the new
+  weapon's own tuning (not the old one's).
+
+## 12. Server-authoritative combat
 - The shooter's own client owns hit detection (swept raycast, parent-chain walk to the
   tagged character root); on a hit it sends `hit` (shooter id, target id) to the server.
 - Server is sole damage authority: applies damage, discards hits on dead players,
@@ -132,7 +152,7 @@ hand) are at:
   lands at a new in-bounds point at full health/stamina, and confirm a hit landing right
   after death is discarded (no health dip on a corpse).
 
-## 12. Combat feedback + respawn/death reset
+## 13. Combat feedback + respawn/death reset
 - Hit marker: brief, shooter-only.
 - Directional damage indicator: arc angle from the victim's facing toward the attacker's
   last known position, driven by the attacker id on damage `health` updates.
@@ -146,7 +166,7 @@ hand) are at:
   confirm flinch decays without stacking indefinitely; die and respawn repeatedly and
   confirm no residual sway/recoil/flinch survives a respawn.
 
-## 13. UI
+## 14. UI
 - Health/stamina bars, width = percentage, driven only by server `health` and local
   stamina state.
 - Kill feed: corner-anchored "killer x victim" line per `death`, self-expiring.
@@ -157,7 +177,7 @@ hand) are at:
   click still re-acquires pointer lock; trade a few kills/deaths across two tabs and
   confirm the feed populates and entries expire.
 
-## 14. Pitfalls hardening pass
+## 15. Pitfalls hardening pass
 - Walk the full Pitfalls list in REQUIREMENTS.md against the running build:
   frame-delta clamp under tab-out/in, input clear on blur/pointer-lock loss, hit
   raycasts walking the parent chain, the two weapon render paths (view-model vs

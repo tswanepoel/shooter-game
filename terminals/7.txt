@@ -1,7 +1,0 @@
----
-pid: 0
-cwd: "c:\Users\Theunis\repos\shooter-game"
-command: "cd \"c:\\Users\\Theunis\\repos\\shooter-game\\server\" && dotnet run --launch-profile http"
-started_at: 2026-07-05T15:07:18.431Z
-running_for_ms: 0        
----

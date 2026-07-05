@@ -3,3 +3,6 @@ server/obj/
 
 # Live aim debug dumps from vite dev (client POSTs while HUD is open)
 /debug/
+
+# Local terminal session snapshots (editor tooling)
+/terminals/

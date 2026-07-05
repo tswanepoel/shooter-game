@@ -1,7 +1,0 @@
----
-pid: 0
-cwd: "c:\Users\Theunis\repos\shooter-game"
-command: "dotnet run --project \"c:\\Users\\Theunis\\repos\\shooter-game\\server\\Server.csproj\""
-started_at: 2026-07-05T07:26:32.606Z
-running_for_ms: 0        
----

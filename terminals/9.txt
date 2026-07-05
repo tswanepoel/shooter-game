@@ -1,7 +1,0 @@
----
-pid: 0
-cwd: "c:\Users\Theunis\repos\shooter-game"
-command: "cd \"c:\\Users\\Theunis\\repos\\shooter-game\\client\" && npx vite --host --port 5199"
-started_at: 2026-07-05T16:39:39.173Z
-running_for_ms: 0        
----

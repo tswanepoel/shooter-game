@@ -19,3 +19,5 @@ export const MAX_PITCH = Math.PI / 2 - 0.01;
 
 export const GRAVITY = -20;
 export const JUMP_SPEED = 8;
+
+export const CROSSHAIR_DISTANCE = 20;

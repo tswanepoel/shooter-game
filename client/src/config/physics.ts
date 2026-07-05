@@ -11,7 +11,7 @@ export const STAMINA = {
   max: 100,
   drainPerSecond: 25,
   recoverPerSecond: 15,
-  enterFloor: 15,
+  enterFloor: 30,
 } as const;
 
 export const MOUSE_SENSITIVITY = 0.0025;

@@ -6,7 +6,7 @@ Tracked tuning, polish, and feature gaps.
 
 - [x] **1. Gravity too weak** — players float too long when jumping.
 - [x] **2. Jump too high** — reduce launch height slightly.
-- [ ] **3. Stamina re-entry too soon** — wait longer after exhaustion before sprint can re-enter.
+- [x] **3. Stamina re-entry too soon** — wait longer after exhaustion before sprint can re-enter.
 
 ## Aim & camera feel
 
@@ -39,7 +39,7 @@ Tracked tuning, polish, and feature gaps.
 
 ## Combat tuning
 
-- [ ] **16. TTK too fast** — time-to-kill feels too quick; tune damage, fire rate, or health.
+- [x] **16. TTK too fast** — time-to-kill feels too quick; tune damage, fire rate, or health.
 - [x] **25. Health regen pacing** — longer quiet period after damage before regen starts; faster recovery once it kicks in (`combat.ts` / `GameConfig.cs`).
 
 ## Input & weapons (future)

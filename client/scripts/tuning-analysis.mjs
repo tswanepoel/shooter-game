@@ -1,80 +1,72 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { deg, loadStreamFrames } from "./lib/read-record.mjs";
 
-const file = path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.."), "debug/record.jsonl");
-const rows = fs
-  .readFileSync(file, "utf8")
-  .trim()
-  .split("\n")
-  .map((l) => JSON.parse(l))
-  .filter((f) => f.session?.phase === "stream")
-  .map((f, i, arr) => {
-    const t = new Date(f.capturedAt).getTime();
-    const prev = i > 0 ? new Date(arr[i - 1].capturedAt).getTime() : t;
-    return {
-      dt: i > 0 ? (t - prev) / 1000 : 0,
-      target: f.aim.mouseTarget.yawRad,
-      offset: f.aim.crosshairOffset.yawRad,
-      inputSpeed: f.aim.inputSpeedRadPerSec,
-      torsoRate: f.aim.chaseRates.torso,
-      headRate: f.aim.chaseRates.head,
-    };
-  });
+const frames = loadStreamFrames();
+const yaw = frames.map((f) => ({
+  sessionId: f.session.id,
+  seq: f.session.seq,
+  target: deg(f.targetYawDeg),
+  head: deg(f.headYawDeg),
+  torso: deg(f.torsoYawDeg),
+  offset: deg(f.offsetYawDeg),
+  offsetDeg: f.offsetYawDeg,
+  yawSpeed: f.yawSpeedRadPerSec,
+  inputSpeed: f.inputSpeedRadPerSec,
+}));
 
-const flat = [];
-for (let i = 1; i < rows.length; i++) {
-  if (Math.abs(rows[i].target - rows[i - 1].target) < 1e-6) {
-    flat.push({
-      dOffsetDeg: ((rows[i].offset - rows[i - 1].offset) * 180) / Math.PI,
-      inputSpeed: rows[i].inputSpeed,
-      torsoRate: rows[i].torsoRate,
-      dtMs: rows[i].dt * 1000,
-    });
+let minTarget = Infinity;
+let maxTarget = -Infinity;
+for (const f of yaw) {
+  minTarget = Math.min(minTarget, f.target);
+  maxTarget = Math.max(maxTarget, f.target);
+}
+
+const dOffset = [];
+for (let i = 1; i < yaw.length; i++) dOffset.push(yaw[i].offset - yaw[i - 1].offset);
+
+let signReversals = 0;
+for (let i = 1; i < dOffset.length; i++) {
+  if (dOffset[i] * dOffset[i - 1] < 0 && Math.abs(dOffset[i]) > 1e-4 && Math.abs(dOffset[i - 1]) > 1e-4) {
+    signReversals++;
   }
 }
 
-const input = [];
-for (let i = 1; i < rows.length; i++) {
-  if (Math.abs(rows[i].target - rows[i - 1].target) > 1e-4) {
-    input.push({
-      dOffsetDeg: ((rows[i].offset - rows[i - 1].offset) * 180) / Math.PI,
-      inputSpeed: rows[i].inputSpeed,
-      torsoRate: rows[i].torsoRate,
-    });
-  }
+let mismatches = 0;
+for (let i = 1; i < yaw.length; i++) {
+  const dT = yaw[i].target - yaw[i - 1].target;
+  const dO = yaw[i].offset - yaw[i - 1].offset;
+  if (Math.abs(dT) > 0.001 && dT * dO < -1e-5) mismatches++;
 }
 
-function avg(arr, key) {
-  return arr.reduce((s, x) => s + x[key], 0) / Math.max(1, arr.length);
-}
-
-function chaseStep(rate, dt) {
-  return 1 - Math.exp(-rate * dt);
-}
-
-const dt = avg(flat, "dtMs") / 1000;
-const avgTorsoLaggy = avg(flat, "torsoRate");
-const avgInputTorsoRate = avg(input, "torsoRate");
+const peak = yaw.toSorted((a, b) => Math.abs(b.offset) - Math.abs(a.offset)).slice(0, 5);
+const start = yaw.findIndex((f) => Math.abs(f.target - yaw[0].target) > 0.01);
 
 console.log(
   JSON.stringify(
     {
-      flatGapFrames: flat.length,
-      avgGapDropDeg: Number(avg(flat, "dOffsetDeg").toFixed(3)),
-      avgGapTorsoChaseRate: Number(avgTorsoLaggy.toFixed(1)),
-      avgInputTorsoChaseRate: Number(avgInputTorsoRate.toFixed(1)),
-      avgDtMs: Number((dt * 1000).toFixed(2)),
-      theoreticalOneFrameCatchFraction: {
-        atCurrentLaggy18: Number(chaseStep(18, dt).toFixed(4)),
-        atLaggy12: Number(chaseStep(12, dt).toFixed(4)),
-        atLaggy24: Number(chaseStep(24, dt).toFixed(4)),
-        atSnappy78: Number(chaseStep(78, dt).toFixed(4)),
-      },
-      inputFramesOffsetRosePct: Number(
-        ((input.filter((x) => x.dOffsetDeg > 0).length / input.length) * 100).toFixed(1),
-      ),
-      flatFramesInputSpeedAvg: Number(avg(flat, "inputSpeed").toFixed(2)),
+      sessionId: frames[0]?.session?.id,
+      streamFrames: yaw.length,
+      targetYawDeg: { min: (minTarget * 180) / Math.PI, max: (maxTarget * 180) / Math.PI },
+      offsetSignReversals: signReversals,
+      targetOffsetOppositeSteps: mismatches,
+      peakFrames: peak.map((p) => ({
+        seq: p.seq,
+        targetDeg: (p.target * 180) / Math.PI,
+        offsetDeg: p.offsetDeg,
+        headDeg: (p.head * 180) / Math.PI,
+        torsoDeg: (p.torso * 180) / Math.PI,
+        yawSpeed: p.yawSpeed,
+      })),
+      turnWindow:
+        start >= 0
+          ? yaw.slice(start, start + 15).map((f, i, arr) => ({
+              seq: f.seq,
+              targetDeg: Number(((f.target * 180) / Math.PI).toFixed(1)),
+              offsetDeg: Number(f.offsetDeg.toFixed(2)),
+              dOffsetDeg: i > 0 ? Number((((f.offset - arr[i - 1].offset) * 180) / Math.PI).toFixed(3)) : 0,
+              torsoDeg: Number(((f.torso * 180) / Math.PI).toFixed(1)),
+              yawSpeed: Number(f.yawSpeed.toFixed(0)),
+            }))
+          : null,
     },
     null,
     2,

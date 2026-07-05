@@ -19,7 +19,7 @@ function writeSnapshot(body) {
     }
 
     const recordPath = path.join(debugDir, "record.jsonl");
-    if (parsed.session?.phase === "start" && parsed.session.seq === 0) {
+    if (parsed.session?.phase === "start") {
       fs.writeFileSync(recordPath, `${body}\n`);
     } else {
       fs.appendFileSync(recordPath, `${body}\n`);

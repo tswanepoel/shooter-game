@@ -1,76 +1,57 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { deg, loadStreamFrames, withTiming } from "./lib/read-record.mjs";
 
-const file = path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.."), "debug/record.jsonl");
-const rows = fs
-  .readFileSync(file, "utf8")
-  .trim()
-  .split("\n")
-  .map((l) => JSON.parse(l))
-  .filter((f) => f.session?.phase === "stream")
-  .map((f, i, arr) => ({
-    t: new Date(f.capturedAt).getTime(),
-    target: f.aim.mouseTarget.yawRad,
-    yawSpeed: f.aim.yawSpeedRadPerSec,
-    prevTarget: i > 0 ? arr[i - 1].aim.mouseTarget.yawRad : f.aim.mouseTarget.yawRad,
-  }));
+const rows = withTiming(loadStreamFrames(), (f, _i, _arr, { dtMs }) => ({
+  dt: dtMs / 1000,
+  target: deg(f.targetYawDeg),
+  offset: deg(f.offsetYawDeg),
+  inputSpeed: f.inputSpeedRadPerSec,
+  torsoRate: f.chaseTorso,
+}));
 
-const durationMs = rows.at(-1).t - rows[0].t;
-const renderHz = (rows.length / durationMs) * 1000;
-
-let inputFrames = 0;
-let gapFrames = 0;
-const gapLengths = [];
-let currentGap = 0;
-const inputIntervals = [];
-let lastInputT = null;
-
+const flat = [];
 for (let i = 1; i < rows.length; i++) {
-  const changed = Math.abs(rows[i].target - rows[i - 1].target) > 1e-6;
-  if (changed) {
-    inputFrames++;
-    if (lastInputT !== null) inputIntervals.push(rows[i].t - lastInputT);
-    lastInputT = rows[i].t;
-    if (currentGap > 0) {
-      gapLengths.push(currentGap);
-      currentGap = 0;
-    }
-  } else {
-    gapFrames++;
-    currentGap++;
+  if (Math.abs(rows[i].target - rows[i - 1].target) < 1e-6) {
+    flat.push({
+      dOffsetDeg: ((rows[i].offset - rows[i - 1].offset) * 180) / Math.PI,
+      inputSpeed: rows[i].inputSpeed,
+      torsoRate: rows[i].torsoRate,
+      dtMs: rows[i].dt * 1000,
+    });
   }
 }
 
-const sortedIntervals = inputIntervals.toSorted((a, b) => a - b);
-const medianInputInterval =
-  sortedIntervals[Math.floor(sortedIntervals.length / 2)] ?? 0;
+const input = [];
+for (let i = 1; i < rows.length; i++) {
+  if (Math.abs(rows[i].target - rows[i - 1].target) > 1e-4) {
+    input.push({
+      dOffsetDeg: ((rows[i].offset - rows[i - 1].offset) * 180) / Math.PI,
+      torsoRate: rows[i].torsoRate,
+    });
+  }
+}
+
+function avg(arr, key) {
+  return arr.reduce((s, x) => s + x[key], 0) / Math.max(1, arr.length);
+}
+
+function chaseStep(rate, dt) {
+  return 1 - Math.exp(-rate * dt);
+}
+
+const dt = avg(flat, "dtMs") / 1000;
 
 console.log(
   JSON.stringify(
     {
-      recordingDurationMs: durationMs,
-      renderFrames: rows.length,
-      renderHz: Number(renderHz.toFixed(1)),
-      framesWithMouseInput: inputFrames,
-      framesWithNoInput: gapFrames,
-      effectiveInputApplicationHz: Number(((inputFrames / durationMs) * 1000).toFixed(1)),
-      pctRenderFramesWithInput: Number(((inputFrames / (rows.length - 1)) * 100).toFixed(1)),
-      gapLengthFrames: {
-        min: gapLengths.length ? Math.min(...gapLengths) : 0,
-        max: gapLengths.length ? Math.max(...gapLengths) : 0,
-        avg: gapLengths.length
-          ? Number((gapLengths.reduce((a, b) => a + b, 0) / gapLengths.length).toFixed(2))
-          : 0,
-        count: gapLengths.length,
+      flatGapFrames: flat.length,
+      avgGapDropDeg: Number(avg(flat, "dOffsetDeg").toFixed(3)),
+      avgGapTorsoChaseRate: Number(avg(flat, "torsoRate").toFixed(1)),
+      avgInputTorsoChaseRate: Number(avg(input, "torsoRate").toFixed(1)),
+      avgDtMs: Number((dt * 1000).toFixed(2)),
+      theoreticalOneFrameCatchFraction: {
+        atLaggy18: Number(chaseStep(18, dt).toFixed(4)),
+        atLaggy12: Number(chaseStep(12, dt).toFixed(4)),
       },
-      msBetweenInputFrames: {
-        median: medianInputInterval,
-        min: sortedIntervals[0] ?? 0,
-        p90: sortedIntervals[Math.floor(sortedIntervals.length * 0.9)] ?? 0,
-        impliedHz: medianInputInterval > 0 ? Number((1000 / medianInputInterval).toFixed(1)) : 0,
-      },
-      note: "Post-fix: at most one targetYaw step per render frame. Raw mousemove Hz is not logged; this is effective sim input rate.",
     },
     null,
     2,

@@ -1,0 +1,7 @@
+---
+pid: 0
+cwd: "c:\Users\Theunis\repos\shooter-game"
+command: "cd \"c:\\Users\\Theunis\\repos\\shooter-game\\client\" && node scripts/debug-relay.mjs"
+started_at: 2026-07-05T16:44:49.771Z
+running_for_ms: 0        
+---

@@ -24,27 +24,37 @@ export interface AimAngles {
   pitchDeg: number;
 }
 
-function angles(yaw: number, pitch: number): AimAngles {
-  return {
-    yawRad: yaw,
-    pitchRad: pitch,
-    yawDeg: yaw * RAD_TO_DEG,
-    pitchDeg: pitch * RAD_TO_DEG,
-  };
-}
-
-function row(label: string, yaw: number, pitch: number, note?: string): string {
-  const yawDeg = (yaw * RAD_TO_DEG).toFixed(1);
-  const pitchDeg = (pitch * RAD_TO_DEG).toFixed(1);
-  const suffix = note ? `  ${note}` : "";
-  return `${label.padEnd(16)} yaw ${yawDeg.padStart(7)}°   pitch ${pitchDeg.padStart(7)}°${suffix}`;
+export interface AimDebugSession {
+  id: string;
+  seq: number;
+  phase: DebugSessionPhase;
 }
 
 export type DebugSessionPhase = "start" | "stream" | "end";
 
-export interface AimDebugSnapshot {
+/** Lean per-frame line for record.jsonl — grep/jq friendly, no repeated config. */
+export interface AimDebugStreamFrame {
   capturedAt: string;
-  session: { seq: number; phase: DebugSessionPhase };
+  session: AimDebugSession;
+  targetYawDeg: number;
+  targetPitchDeg: number;
+  offsetYawDeg: number;
+  offsetPitchDeg: number;
+  torsoYawDeg: number;
+  headYawDeg: number;
+  armPitchDeg: number;
+  inputSpeedRadPerSec: number;
+  yawSpeedRadPerSec: number;
+  pitchSpeedRadPerSec: number;
+  chaseHead: number;
+  chaseTorso: number;
+  chaseArm: number;
+}
+
+/** Full context once per recording (phase start). */
+export interface AimDebugSessionStart {
+  capturedAt: string;
+  session: AimDebugSession;
   formatted: string;
   player: {
     alive: boolean;
@@ -82,6 +92,24 @@ export interface AimDebugSnapshot {
   };
 }
 
+export type AimDebugSnapshot = AimDebugSessionStart | AimDebugStreamFrame;
+
+function angles(yaw: number, pitch: number): AimAngles {
+  return {
+    yawRad: yaw,
+    pitchRad: pitch,
+    yawDeg: yaw * RAD_TO_DEG,
+    pitchDeg: pitch * RAD_TO_DEG,
+  };
+}
+
+function row(label: string, yaw: number, pitch: number, note?: string): string {
+  const yawDeg = (yaw * RAD_TO_DEG).toFixed(1);
+  const pitchDeg = (pitch * RAD_TO_DEG).toFixed(1);
+  const suffix = note ? `  ${note}` : "";
+  return `${label.padEnd(16)} yaw ${yawDeg.padStart(7)}°   pitch ${pitchDeg.padStart(7)}°${suffix}`;
+}
+
 export function formatAimDebugHud(state: AimCascadeState, streamLine?: string): string {
   const delta = armAimDelta(state);
   const rates = aimChaseRates(state.smoothedInputSpeed);
@@ -89,7 +117,7 @@ export function formatAimDebugHud(state: AimCascadeState, streamLine?: string): 
   const lagTotals = laggedShareTotals();
 
   return [
-    "Aim chain  (` toggle · C copy · streams debug/ while open)",
+    "Aim chain  (` show/hide · hold . record · C copy)",
     row("Mouse target", state.targetYaw, state.targetPitch),
     row("Eyes / camera", state.targetYaw, state.targetPitch, "(instant)"),
     row("Head", state.headYaw, state.headPitch, "(lags eyes)"),
@@ -107,11 +135,34 @@ export function formatAimDebugHud(state: AimCascadeState, streamLine?: string): 
     .join("\n");
 }
 
-export function captureAimDebugSnapshot(
-  state: AimCascadeState = localPlayer,
-  session: { seq: number; phase: DebugSessionPhase },
+function captureStreamFrame(state: AimCascadeState, session: AimDebugSession): AimDebugStreamFrame {
+  const delta = armAimDelta(state);
+  const rates = aimChaseRates(state.smoothedInputSpeed);
+
+  return {
+    capturedAt: new Date().toISOString(),
+    session,
+    targetYawDeg: state.targetYaw * RAD_TO_DEG,
+    targetPitchDeg: state.targetPitch * RAD_TO_DEG,
+    offsetYawDeg: delta.yaw * RAD_TO_DEG,
+    offsetPitchDeg: delta.pitch * RAD_TO_DEG,
+    torsoYawDeg: state.torsoYaw * RAD_TO_DEG,
+    headYawDeg: state.headYaw * RAD_TO_DEG,
+    armPitchDeg: state.armPitch * RAD_TO_DEG,
+    inputSpeedRadPerSec: state.smoothedInputSpeed,
+    yawSpeedRadPerSec: state.smoothedYawSpeed,
+    pitchSpeedRadPerSec: state.smoothedPitchSpeed,
+    chaseHead: rates.head,
+    chaseTorso: rates.torso,
+    chaseArm: rates.arm,
+  };
+}
+
+function captureSessionStart(
+  state: AimCascadeState,
+  session: AimDebugSession,
   streamLine?: string,
-): AimDebugSnapshot {
+): AimDebugSessionStart {
   const delta = armAimDelta(state);
   const rates = aimChaseRates(state.smoothedInputSpeed);
   const armTarget = armPitchTarget(state.targetPitch);
@@ -149,4 +200,19 @@ export function captureAimDebugSnapshot(
       maxPitchDeg: MAX_PITCH * RAD_TO_DEG,
     },
   };
+}
+
+export function captureAimDebugSnapshot(
+  state: AimCascadeState = localPlayer,
+  session: AimDebugSession,
+  streamLine?: string,
+): AimDebugSnapshot {
+  if (session.phase === "start") {
+    return captureSessionStart(state, session, streamLine);
+  }
+  return captureStreamFrame(state, session);
+}
+
+export function snapshotFormatted(snapshot: AimDebugSnapshot): string | undefined {
+  return "formatted" in snapshot ? snapshot.formatted : undefined;
 }

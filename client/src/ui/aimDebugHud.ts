@@ -64,15 +64,20 @@ export function createAimDebugHud(): AimDebugHud {
   document.body.appendChild(element);
 
   let visible = false;
+  let recording = false;
   let copiedUntil = 0;
   let sessionSeq = 0;
+  let sessionId = "";
 
   function streamLine(): string {
+    if (!recording) {
+      return "Record             hold . while open → debug/latest.json + record.jsonl";
+    }
     const status = debugStreamStatus();
     if (status.ok) {
-      return `Stream             OK · frame ${sessionSeq} → debug/latest.json + record.jsonl`;
+      return `Record             ON · ${sessionId.slice(0, 8)} · frame ${sessionSeq}`;
     }
-    return `Stream             OFFLINE (${status.error})`;
+    return `Record             ON · OFFLINE (${status.error})`;
   }
 
   function hudText(phase: DebugSessionPhase = "stream"): string {
@@ -97,21 +102,38 @@ export function createAimDebugHud(): AimDebugHud {
   }
 
   function publishSnapshot(phase: DebugSessionPhase): void {
-    publishAimDebugSnapshot(captureAimDebugSnapshot(localPlayer, { seq: sessionSeq, phase }, streamLine()));
+    publishAimDebugSnapshot(
+      captureAimDebugSnapshot(
+        localPlayer,
+        { id: sessionId, seq: sessionSeq, phase },
+        phase === "start" ? streamLine() : undefined,
+      ),
+    );
     if (phase !== "end") sessionSeq += 1;
   }
 
+  function stopRecording(): void {
+    if (!recording) return;
+    recording = false;
+    publishSnapshot("end");
+    if (visible) setHudText(hudText("end"));
+  }
+
+  function startRecording(): void {
+    if (!visible || recording) return;
+    recording = true;
+    sessionId = crypto.randomUUID();
+    sessionSeq = 0;
+    setHudText(hudText("start"));
+    publishSnapshot("start");
+  }
+
   async function copyHud(): Promise<void> {
-    const snapshot = captureAimDebugSnapshot(
-      localPlayer,
-      { seq: sessionSeq, phase: "stream" },
-      streamLine(),
-    );
-    if (await copyText(snapshot.formatted)) {
+    const text = formatAimDebugHud(localPlayer, streamLine());
+    if (await copyText(text)) {
       copiedUntil = performance.now() + 1200;
       setHudText(hudText());
       selectAll();
-      publishSnapshot("stream");
     }
   }
 
@@ -132,7 +154,7 @@ export function createAimDebugHud(): AimDebugHud {
 
   bus.on("aimDebugToggled", () => {
     if (visible) {
-      publishSnapshot("end");
+      stopRecording();
       visible = false;
       element.style.display = "none";
       element.style.pointerEvents = "none";
@@ -140,19 +162,25 @@ export function createAimDebugHud(): AimDebugHud {
     }
 
     visible = true;
-    sessionSeq = 0;
     element.style.display = "block";
     element.style.pointerEvents = "auto";
-    setHudText(hudText("start"));
+    setHudText(hudText());
     selectAll();
-    publishSnapshot("start");
+  });
+
+  bus.on("aimDebugRecordStarted", () => {
+    startRecording();
+  });
+
+  bus.on("aimDebugRecordStopped", () => {
+    stopRecording();
   });
 
   return {
     update(): void {
       if (!visible) return;
       setHudText(hudText());
-      publishSnapshot("stream");
+      if (recording) publishSnapshot("stream");
     },
   };
 }

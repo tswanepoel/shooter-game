@@ -109,34 +109,6 @@ Every message is JSON with a `type` field. One catalog, one place:
   observed height is unreliable because ordinary movement noise crosses any threshold
   you'd pick.
 
-## Aim Cascade
-
-Three orientation values (head, gun, torso) as unwrapped angles — never wrapped or
-normalized, or interpolation breaks at the seam:
-
-- **Head** is raw mouse input, instant. The camera renders from it directly.
-- **Gun** and **torso** each chase the head independently and in parallel — neither is
-  chained through the other. The gun is simply faster. Chasing is exponential approach,
-  frame-rate compensated.
-- The crosshair and the fired-bullet direction both derive from the gun's orientation,
-  never the camera's. If bullets read the camera while feedback effects kick it, the
-  crosshair diverges from where already-fired rounds are actually going.
-- The crosshair is not screen-fixed: each frame, project a point along the gun direction
-  through the camera and place the crosshair there.
-- The local weapon view-model composes two separable effects:
-  - Rotation = gun-minus-head: the fast, small wrist correction. It must match the true
-    fire direction exactly.
-  - Position (shoulder swing) = translation, not rotation, driven by head-minus-torso lag.
-    Sign check: a fast turn swings the gun *opposite* the turn (trailing), easing back to
-    center. Same-direction swing means the sign is inverted.
-  - Recoil is its own additional offset on top of both.
-- Remote players run the same cascade locally and deterministically from the periodic
-  orientation updates (head orientation only) — each client reconstructs gun and torso
-  identically from the same input.
-  - Account for the rig's authored rest orientation when mapping cascade angles onto nodes.
-  - Initialize a new remote's cascade to its first received orientation, not zero — else a
-    visible snap-from-zero pop.
-
 ## Weapon / Firing
 
 - Fully automatic: holding the left mouse button fires at a fixed cadence, gated on

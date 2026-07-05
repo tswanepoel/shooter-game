@@ -6,7 +6,13 @@
   "scripts": {
     "dev": "node scripts/dev.mjs",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "analyze:record": "node scripts/analyze-record.mjs",
+    "analyze:jitter": "node scripts/compare-jitter.mjs",
+    "analyze:ceiling": "node scripts/frame-ceiling.mjs",
+    "analyze:mouse": "node scripts/mouse-rate.mjs",
+    "analyze:tuning": "node scripts/tuning-analysis.mjs",
+    "analyze:all": "npm run analyze:record && npm run analyze:jitter && npm run analyze:ceiling && npm run analyze:mouse && npm run analyze:tuning"
   },
   "devDependencies": {
     "@types/three": "^0.185.0",

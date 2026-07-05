@@ -1,20 +1,11 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { deg, loadStreamFrames } from "./lib/read-record.mjs";
 
-const file = path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.."), "debug/record.jsonl");
-const y = fs
-  .readFileSync(file, "utf8")
-  .trim()
-  .split("\n")
-  .map((l) => JSON.parse(l))
-  .filter((f) => f.session?.phase === "stream")
-  .map((f) => ({
-    seq: f.session.seq,
-    target: f.aim.mouseTarget.yawRad,
-    offset: f.aim.crosshairOffset.yawRad,
-    ys: f.aim.yawSpeedRadPerSec,
-  }));
+const y = loadStreamFrames().map((f) => ({
+  seq: f.session.seq,
+  target: deg(f.targetYawDeg),
+  offset: deg(f.offsetYawDeg),
+  ys: f.yawSpeedRadPerSec,
+}));
 
 let reversals = 0;
 let flatDrops = 0;

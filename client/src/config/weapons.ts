@@ -14,7 +14,7 @@ export const VIEW_MODEL_OFFSET = { x: 0.25, y: -0.2, z: -0.5 } as const;
 export const VIEW_MODEL_SWING_SCALE = 0.4;
 
 // How eagerly the torso chases the head; part of this weapon's handling feel.
-export const TORSO_CHASE_RATE = 6;
+export const TORSO_CHASE_RATE = 12;
 
 // Gun-chase rate is gap-dependent, not constant: near zero gap it snaps almost
 // instantly (careful slow aim reads as rock-steady), and only eases toward the
@@ -39,6 +39,6 @@ export const BULLET_LENGTH = 0.12;
 export const BULLET_FORWARD_AXIS = { x: 0, y: 1, z: 0 } as const;
 
 // Weapon-mesh-only recoil; must never feed the camera or the fire direction.
-export const RECOIL_KICK_DISTANCE = 0.06;
-export const RECOIL_KICK_PITCH = 0.05;
+export const RECOIL_KICK_DISTANCE = 0.015;
+export const RECOIL_KICK_PITCH = 0.01;
 export const RECOIL_DECAY_RATE = 8;

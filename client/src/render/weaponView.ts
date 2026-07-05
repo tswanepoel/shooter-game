@@ -35,7 +35,7 @@ export async function loadWeaponViewModel(camera: THREE.Camera): Promise<WeaponV
   ).normalize();
   const baseOrientation = new THREE.Quaternion().setFromUnitVectors(
     authoredForward,
-    new THREE.Vector3(0, 0, -1),
+    new THREE.Vector3(0, 0, 1),
   );
 
   camera.add(weapon);
@@ -60,7 +60,7 @@ export async function loadWeaponViewModel(camera: THREE.Camera): Promise<WeaponV
     const swingPitch = localPlayer.headPitch - localPlayer.torsoPitch;
 
     weapon.position.set(
-      VIEW_MODEL_OFFSET.x - swingYaw * VIEW_MODEL_SWING_SCALE,
+      VIEW_MODEL_OFFSET.x + swingYaw * VIEW_MODEL_SWING_SCALE,
       VIEW_MODEL_OFFSET.y - swingPitch * VIEW_MODEL_SWING_SCALE,
       VIEW_MODEL_OFFSET.z + recoil * RECOIL_KICK_DISTANCE,
     );

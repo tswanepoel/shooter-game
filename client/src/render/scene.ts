@@ -17,6 +17,7 @@ export function createScene(): SceneContext {
     1000,
   );
   camera.rotation.order = "YXZ";
+  scene.add(camera);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);

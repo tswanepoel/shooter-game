@@ -1,4 +1,5 @@
 import type * as THREE from "three";
+import { localPlayer } from "../state/world.ts";
 import { applyAimScreenPosition, projectGunAimToScreen } from "../ui/aimScreen.ts";
 
 export interface Crosshair {
@@ -19,6 +20,11 @@ export function createCrosshair(): Crosshair {
   document.body.appendChild(element);
 
   function update(camera: THREE.Camera): void {
+    if (!localPlayer.alive) {
+      element.style.display = "none";
+      return;
+    }
+    element.style.display = "block";
     applyAimScreenPosition(element, projectGunAimToScreen(camera));
   }
 

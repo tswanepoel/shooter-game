@@ -1,6 +1,7 @@
 import { bus } from "../bus.ts";
 import { HEALTH } from "../config/combat.ts";
 import { STAMINA } from "../config/physics.ts";
+import { snapCascadeToTarget } from "./aimCascade.ts";
 import { localPlayer, localPlayerId, remotePlayers } from "../state/world.ts";
 
 export function initHealth(): void {
@@ -40,6 +41,8 @@ export function initHealth(): void {
       localPlayer.velocityY = 0;
       localPlayer.grounded = true;
       localPlayer.horizontalSpeed = 0;
+      localPlayer.targetPitch = 0;
+      snapCascadeToTarget(localPlayer);
       bus.emit("feedbackReset", undefined);
       return;
     }

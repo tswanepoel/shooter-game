@@ -1,22 +1,22 @@
 import { bus } from "../bus.ts";
+import { getWeaponRecipe } from "../config/weapons.ts";
 import { GRAVITY, JUMP_SPEED, REMOTE_POSITION_LERP_RATE } from "../config/physics.ts";
 import { remotePlayers } from "../state/world.ts";
-import { tickCascade } from "./aimCascade.ts";
+import { snapCascadeToTarget, tickCascade } from "./aimCascade.ts";
 
 bus.on("positionReceived", (message) => {
   const remote = remotePlayers.get(message.id);
   if (!remote) return;
 
+  remote.targetYaw = message.yaw;
+  remote.targetPitch = message.pitch;
+
   if (!remote.cascadeInitialized) {
     // Roster/join snapshots carry a placeholder orientation (the server
     // never tracks it); the first real pos update is the true starting
-    // orientation, so snap all three angles to it instead of chasing there.
-    remote.headYaw = remote.gunYaw = remote.torsoYaw = message.yaw;
-    remote.headPitch = remote.gunPitch = remote.torsoPitch = message.pitch;
+    // orientation, so snap all cascade layers to it instead of chasing there.
+    snapCascadeToTarget(remote);
     remote.cascadeInitialized = true;
-  } else {
-    remote.headYaw = message.yaw;
-    remote.headPitch = message.pitch;
   }
 
   if (remote.timeSinceLastPos > 0) {
@@ -60,6 +60,6 @@ export function tickRemoteSync(dt: number): void {
       }
     }
 
-    tickCascade(remote, dt);
+    tickCascade(remote, dt, getWeaponRecipe(remote.weaponId));
   }
 }

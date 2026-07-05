@@ -10,12 +10,16 @@ export interface PlayerSnapshot {
   yaw: number;
   pitch: number;
   alive: boolean;
+  characterId: string;
+  weaponId: string;
 }
 
 export interface WelcomeMessage {
   type: "welcome";
   id: string;
   position: Vector3;
+  characterId: string;
+  weaponId: string;
   roster: PlayerSnapshot[];
 }
 
@@ -26,6 +30,8 @@ export interface JoinMessage {
   yaw: number;
   pitch: number;
   alive: boolean;
+  characterId: string;
+  weaponId: string;
 }
 
 export interface LeaveMessage {
@@ -51,8 +57,27 @@ export interface FireMessage {
   id: string;
 }
 
-export type ServerMessage = WelcomeMessage | JoinMessage | LeaveMessage | PosMessage | JumpMessage | FireMessage;
-export type ClientMessage = PosMessage | JumpMessage | FireMessage;
+export interface WeaponMessage {
+  type: "weapon";
+  id: string;
+  weaponId: string;
+}
+
+export interface SelectMessage {
+  type: "select";
+  characterId: string;
+}
+
+export type ServerMessage =
+  | WelcomeMessage
+  | JoinMessage
+  | LeaveMessage
+  | PosMessage
+  | JumpMessage
+  | FireMessage
+  | WeaponMessage;
+
+export type ClientMessage = SelectMessage | PosMessage | JumpMessage | FireMessage | WeaponMessage;
 
 export function decodeServerMessage(raw: string): ServerMessage | undefined {
   const parsed: unknown = JSON.parse(raw);

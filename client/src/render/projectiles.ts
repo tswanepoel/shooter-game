@@ -1,26 +1,30 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { BULLET_FORWARD_AXIS, BULLET_LENGTH, BULLET_MODEL_URL } from "../config/weapons.ts";
+import { getCurrentWeapon, type WeaponRecipe } from "../config/weapons.ts";
 import { projectiles } from "../state/world.ts";
 
 export interface ProjectileRenderer {
   update(): void;
+  dispose(): void;
 }
 
 const loader = new GLTFLoader();
 
-export async function createProjectileRenderer(scene: THREE.Scene): Promise<ProjectileRenderer> {
-  const gltf = await loader.loadAsync(BULLET_MODEL_URL);
+export async function createProjectileRenderer(
+  scene: THREE.Scene,
+  weapon: WeaponRecipe = getCurrentWeapon(),
+): Promise<ProjectileRenderer> {
+  const gltf = await loader.loadAsync(weapon.bulletModelUrl);
   const template = gltf.scene;
 
   template.updateMatrixWorld(true);
   const size = new THREE.Box3().setFromObject(template).getSize(new THREE.Vector3());
-  const scale = BULLET_LENGTH / Math.max(size.x, size.y, size.z);
+  const scale = weapon.bulletLength / Math.max(size.x, size.y, size.z);
 
   const authoredForward = new THREE.Vector3(
-    BULLET_FORWARD_AXIS.x,
-    BULLET_FORWARD_AXIS.y,
-    BULLET_FORWARD_AXIS.z,
+    weapon.bulletForwardAxis.x,
+    weapon.bulletForwardAxis.y,
+    weapon.bulletForwardAxis.z,
   ).normalize();
 
   const meshes = new Map<number, THREE.Object3D>();
@@ -54,5 +58,12 @@ export async function createProjectileRenderer(scene: THREE.Scene): Promise<Proj
     }
   }
 
-  return { update };
+  function dispose(): void {
+    for (const mesh of meshes.values()) {
+      scene.remove(mesh);
+    }
+    meshes.clear();
+  }
+
+  return { update, dispose };
 }

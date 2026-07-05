@@ -4,12 +4,24 @@ import { decodeServerMessage, type ClientMessage, type Vector3 } from "./wire.ts
 
 let socket: WebSocket | undefined;
 let localId: string | undefined;
+let pendingCharacterId: string | undefined;
 
-export function connect(): void {
-  // Derive the host from wherever the page was loaded from — hardcoding
-  // "localhost" breaks the moment the client is opened over LAN, since
-  // "localhost" then resolves to the browser's own machine, not the server.
-  socket = new WebSocket(`ws://${window.location.hostname}:${WS_PORT}${WS_PATH}`);
+export function connect(characterId: string): void {
+  pendingCharacterId = characterId;
+  const params = new URLSearchParams({ characterId });
+  socket = new WebSocket(
+    `ws://${window.location.hostname}:${WS_PORT}${WS_PATH}?${params}`,
+  );
+
+  socket.addEventListener("open", () => {
+    if (!pendingCharacterId) return;
+    send({ type: "select", characterId: pendingCharacterId });
+    pendingCharacterId = undefined;
+  });
+
+  socket.addEventListener("error", () => {
+    console.error("websocket connection failed — is the server running?");
+  });
 
   socket.addEventListener("message", (event) => {
     const message = decodeServerMessage(event.data);
@@ -19,10 +31,20 @@ export function connect(): void {
       case "welcome":
         localId = message.id;
         console.log("welcome", message);
+        if (!("characterId" in message) || !("weaponId" in message)) {
+          console.warn(
+            "welcome is missing characterId/weaponId — restart the server (dotnet run in server/)",
+          );
+        }
         bus.emit("welcomed", message);
         break;
       case "join":
         console.log("join", message);
+        if (!("characterId" in message) || !("weaponId" in message)) {
+          console.warn(
+            "join is missing characterId/weaponId — restart the server (dotnet run in server/)",
+          );
+        }
         bus.emit("playerJoined", message);
         break;
       case "leave":
@@ -38,11 +60,18 @@ export function connect(): void {
       case "fire":
         bus.emit("fireReceived", message);
         break;
+      case "weapon":
+        bus.emit("weaponReceived", message);
+        break;
     }
   });
 
   bus.on("jumpLaunched", () => sendIdOnly("jump"));
   bus.on("fired", () => sendIdOnly("fire"));
+  bus.on("weaponSwitched", ({ weaponId }) => {
+    if (!localId) return;
+    send({ type: "weapon", id: localId, weaponId });
+  });
 }
 
 export function sendPosition(position: Vector3, yaw: number, pitch: number): void {

@@ -1,72 +1,81 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { bus } from "../bus.ts";
-import {
-  RECOIL_DECAY_RATE,
-  RECOIL_KICK_DISTANCE,
-  RECOIL_KICK_PITCH,
-  VIEW_MODEL_OFFSET,
-  VIEW_MODEL_SWING_SCALE,
-  WEAPON_FORWARD_AXIS,
-  WEAPON_MODEL_URL,
-  WEAPON_SIZE,
-} from "../config/weapons.ts";
+import { getCurrentWeapon, type WeaponRecipe } from "../config/weapons.ts";
+import { gunAimDelta, shoulderPitch, viewPitch } from "../sim/aimCascade.ts";
 import { localPlayer } from "../state/world.ts";
 
 export interface WeaponViewModel {
   object: THREE.Object3D;
   update(dt: number): void;
+  dispose(): void;
 }
 
 const loader = new GLTFLoader();
 
-export async function loadWeaponViewModel(camera: THREE.Camera): Promise<WeaponViewModel> {
-  const gltf = await loader.loadAsync(WEAPON_MODEL_URL);
-  const weapon = gltf.scene;
+function disableFrustumCulling(root: THREE.Object3D): void {
+  root.traverse((node) => {
+    if (node instanceof THREE.Mesh) node.frustumCulled = false;
+  });
+}
 
-  weapon.updateMatrixWorld(true);
-  const size = new THREE.Box3().setFromObject(weapon).getSize(new THREE.Vector3());
-  weapon.scale.setScalar(WEAPON_SIZE / Math.max(size.x, size.y, size.z));
+export async function loadWeaponViewModel(
+  camera: THREE.Camera,
+  weapon: WeaponRecipe = getCurrentWeapon(),
+): Promise<WeaponViewModel> {
+  const gltf = await loader.loadAsync(weapon.modelUrl);
+  const mesh = gltf.scene;
+  disableFrustumCulling(mesh);
+
+  mesh.updateMatrixWorld(true);
+  const size = new THREE.Box3().setFromObject(mesh).getSize(new THREE.Vector3());
+  mesh.scale.setScalar(weapon.size / Math.max(size.x, size.y, size.z));
 
   const authoredForward = new THREE.Vector3(
-    WEAPON_FORWARD_AXIS.x,
-    WEAPON_FORWARD_AXIS.y,
-    WEAPON_FORWARD_AXIS.z,
+    weapon.forwardAxis.x,
+    weapon.forwardAxis.y,
+    weapon.forwardAxis.z,
   ).normalize();
-  const baseOrientation = new THREE.Quaternion().setFromUnitVectors(
-    authoredForward,
-    new THREE.Vector3(0, 0, 1),
-  );
+  mesh.quaternion.setFromUnitVectors(authoredForward, new THREE.Vector3(0, 0, 1));
 
-  camera.add(weapon);
+  const rig = new THREE.Group();
+  rig.rotation.order = "YXZ";
+  rig.add(mesh);
+  camera.add(rig);
 
   let recoil = 0;
-  bus.on("fired", () => {
+  const onFired = (): void => {
     recoil = 1;
-  });
-
-  const wristQuaternion = new THREE.Quaternion();
-  const wristEuler = new THREE.Euler(0, 0, 0, "YXZ");
+  };
+  bus.on("fired", onFired);
 
   function update(dt: number): void {
-    recoil *= Math.exp(-RECOIL_DECAY_RATE * dt);
+    recoil *= Math.exp(-weapon.recoilDecayRate * dt);
 
-    wristEuler.x = localPlayer.gunPitch - localPlayer.headPitch + recoil * RECOIL_KICK_PITCH;
-    wristEuler.y = localPlayer.gunYaw - localPlayer.headYaw;
-    wristQuaternion.setFromEuler(wristEuler);
-    weapon.quaternion.copy(wristQuaternion).multiply(baseOrientation);
+    const view = viewPitch(localPlayer);
+    const shoulder = shoulderPitch(localPlayer);
+    const eyeToGun = gunAimDelta(localPlayer);
+    const swing = weapon.viewModelSwingScale;
 
-    const swingYaw = localPlayer.headYaw - localPlayer.torsoYaw;
-    const swingPitch = localPlayer.headPitch - localPlayer.torsoPitch;
+    // Eye → gun: barrel matches crosshair aim (same delta crosshair uses).
+    rig.rotation.x = eyeToGun.pitch - recoil * weapon.recoilKickPitch;
+    rig.rotation.y = eyeToGun.yaw;
+    rig.rotation.z = 0;
 
-    weapon.position.set(
-      VIEW_MODEL_OFFSET.x + swingYaw * VIEW_MODEL_SWING_SCALE,
-      VIEW_MODEL_OFFSET.y - swingPitch * VIEW_MODEL_SWING_SCALE,
-      VIEW_MODEL_OFFSET.z + recoil * RECOIL_KICK_DISTANCE,
+    // Shoulder → eye: body lag slides the mount in frame (head/torso catch-up).
+    rig.position.set(
+      weapon.viewModelOffset.x + (localPlayer.targetYaw - localPlayer.torsoYaw) * swing,
+      weapon.viewModelOffset.y + (view - shoulder) * swing,
+      weapon.viewModelOffset.z + recoil * weapon.recoilKickDistance,
     );
+  }
+
+  function dispose(): void {
+    bus.off("fired", onFired);
+    camera.remove(rig);
   }
 
   update(0);
 
-  return { object: weapon, update };
+  return { object: rig, update, dispose };
 }

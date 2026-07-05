@@ -1,9 +1,7 @@
 import { bus } from "../bus.ts";
-import { EYE_HEIGHT } from "../config/characters.ts";
-import { FIRE_RATE, PROJECTILE_MAX_RANGE, PROJECTILE_SPEED } from "../config/weapons.ts";
+import { getCurrentCharacter } from "../config/characters.ts";
+import { getCurrentWeapon } from "../config/weapons.ts";
 import { localPlayer, projectiles, remotePlayers } from "../state/world.ts";
-
-const FIRE_INTERVAL = 1 / FIRE_RATE;
 
 let fireHeld = false;
 let controlEngaged = false;
@@ -28,31 +26,36 @@ bus.on("fireReceived", ({ id }) => {
   // Cosmetic only: the remote's own client owns hit authority for its shots.
   const remote = remotePlayers.get(id);
   if (!remote) return;
+  const { eyeHeight } = getCurrentCharacter();
   spawnProjectile(
-    { x: remote.position.x, y: remote.position.y + EYE_HEIGHT, z: remote.position.z },
+    { x: remote.position.x, y: remote.position.y + eyeHeight, z: remote.position.z },
     remote.gunYaw,
     remote.gunPitch,
   );
 });
 
 export function tickProjectiles(dt: number): void {
+  const weapon = getCurrentWeapon();
+  const fireInterval = 1 / weapon.fireRate;
+
   cooldown = Math.max(0, cooldown - dt);
 
   if (fireHeld && controlEngaged && cooldown <= 0) {
+    const { eyeHeight } = getCurrentCharacter();
     spawnProjectile(
       {
         x: localPlayer.position.x,
-        y: localPlayer.position.y + EYE_HEIGHT,
+        y: localPlayer.position.y + eyeHeight,
         z: localPlayer.position.z,
       },
       localPlayer.gunYaw,
       localPlayer.gunPitch,
     );
-    cooldown += FIRE_INTERVAL;
+    cooldown += fireInterval;
     bus.emit("fired", undefined);
   }
 
-  advanceProjectiles(dt);
+  advanceProjectiles(dt, weapon);
 }
 
 function spawnProjectile(origin: { x: number; y: number; z: number }, yaw: number, pitch: number): void {
@@ -68,8 +71,8 @@ function spawnProjectile(origin: { x: number; y: number; z: number }, yaw: numbe
   });
 }
 
-function advanceProjectiles(dt: number): void {
-  const step = PROJECTILE_SPEED * dt;
+function advanceProjectiles(dt: number, weapon: ReturnType<typeof getCurrentWeapon>): void {
+  const step = weapon.projectileSpeed * dt;
 
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const projectile = projectiles[i];
@@ -78,7 +81,7 @@ function advanceProjectiles(dt: number): void {
     projectile.position.z += projectile.direction.z * step;
     projectile.distanceTraveled += step;
 
-    if (projectile.distanceTraveled >= PROJECTILE_MAX_RANGE) {
+    if (projectile.distanceTraveled >= weapon.projectileMaxRange) {
       projectiles.splice(i, 1);
     }
   }

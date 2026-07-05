@@ -57,9 +57,9 @@ bus.on("controlReleased", () => {
 
 bus.on("turned", ({ dx, dy }) => {
   if (!controlEngaged) return;
-  localPlayer.headYaw -= dx * MOUSE_SENSITIVITY;
-  localPlayer.headPitch -= dy * MOUSE_SENSITIVITY;
-  localPlayer.headPitch = clamp(localPlayer.headPitch, -MAX_PITCH, MAX_PITCH);
+  localPlayer.targetYaw -= dx * MOUSE_SENSITIVITY;
+  localPlayer.targetPitch -= dy * MOUSE_SENSITIVITY;
+  localPlayer.targetPitch = clamp(localPlayer.targetPitch, -MAX_PITCH, MAX_PITCH);
 });
 
 bus.on("jumped", () => {
@@ -115,7 +115,7 @@ function computeHorizontalVelocity(): { x: number; z: number } {
     localRight *= scale;
   }
 
-  const yaw = localPlayer.headYaw;
+  const yaw = localPlayer.targetYaw;
   const forwardX = -Math.sin(yaw);
   const forwardZ = -Math.cos(yaw);
   const rightX = Math.cos(yaw);

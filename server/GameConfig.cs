@@ -7,4 +7,17 @@ public static class GameConfig
 
     // Spawn region sits well inside the world boundary.
     public const double SpawnAreaHalfExtent = 20;
+
+    public const string DefaultCharacterId = "character-a";
+    public const string DefaultWeaponId = "blaster-g";
+
+    public static readonly HashSet<string> ValidCharacterIds =
+    [
+        "character-a", "character-b", "character-c", "character-d", "character-e", "character-f",
+    ];
+
+    public static readonly HashSet<string> ValidWeaponIds =
+    [
+        "blaster-a", "blaster-b", "blaster-c", "blaster-d", "blaster-e", "blaster-g", "blaster-h",
+    ];
 }

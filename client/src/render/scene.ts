@@ -22,6 +22,7 @@ export function createScene(): SceneContext {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.domElement.style.display = "none";
   document.body.appendChild(renderer.domElement);
 
   const ground = new THREE.Mesh(

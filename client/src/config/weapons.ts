@@ -1,49 +1,198 @@
-export const WEAPON_MODEL_URL = "/models/blaster-g.glb";
-export const WEAPON_SIZE = 0.6;
+export interface Vec3 {
+  readonly x: number;
+  readonly y: number;
+  readonly z: number;
+}
 
-// Authored nose/barrel axis in the model's own local space; tuned by visual inspection.
-export const WEAPON_FORWARD_AXIS = { x: 0, y: 0, z: 1 } as const;
+export interface WeaponRecipe {
+  id: string;
+  modelUrl: string;
+  size: number;
+  forwardAxis: Vec3;
+  gripOffset: Vec3;
+  viewModelOffset: Vec3;
+  viewModelSwingScale: number;
+  torsoChaseRate: number;
+  gunChaseRateFast: number;
+  gunChaseRateSlow: number;
+  gunLagThresholdLow: number;
+  gunLagThresholdHigh: number;
+  gunPitchUpRateScale: number;
+  gunPitchDownRateScale: number;
+  fireRate: number;
+  projectileSpeed: number;
+  projectileMaxRange: number;
+  bulletModelUrl: string;
+  bulletLength: number;
+  bulletForwardAxis: Vec3;
+  recoilKickDistance: number;
+  recoilKickPitch: number;
+  recoilDecayRate: number;
+  muzzleFlashOffset: Vec3;
+  muzzleFlashDuration: number;
+}
 
-// Grip offset relative to the character's arm-right node; tuned by visual inspection.
-export const WEAPON_GRIP_OFFSET = { x: 0, y: -1.2, z: 0.2 } as const;
+// Shared Kenney blaster-kit rig tuning; per-weapon overrides capture feel differences.
+const BLASTER_FORWARD_AXIS: Vec3 = { x: 0, y: 0, z: 1 };
+const BLASTER_GRIP_OFFSET: Vec3 = { x: 0, y: -1.2, z: 0.2 };
+const BLASTER_VIEW_OFFSET: Vec3 = { x: 0.25, y: -0.2, z: -0.5 };
+const FOAM_BULLET: Pick<WeaponRecipe, "bulletModelUrl" | "bulletLength" | "bulletForwardAxis"> = {
+  bulletModelUrl: "/models/bullet-foam-tip.glb",
+  bulletLength: 0.12,
+  bulletForwardAxis: { x: 0, y: 1, z: 0 },
+};
+const THICK_BULLET: Pick<WeaponRecipe, "bulletModelUrl" | "bulletLength" | "bulletForwardAxis"> = {
+  bulletModelUrl: "/models/bullet-foam-thick.glb",
+  bulletLength: 0.14,
+  bulletForwardAxis: { x: 0, y: 1, z: 0 },
+};
 
-// First-person view-model placement, relative to the camera; tuned by visual inspection.
-export const VIEW_MODEL_OFFSET = { x: 0.25, y: -0.2, z: -0.5 } as const;
+function muzzleFlashOffset(grip: Vec3): Vec3 {
+  return { x: grip.x, y: grip.y - 0.3, z: grip.z };
+}
 
-// Meters of shoulder-swing translation per radian of head-torso lag.
-export const VIEW_MODEL_SWING_SCALE = 0.4;
+function weapon(
+  id: string,
+  overrides: Partial<Omit<WeaponRecipe, "id" | "modelUrl">> = {},
+): WeaponRecipe {
+  const gripOffset = overrides.gripOffset ?? BLASTER_GRIP_OFFSET;
+  return {
+    id,
+    modelUrl: `/models/${id}.glb`,
+    size: 0.6,
+    forwardAxis: BLASTER_FORWARD_AXIS,
+    gripOffset,
+    viewModelOffset: BLASTER_VIEW_OFFSET,
+    viewModelSwingScale: 0.4,
+    torsoChaseRate: 12,
+    gunChaseRateFast: 40,
+    gunChaseRateSlow: 18,
+    gunLagThresholdLow: 0.03,
+    gunLagThresholdHigh: 0.2,
+    gunPitchUpRateScale: 0.6,
+    gunPitchDownRateScale: 1.3,
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    ...FOAM_BULLET,
+    recoilKickDistance: 0.015,
+    recoilKickPitch: 0.005,
+    recoilDecayRate: 8,
+    muzzleFlashOffset: muzzleFlashOffset(gripOffset),
+    muzzleFlashDuration: 0.06,
+    ...overrides,
+  };
+}
 
-// How eagerly the torso chases the head; part of this weapon's handling feel.
-export const TORSO_CHASE_RATE = 12;
+export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
+  "blaster-a": weapon("blaster-a", {
+    size: 0.55,
+    fireRate: 14,
+    projectileSpeed: 700,
+    projectileMaxRange: 80,
+    gunChaseRateFast: 45,
+    gunChaseRateSlow: 22,
+    recoilKickDistance: 0.01,
+    recoilKickPitch: 0.003,
+  }),
+  "blaster-b": weapon("blaster-b", {
+    size: 0.45,
+    viewModelOffset: { x: 0.22, y: -0.18, z: -0.42 },
+    fireRate: 6,
+    projectileSpeed: 600,
+    projectileMaxRange: 60,
+    torsoChaseRate: 14,
+    gunChaseRateFast: 35,
+    gunChaseRateSlow: 16,
+    recoilKickDistance: 0.02,
+    recoilKickPitch: 0.008,
+  }),
+  "blaster-c": weapon("blaster-c", {
+    size: 0.65,
+    fireRate: 7,
+    projectileSpeed: 900,
+    projectileMaxRange: 120,
+    torsoChaseRate: 10,
+    gunChaseRateFast: 32,
+    gunChaseRateSlow: 14,
+    gunPitchUpRateScale: 0.5,
+    recoilKickDistance: 0.02,
+    recoilKickPitch: 0.009,
+    recoilDecayRate: 6,
+  }),
+  "blaster-d": weapon("blaster-d", {
+    size: 0.62,
+    fireRate: 2.5,
+    projectileSpeed: 500,
+    projectileMaxRange: 45,
+    ...THICK_BULLET,
+    torsoChaseRate: 9,
+    gunChaseRateFast: 28,
+    gunChaseRateSlow: 12,
+    recoilKickDistance: 0.03,
+    recoilKickPitch: 0.012,
+    recoilDecayRate: 5,
+  }),
+  "blaster-e": weapon("blaster-e", {
+    size: 0.7,
+    viewModelOffset: { x: 0.2, y: -0.22, z: -0.55 },
+    fireRate: 1.5,
+    projectileSpeed: 1200,
+    projectileMaxRange: 150,
+    torsoChaseRate: 8,
+    gunChaseRateFast: 25,
+    gunChaseRateSlow: 10,
+    gunPitchUpRateScale: 0.45,
+    recoilKickDistance: 0.035,
+    recoilKickPitch: 0.015,
+    recoilDecayRate: 5,
+    muzzleFlashDuration: 0.08,
+  }),
+  "blaster-g": weapon("blaster-g"),
+  "blaster-h": weapon("blaster-h", {
+    size: 0.5,
+    fireRate: 11,
+    projectileSpeed: 750,
+    projectileMaxRange: 85,
+    gunChaseRateFast: 42,
+    gunChaseRateSlow: 20,
+    recoilKickDistance: 0.012,
+    recoilKickPitch: 0.004,
+  }),
+};
 
-// Gun-chase rate is gap-dependent, not constant: near zero gap it snaps almost
-// instantly (careful slow aim reads as rock-steady), and only eases toward the
-// slower rate once the gap opens up past the threshold band (a fast snap).
-export const GUN_CHASE_RATE_FAST = 40;
-export const GUN_CHASE_RATE_SLOW = 18;
-export const GUN_LAG_THRESHOLD_LOW = 0.03;
-export const GUN_LAG_THRESHOLD_HIGH = 0.2;
+export const WEAPON_IDS = Object.keys(WEAPON_RECIPES);
 
-// Raising the gun lags more than lowering it, evoking its weight without
-// simulating mass directly — a multiplier on the gap-based pitch rate.
-export const GUN_PITCH_UP_RATE_SCALE = 0.6;
-export const GUN_PITCH_DOWN_RATE_SCALE = 1.3;
+export const DEFAULT_WEAPON_ID = "blaster-g";
 
-export const FIRE_RATE = 10;
-export const PROJECTILE_SPEED = 800;
-export const PROJECTILE_MAX_RANGE = 100;
+let currentWeaponId = DEFAULT_WEAPON_ID;
 
-export const BULLET_MODEL_URL = "/models/bullet-foam-tip.glb";
-export const BULLET_LENGTH = 0.12;
-// Authored nose axis: the model's origin sits at its base, tip at local +Y.
-export const BULLET_FORWARD_AXIS = { x: 0, y: 1, z: 0 } as const;
+export function getCurrentWeaponId(): string {
+  return currentWeaponId;
+}
 
-// Weapon-mesh-only recoil; must never feed the camera or the fire direction.
-export const RECOIL_KICK_DISTANCE = 0.015;
-export const RECOIL_KICK_PITCH = 0.005;
-export const RECOIL_DECAY_RATE = 8;
+export function getWeaponRecipe(id: string): WeaponRecipe {
+  const recipe = WEAPON_RECIPES[id];
+  if (!recipe) throw new Error(`unknown weapon recipe: ${id}`);
+  return recipe;
+}
 
-// Muzzle flash placement on an opponent's held weapon, relative to the
-// character's arm-right node — a touch further out than the grip itself.
-export const MUZZLE_FLASH_OFFSET = { x: WEAPON_GRIP_OFFSET.x, y: WEAPON_GRIP_OFFSET.y - 0.3, z: WEAPON_GRIP_OFFSET.z } as const;
-export const MUZZLE_FLASH_DURATION = 0.06;
+export function getCurrentWeapon(): WeaponRecipe {
+  return getWeaponRecipe(currentWeaponId);
+}
+
+export function resolveWeaponId(id: string | undefined): string {
+  if (id && id in WEAPON_RECIPES) return id;
+  return DEFAULT_WEAPON_ID;
+}
+
+export function setCurrentWeaponId(id: string): void {
+  currentWeaponId = resolveWeaponId(id);
+}
+
+export function cycleWeaponId(): string {
+  const index = WEAPON_IDS.indexOf(currentWeaponId);
+  const next = WEAPON_IDS[(index + 1) % WEAPON_IDS.length];
+  setCurrentWeaponId(next);
+  return next;
+}

@@ -9,12 +9,35 @@ public sealed class PlayerState
     public double Yaw { get; set; }
     public double Pitch { get; set; }
     public bool Alive { get; set; } = true;
+    public string CharacterId { get; set; } = GameConfig.DefaultCharacterId;
+    public string WeaponId { get; set; } = GameConfig.DefaultWeaponId;
 }
 
-public sealed record PlayerSnapshotDto(string Id, Vector3Dto Position, double Yaw, double Pitch, bool Alive);
+public sealed record PlayerSnapshotDto(
+    string Id,
+    Vector3Dto Position,
+    double Yaw,
+    double Pitch,
+    bool Alive,
+    string CharacterId,
+    string WeaponId);
 
-public sealed record WelcomeMessage(string Type, string Id, Vector3Dto Position, IReadOnlyList<PlayerSnapshotDto> Roster);
+public sealed record WelcomeMessage(
+    string Type,
+    string Id,
+    Vector3Dto Position,
+    string CharacterId,
+    string WeaponId,
+    IReadOnlyList<PlayerSnapshotDto> Roster);
 
-public sealed record JoinMessage(string Type, string Id, Vector3Dto Position, double Yaw, double Pitch, bool Alive);
+public sealed record JoinMessage(
+    string Type,
+    string Id,
+    Vector3Dto Position,
+    double Yaw,
+    double Pitch,
+    bool Alive,
+    string CharacterId,
+    string WeaponId);
 
 public sealed record LeaveMessage(string Type, string Id);

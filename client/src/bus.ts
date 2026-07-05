@@ -1,4 +1,12 @@
-import type { FireMessage, JoinMessage, JumpMessage, LeaveMessage, PosMessage, WelcomeMessage } from "./net/wire.ts";
+import type {
+  FireMessage,
+  JoinMessage,
+  JumpMessage,
+  LeaveMessage,
+  PosMessage,
+  WeaponMessage,
+  WelcomeMessage,
+} from "./net/wire.ts";
 
 type Listener<T> = (payload: T) => void;
 
@@ -17,7 +25,13 @@ export class EventBus<Events extends object> {
   }
 
   emit<K extends keyof Events>(event: K, payload: Events[K]): void {
-    this.listeners[event]?.forEach((listener) => listener(payload));
+    for (const listener of this.listeners[event] ?? []) {
+      try {
+        listener(payload);
+      } catch (error) {
+        console.error(`bus listener failed for "${String(event)}"`, error);
+      }
+    }
   }
 }
 
@@ -37,6 +51,8 @@ export interface BusEvents {
   fireStarted: undefined;
   fireStopped: undefined;
   fired: undefined;
+  weaponCycleRequested: undefined;
+  weaponSwitched: { weaponId: string };
   turned: { dx: number; dy: number };
   controlEngaged: undefined;
   controlReleased: undefined;
@@ -46,6 +62,7 @@ export interface BusEvents {
   positionReceived: PosMessage;
   jumpReceived: JumpMessage;
   fireReceived: FireMessage;
+  weaponReceived: WeaponMessage;
 }
 
 export const bus = new EventBus<BusEvents>();

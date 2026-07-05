@@ -16,4 +16,5 @@ export const KEYBINDS: Record<string, Binding> = {
   KeyD: { start: "moveRightStarted", stop: "moveRightStopped" },
   ShiftLeft: { start: "sprintStarted", stop: "sprintStopped" },
   Space: { start: "jumped" },
+  KeyQ: { start: "weaponCycleRequested" },
 };

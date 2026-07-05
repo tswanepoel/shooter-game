@@ -7,6 +7,31 @@ export interface HitMarker {
   tick(dt: number, camera: THREE.Camera): void;
 }
 
+function easeOut(t: number): number {
+  return 1 - (1 - t) * (1 - t);
+}
+
+function createTick(angleDeg: number): HTMLDivElement {
+  const { tickLength, centerGap, strokePx, outlinePx, cornerRadius, scale } = HIT_MARKER;
+
+  const tick = document.createElement("div");
+  tick.style.cssText = [
+    "position:absolute",
+    "left:0",
+    "top:0",
+    `width:${tickLength}px`,
+    `height:${strokePx}px`,
+    `margin-top:${-strokePx / 2}px`,
+    "background:#fff",
+    `border-radius:${cornerRadius}px`,
+    `box-shadow:0 0 0 ${outlinePx}px #111`,
+    "transform-origin:left center",
+    `transform:rotate(${angleDeg}deg) translateX(${centerGap}px) scale(${scale})`,
+  ].join(";");
+
+  return tick;
+}
+
 export function createHitMarker(): HitMarker {
   const root = document.createElement("div");
   root.style.cssText = [
@@ -20,58 +45,46 @@ export function createHitMarker(): HitMarker {
     "display:none",
   ].join(";");
 
-  const lineA = document.createElement("div");
-  const lineB = document.createElement("div");
-  for (const line of [lineA, lineB]) {
-    line.style.cssText = [
-      "position:absolute",
-      "left:0",
-      "top:0",
-      "background:#fff",
-      "transform-origin:center",
-      "opacity:0",
-    ].join(";");
-    root.appendChild(line);
+  const ticks = HIT_MARKER.tickAngles.map((angle) => createTick(angle));
+  for (const tick of ticks) {
+    tick.style.opacity = "0";
+    root.appendChild(tick);
   }
-
-  lineA.style.width = `${HIT_MARKER.size}px`;
-  lineA.style.height = "2px";
-  lineA.style.marginLeft = `${-HIT_MARKER.size / 2}px`;
-  lineA.style.marginTop = "-1px";
-  lineA.style.transform = "rotate(45deg)";
-
-  lineB.style.width = `${HIT_MARKER.size}px`;
-  lineB.style.height = "2px";
-  lineB.style.marginLeft = `${-HIT_MARKER.size / 2}px`;
-  lineB.style.marginTop = "-1px";
-  lineB.style.transform = "rotate(-45deg)";
 
   document.body.appendChild(root);
 
-  let remaining = 0;
+  let elapsed = Number.POSITIVE_INFINITY;
+  const totalDuration = HIT_MARKER.holdDuration + HIT_MARKER.fadeDuration;
+
+  function applyOpacity(opacity: number): void {
+    const opacityText = opacity.toFixed(3);
+    for (const tick of ticks) {
+      tick.style.opacity = opacityText;
+    }
+  }
 
   function flash(): void {
-    remaining = HIT_MARKER.duration;
-    lineA.style.opacity = "1";
-    lineB.style.opacity = "1";
+    elapsed = 0;
+    applyOpacity(1);
   }
 
   function tick(dt: number, camera: THREE.Camera): void {
-    if (remaining <= 0) {
+    if (elapsed >= totalDuration) {
       root.style.display = "none";
       return;
     }
 
     applyAimScreenPosition(root, projectGunAimToScreen(camera));
+    root.style.display = "block";
 
-    remaining -= dt;
-    const t = Math.max(0, remaining / HIT_MARKER.duration);
-    const opacity = t.toFixed(3);
-    lineA.style.opacity = opacity;
-    lineB.style.opacity = opacity;
-    const scale = 0.85 + 0.15 * t;
-    lineA.style.transform = `rotate(45deg) scale(${scale})`;
-    lineB.style.transform = `rotate(-45deg) scale(${scale})`;
+    if (elapsed < HIT_MARKER.holdDuration) {
+      applyOpacity(1);
+    } else {
+      const fadeT = (elapsed - HIT_MARKER.holdDuration) / HIT_MARKER.fadeDuration;
+      applyOpacity(1 - easeOut(Math.min(1, fadeT)));
+    }
+
+    elapsed += dt;
   }
 
   return { flash, tick };

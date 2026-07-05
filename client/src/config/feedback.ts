@@ -21,8 +21,15 @@ export const CAMERA_FEEDBACK = {
 } as const;
 
 export const HIT_MARKER = {
-  duration: 0.14,
-  size: 14,
+  holdDuration: 0.04,
+  fadeDuration: 0.08,
+  tickLength: 8,
+  centerGap: 4,
+  strokePx: 2,
+  outlinePx: 1,
+  cornerRadius: 999,
+  scale: 1,
+  tickAngles: [45, 135, 225, 315],
 } as const;
 
 export const DAMAGE_INDICATOR = {

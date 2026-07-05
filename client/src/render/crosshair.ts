@@ -8,10 +8,10 @@ export interface Crosshair {
 export function createCrosshair(): Crosshair {
   const element = document.createElement("div");
   element.style.position = "fixed";
-  element.style.width = "6px";
-  element.style.height = "6px";
-  element.style.marginLeft = "-3px";
-  element.style.marginTop = "-3px";
+  element.style.width = "4px";
+  element.style.height = "4px";
+  element.style.marginLeft = "-2px";
+  element.style.marginTop = "-2px";
   element.style.borderRadius = "50%";
   element.style.background = "white";
   element.style.mixBlendMode = "difference";

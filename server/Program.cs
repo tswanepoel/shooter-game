@@ -209,6 +209,7 @@ async Task ReceiveLoopAsync(WebSocket socket, string senderId)
         {
             var payload = stream.ToArray();
             if (combat.TryApplyHit(senderId, payload)) continue;
+            if (combat.TryRequestRespawn(senderId, payload)) continue;
             TryApplyWeaponChange(senderId, payload);
             await RelayRawAsync(senderId, payload);
         }

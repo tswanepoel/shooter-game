@@ -69,6 +69,11 @@ export interface HitMessage {
   targetId: string;
 }
 
+export interface RespawnRequestMessage {
+  type: "respawn";
+  id: string;
+}
+
 export interface HealthMessage {
   type: "health";
   id: string;
@@ -111,7 +116,8 @@ export type ClientMessage =
   | JumpMessage
   | FireMessage
   | WeaponMessage
-  | HitMessage;
+  | HitMessage
+  | RespawnRequestMessage;
 
 export function decodeServerMessage(raw: string): ServerMessage | undefined {
   const parsed: unknown = JSON.parse(raw);

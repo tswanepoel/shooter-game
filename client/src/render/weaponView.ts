@@ -54,6 +54,9 @@ export async function loadWeaponViewModel(
   bus.on("feedbackReset", onFeedbackReset);
 
   function update(dt: number): void {
+    rig.visible = localPlayer.alive;
+    if (!localPlayer.alive) return;
+
     recoil *= Math.exp(-weapon.recoilDecayRate * dt);
 
     const view = viewPitch(localPlayer);

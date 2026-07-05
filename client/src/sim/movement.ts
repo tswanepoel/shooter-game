@@ -56,14 +56,18 @@ bus.on("controlReleased", () => {
 });
 
 bus.on("turned", ({ dx, dy }) => {
-  if (!controlEngaged || !localPlayer.alive) return;
+  if (!controlEngaged) return;
   localPlayer.targetYaw -= dx * MOUSE_SENSITIVITY;
   localPlayer.targetPitch -= dy * MOUSE_SENSITIVITY;
   localPlayer.targetPitch = clamp(localPlayer.targetPitch, -MAX_PITCH, MAX_PITCH);
 });
 
 bus.on("jumped", () => {
-  if (!localPlayer.alive || !localPlayer.grounded) return;
+  if (!localPlayer.alive) {
+    bus.emit("respawnRequested", undefined);
+    return;
+  }
+  if (!localPlayer.grounded) return;
   const velocity = computeHorizontalVelocity();
   localPlayer.airHorizontal.x = velocity.x;
   localPlayer.airHorizontal.z = velocity.z;

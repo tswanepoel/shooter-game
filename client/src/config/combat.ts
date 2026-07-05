@@ -4,5 +4,9 @@ export const HEALTH = {
   regenTickInterval: 0.1,
   regenQuietPeriod: 6,
   regenPerTick: 4,
-  respawnDelay: 3,
+} as const;
+
+export const RESPAWN = {
+  minDelay: 1,
+  maxDelay: 8,
 } as const;

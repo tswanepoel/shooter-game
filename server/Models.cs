@@ -11,6 +11,7 @@ public sealed class PlayerState
     public bool Alive { get; set; } = true;
     public double Health { get; set; } = GameConfig.MaxHealth;
     public DateTime LastDamageUtc { get; set; } = DateTime.MinValue;
+    public DateTime DeathUtc { get; set; } = DateTime.MinValue;
     public string CharacterId { get; set; } = GameConfig.DefaultCharacterId;
     public string WeaponId { get; set; } = GameConfig.DefaultWeaponId;
 }
@@ -51,3 +52,5 @@ public sealed record HealthMessage(string Type, string Id, double Health, string
 public sealed record DeathMessage(string Type, string VictimId, string KillerId);
 
 public sealed record RespawnMessage(string Type, string Id, Vector3Dto Position);
+
+public sealed record RespawnRequestMessage(string Type, string Id);

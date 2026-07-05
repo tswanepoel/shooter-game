@@ -119,7 +119,7 @@ function loop(now: number): void {
     weaponView?.update(dt);
     crosshair.update(camera);
     tickCombatFeedback(dt, camera, hitMarker, damageIndicator, damageOverlay);
-    deathOverlay.update();
+    deathOverlay.update(now);
     killFeed.tick(dt);
     projectileRenderer?.update();
     remotePlayerManager.update(dt);

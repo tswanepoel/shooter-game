@@ -50,6 +50,7 @@ export interface BusEvents {
   sprintStarted: undefined;
   sprintStopped: undefined;
   jumped: undefined;
+  respawnRequested: undefined;
   jumpLaunched: undefined;
   fireStarted: undefined;
   fireStopped: undefined;

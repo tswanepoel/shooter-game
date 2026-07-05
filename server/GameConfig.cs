@@ -26,7 +26,8 @@ public static class GameConfig
     public const double RegenTickIntervalSeconds = 0.1;
     public const double RegenQuietPeriodSeconds = 6;
     public const double RegenPerTick = 4;
-    public const double RespawnDelaySeconds = 3;
+    public const double RespawnMinDelaySeconds = 1;
+    public const double RespawnMaxDelaySeconds = 8;
     public const double DefaultWeaponDamage = 16;
     public const double BlasterEDamage = 24;
 

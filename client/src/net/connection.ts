@@ -80,6 +80,10 @@ export function connect(characterId: string): void {
 
   bus.on("jumpLaunched", () => sendIdOnly("jump"));
   bus.on("fired", () => sendIdOnly("fire"));
+  bus.on("respawnRequested", () => {
+    if (!localId) return;
+    send({ type: "respawn", id: localId });
+  });
   bus.on("weaponSwitched", ({ weaponId }) => {
     if (!localId) return;
     send({ type: "weapon", id: localId, weaponId });

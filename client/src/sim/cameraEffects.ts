@@ -21,14 +21,21 @@ export function resetCameraEffects(): void {
   flinchYaw = 0;
 }
 
-export function triggerFlinch(): void {
+export function triggerFlinch(damageBearing?: number): void {
   const { flinch } = CAMERA_FEEDBACK;
   flinchIntensity = Math.min(
     flinch.maxIntensity,
     flinchIntensity + flinch.stackPerHit,
   );
-  flinchPitch = (Math.random() * 2 - 1) * flinch.kickIntensity;
-  flinchYaw = (Math.random() * 2 - 1) * flinch.kickIntensity;
+  if (damageBearing !== undefined) {
+    flinchYaw = Math.sin(damageBearing) * flinch.kickIntensity * 1.6;
+    flinchPitch =
+      (Math.random() * 0.3 - 0.15) * flinch.kickIntensity +
+      Math.cos(damageBearing) * flinch.kickIntensity * 0.22;
+  } else {
+    flinchPitch = (Math.random() * 2 - 1) * flinch.kickIntensity;
+    flinchYaw = (Math.random() * 2 - 1) * flinch.kickIntensity;
+  }
 }
 
 export function tickCameraEffects(dt: number): CameraEffectOffsets {

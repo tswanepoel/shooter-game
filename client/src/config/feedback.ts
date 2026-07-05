@@ -14,9 +14,9 @@ export const CAMERA_FEEDBACK = {
   },
   flinch: {
     decayRate: 14,
-    kickIntensity: 0.045,
-    stackPerHit: 0.55,
-    maxIntensity: 1,
+    kickIntensity: 0.042,
+    stackPerHit: 0.42,
+    maxIntensity: 0.75,
   },
 } as const;
 
@@ -30,6 +30,22 @@ export const DAMAGE_INDICATOR = {
   arcDegrees: 36,
   radius: 52,
   strokeWidth: 3,
+} as const;
+
+export const DAMAGE_OVERLAY = {
+  maxConcurrentSplats: 4,
+  splatSizePx: 200,
+  edgeInsetPercent: 38,
+  rotationJitterDegrees: 32,
+  animDuration: 0.1,
+  holdDuration: 0.18,
+  fadeDuration: 0.65,
+  vignetteMaxOpacity: 0.85,
+  vignetteStackPerHit: 0.55,
+  vignettePulseDecayRate: 7,
+  vignetteRestMax: 0.72,
+  vignetteRestCurve: 1.2,
+  vignetteRestSmoothing: 5,
 } as const;
 
 export const DEATH_POSE_PITCH = -Math.PI / 2 + 0.15;

@@ -91,16 +91,6 @@ function chase(current: number, target: number, rate: number, dt: number): numbe
   return current + (target - current) * (1 - Math.exp(-rate * dt));
 }
 
-function smoothstep(x: number, edge0: number, edge1: number): number {
-  const t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
-}
-
-function gunChaseRate(gap: number, weapon: WeaponRecipe): number {
-  const t = smoothstep(Math.abs(gap), weapon.gunLagThresholdLow, weapon.gunLagThresholdHigh);
-  return weapon.gunChaseRateFast + (weapon.gunChaseRateSlow - weapon.gunChaseRateFast) * t;
-}
-
 function speedWeightedChaseRate(
   snappy: number,
   laggy: number,
@@ -148,7 +138,7 @@ function applyLagDeadzone(lag: number, deadzone: number): number {
   return Math.abs(lag) < deadzone ? 0 : lag;
 }
 
-export function tickCascade(state: AimCascadeState, dt: number, weapon: WeaponRecipe = getCurrentWeapon()): void {
+export function tickCascade(state: AimCascadeState, dt: number, _weapon: WeaponRecipe = getCurrentWeapon()): void {
   const { torso, neck, eye, gun } = splitTargetPitch(state.targetPitch);
   const { rateSmoothing, speedSmoothing, lagDisplaySmoothing, lagDeadzone, maxInputSpeed } = YAW_LAG;
 

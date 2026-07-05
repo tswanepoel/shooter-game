@@ -19,6 +19,7 @@ import { advanceProjectiles, tickProjectileFire } from "./sim/projectiles.ts";
 import { tickRemoteSync } from "./sim/remoteSync.ts";
 import { localPlayer } from "./state/world.ts";
 import { createDamageIndicator } from "./ui/damageIndicator.ts";
+import { createDamageOverlay } from "./ui/damageOverlay.ts";
 import { createDeathOverlay } from "./ui/deathOverlay.ts";
 import { showLobby } from "./ui/lobby.ts";
 import { createAimDebugHud } from "./ui/aimDebugHud.ts";
@@ -38,6 +39,7 @@ let currentBulletModelUrl: string | undefined;
 const crosshair = createCrosshair();
 const hitMarker = createHitMarker();
 const damageIndicator = createDamageIndicator();
+const damageOverlay = createDamageOverlay();
 const weaponHud = createWeaponHud();
 const statusBars = createStatusBars();
 const killFeed = createKillFeed();
@@ -46,7 +48,7 @@ const aimDebugHud = createAimDebugHud();
 const remotePlayerManager = createRemotePlayerManager(scene);
 
 initHealth();
-initCombatFeedback(hitMarker, damageIndicator);
+initCombatFeedback(hitMarker, damageIndicator, damageOverlay);
 
 let lastTime = performance.now();
 let posBroadcastElapsed = 0;
@@ -120,7 +122,7 @@ function loop(now: number): void {
     tick(dt);
     weaponView?.update(dt);
     crosshair.update(camera);
-    tickCombatFeedback(dt, camera, hitMarker, damageIndicator);
+    tickCombatFeedback(dt, camera, hitMarker, damageIndicator, damageOverlay);
     statusBars.update();
     deathOverlay.update();
     killFeed.tick(dt);

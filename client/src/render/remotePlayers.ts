@@ -5,7 +5,7 @@ import { getCharacterRecipe, type CharacterRecipe } from "../config/characters.t
 import { DEATH_POSE_PITCH } from "../config/feedback.ts";
 import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
 import { getWeaponRecipe, type WeaponRecipe } from "../config/weapons.ts";
-import { angularDelta, type AimCascadeState } from "../sim/aimCascade.ts";
+import type { AimCascadeState } from "../sim/aimCascade.ts";
 import { remotePlayers } from "../state/world.ts";
 
 export type LocomotionState = "idle" | "walk" | "sprint";

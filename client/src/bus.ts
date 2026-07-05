@@ -1,3 +1,5 @@
+import type { JoinMessage, LeaveMessage, WelcomeMessage } from "./net/wire.ts";
+
 type Listener<T> = (payload: T) => void;
 
 export class EventBus<Events extends object> {
@@ -37,6 +39,9 @@ export interface BusEvents {
   turned: { dx: number; dy: number };
   controlEngaged: undefined;
   controlReleased: undefined;
+  welcomed: WelcomeMessage;
+  playerJoined: JoinMessage;
+  playerLeft: LeaveMessage;
 }
 
 export const bus = new EventBus<BusEvents>();

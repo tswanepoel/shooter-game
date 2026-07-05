@@ -1,3 +1,4 @@
+import { bus } from "../bus.ts";
 import { STAMINA } from "../config/physics.ts";
 
 export interface LocalPlayerState {
@@ -38,3 +39,46 @@ export interface Projectile {
 }
 
 export const projectiles: Projectile[] = [];
+
+export interface RemotePlayerState {
+  id: string;
+  position: { x: number; y: number; z: number };
+  yaw: number;
+  pitch: number;
+  alive: boolean;
+}
+
+export const remotePlayers = new Map<string, RemotePlayerState>();
+export let localPlayerId: string | undefined;
+
+bus.on("welcomed", (message) => {
+  localPlayerId = message.id;
+  localPlayer.position.x = message.position.x;
+  localPlayer.position.y = message.position.y;
+  localPlayer.position.z = message.position.z;
+
+  remotePlayers.clear();
+  for (const snapshot of message.roster) {
+    remotePlayers.set(snapshot.id, {
+      id: snapshot.id,
+      position: { ...snapshot.position },
+      yaw: snapshot.yaw,
+      pitch: snapshot.pitch,
+      alive: snapshot.alive,
+    });
+  }
+});
+
+bus.on("playerJoined", (message) => {
+  remotePlayers.set(message.id, {
+    id: message.id,
+    position: { ...message.position },
+    yaw: message.yaw,
+    pitch: message.pitch,
+    alive: message.alive,
+  });
+});
+
+bus.on("playerLeft", (message) => {
+  remotePlayers.delete(message.id);
+});

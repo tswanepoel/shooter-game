@@ -1,6 +1,7 @@
 import { EYE_HEIGHT } from "./config/characters.ts";
 import { initKeyboard } from "./input/keyboard.ts";
 import { initMouse } from "./input/mouse.ts";
+import { connect } from "./net/connection.ts";
 import { createCrosshair } from "./render/crosshair.ts";
 import { createProjectileRenderer, type ProjectileRenderer } from "./render/projectiles.ts";
 import { type CharacterInstance, type LocomotionState, loadCharacterWithWeapon } from "./render/remotePlayers.ts";
@@ -19,6 +20,7 @@ const { scene, camera, renderer } = createScene();
 
 initKeyboard();
 initMouse(renderer.domElement);
+connect();
 
 const crosshair = createCrosshair();
 

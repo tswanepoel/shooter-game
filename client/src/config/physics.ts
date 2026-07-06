@@ -21,7 +21,7 @@ export const MAX_POINTER_DELTA_PX = 80;
 export const MAX_PITCH = (60 * Math.PI) / 180;
 
 export const GRAVITY = -32;
-export const JUMP_SPEED = 6.5;
+export const JUMP_SPEED = 7.5;
 
 export const CROSSHAIR_DISTANCE = 20;
 

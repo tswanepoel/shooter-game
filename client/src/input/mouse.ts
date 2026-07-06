@@ -1,5 +1,4 @@
 import { bus } from "../bus.ts";
-import { recordPointerDelivery } from "../debug/inputRates.ts";
 import { accumulatePointerDelta } from "./pointerInput.ts";
 
 export function initMouse(target: HTMLElement): void {
@@ -17,9 +16,6 @@ export function initMouse(target: HTMLElement): void {
 
   document.addEventListener("pointermove", (event) => {
     if (document.pointerLockElement !== target) return;
-    const coalesced = event.getCoalescedEvents?.() ?? [event];
-    recordPointerDelivery(coalesced.length);
-
     const { movementX: dx, movementY: dy } = event;
     if (dx !== 0 || dy !== 0) {
       accumulatePointerDelta(dx, dy);

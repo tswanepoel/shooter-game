@@ -9,11 +9,6 @@ import {
 } from "../config/aim.ts";
 import { localPlayer } from "../state/world.ts";
 
-export interface AimDelta {
-  pitch: number;
-  yaw: number;
-}
-
 export interface AimCascadeState {
   targetYaw: number;
   targetPitch: number;
@@ -28,21 +23,6 @@ export interface AimCascadeState {
   headPitch: number;
   shoulderPitch: number;
   armPitch: number;
-}
-
-export function laggedShareTotals(): { yaw: number; pitch: number } {
-  return {
-    yaw: AIM_YAW.lagShare.torso,
-    pitch: AIM_PITCH.lagShare.torso + AIM_PITCH.lagShare.shoulder,
-  };
-}
-
-/** Arm aim relative to instant eye (target) — drives crosshair, view-model, projectiles. */
-export function armAimDelta(state: AimCascadeState): AimDelta {
-  return {
-    pitch: state.armPitch - state.targetPitch,
-    yaw: state.torsoYaw - state.targetYaw,
-  };
 }
 
 export function snapCascadeToTarget(state: AimCascadeState): void {

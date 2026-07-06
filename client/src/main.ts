@@ -9,7 +9,6 @@ import { createCrosshair } from "./render/crosshair.ts";
 import { createPlayerSceneManager, getCharacterHitRoots } from "./render/players.ts";
 import { createProjectileRenderer, type ProjectileRenderer } from "./render/projectiles.ts";
 import { createScene } from "./render/scene.ts";
-import { recordRenderFrame, recordSimTick } from "./debug/inputRates.ts";
 import { bindLocalWeaponAimSampler } from "./sim/aimDirection.ts";
 import { tickAimCascade } from "./sim/aimCascade.ts";
 
@@ -25,7 +24,6 @@ import { createDeathOverlay } from "./ui/deathOverlay.ts";
 import { showLobby } from "./ui/lobby.ts";
 import { createHitMarker } from "./ui/hitMarker.ts";
 import { createKillFeed } from "./ui/killFeed.ts";
-import { createAimDebugHud } from "./ui/aimDebugHud.ts";
 import { createWeaponHud } from "./ui/weaponHud.ts";
 
 const MAX_DT = 0.1;
@@ -41,7 +39,6 @@ const damageOverlay = createDamageOverlay();
 const weaponHud = createWeaponHud();
 const killFeed = createKillFeed();
 const deathOverlay = createDeathOverlay();
-const aimDebugHud = createAimDebugHud();
 const playerScene = createPlayerSceneManager(scene);
 bindProjectileEyeSampler(playerScene.sampleEyeWorldPosition);
 bindLocalWeaponAimSampler(playerScene.sampleLocalWeaponAimDirection);
@@ -81,7 +78,6 @@ bus.on("weaponCycleRequested", () => {
 });
 
 function tick(dt: number): void {
-  recordSimTick();
   tickMovement(dt);
   tickAimCascade(dt);
   playerScene.update(dt);
@@ -103,12 +99,10 @@ function loop(now: number): void {
   lastTime = now;
 
   if (gameStarted) {
-    recordRenderFrame();
     tick(dt);
     crosshair.update(camera);
     tickCombatFeedback(dt, camera, hitMarker, damageOverlay);
     deathOverlay.update();
-    aimDebugHud.update();
     killFeed.tick(dt);
     projectileRenderer?.update();
     advanceProjectiles(dt, getCharacterHitRoots());

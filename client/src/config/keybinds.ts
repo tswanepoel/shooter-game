@@ -17,6 +17,4 @@ export const KEYBINDS: Record<string, Binding> = {
   ShiftLeft: { start: "sprintStarted", stop: "sprintStopped" },
   Space: { start: "jumped" },
   KeyQ: { start: "weaponCycleRequested" },
-  Backquote: { start: "aimDebugToggled" },
-  Period: { start: "aimDebugRecordStarted", stop: "aimDebugRecordStopped" },
 };

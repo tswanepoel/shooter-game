@@ -72,9 +72,6 @@ export interface BusEvents {
   hitConfirmed: undefined;
   damageTaken: { attackerId: string };
   feedbackReset: undefined;
-  aimDebugToggled: undefined;
-  aimDebugRecordStarted: undefined;
-  aimDebugRecordStopped: undefined;
 }
 
 export const bus = new EventBus<BusEvents>();

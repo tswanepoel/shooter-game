@@ -18,12 +18,13 @@ import { initHealth } from "./sim/health.ts";
 import { tickMovement } from "./sim/movement.ts";
 import { advanceProjectiles, bindProjectileEyeSampler, tickProjectileFire } from "./sim/projectiles.ts";
 import { tickRemoteSync } from "./sim/remoteSync.ts";
-import { localPlayer } from "./state/world.ts";
+import { localPlayer, localPlayerId } from "./state/world.ts";
 import { createDamageOverlay } from "./ui/damageOverlay.ts";
 import { createDeathOverlay } from "./ui/deathOverlay.ts";
 import { showLobby } from "./ui/lobby.ts";
 import { createHitMarker } from "./ui/hitMarker.ts";
 import { createKillFeed } from "./ui/killFeed.ts";
+import { createDevTools } from "./ui/devTools.ts";
 import { createWeaponHud } from "./ui/weaponHud.ts";
 
 const MAX_DT = 0.1;
@@ -39,7 +40,19 @@ const damageOverlay = createDamageOverlay();
 const weaponHud = createWeaponHud();
 const killFeed = createKillFeed();
 const deathOverlay = createDeathOverlay();
+let gameStarted = false;
 const playerScene = createPlayerSceneManager(scene);
+const devTools = createDevTools({
+  scene,
+  camera,
+  renderer,
+  sampleEyeWorldPosition(out) {
+    if (!localPlayerId) return false;
+    return playerScene.sampleEyeWorldPosition(localPlayerId, out);
+  },
+  getViewerYaw: () => localPlayer.targetYaw,
+  isActive: () => gameStarted,
+});
 bindProjectileEyeSampler(playerScene.sampleEyeWorldPosition);
 bindLocalWeaponAimSampler(playerScene.sampleLocalWeaponAimDirection);
 
@@ -48,7 +61,6 @@ initCombatFeedback(hitMarker, damageOverlay);
 
 let lastTime = performance.now();
 let posBroadcastElapsed = 0;
-let gameStarted = false;
 let assetLoadGeneration = 0;
 
 async function loadLocalPlayerAssets(): Promise<void> {
@@ -100,6 +112,7 @@ function loop(now: number): void {
 
   if (gameStarted) {
     tick(dt);
+    devTools.tick(dt);
     crosshair.update(camera);
     tickCombatFeedback(dt, camera, hitMarker, damageOverlay);
     deathOverlay.update();

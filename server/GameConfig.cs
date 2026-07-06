@@ -18,7 +18,9 @@ public static class GameConfig
 
     public static readonly HashSet<string> ValidWeaponIds =
     [
-        "blaster-a", "blaster-b", "blaster-c", "blaster-d", "blaster-e", "blaster-g", "blaster-h",
+        "blaster-a", "blaster-b", "blaster-c", "blaster-d", "blaster-e", "blaster-f", "blaster-g", "blaster-h",
+        "blaster-i", "blaster-j", "blaster-k", "blaster-l", "blaster-m", "blaster-n", "blaster-o", "blaster-p",
+        "blaster-q", "blaster-r",
     ];
 
     // Must match client/src/config/combat.ts and weapon damage defaults.

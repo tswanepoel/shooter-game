@@ -7,7 +7,6 @@ export interface Vec3 {
 export interface WeaponRecipe {
   id: string;
   modelUrl: string;
-  size: number;
   forwardAxis: Vec3;
   gripOffset: Vec3;
   fireRate: number;
@@ -20,89 +19,281 @@ export interface WeaponRecipe {
   muzzleFlashDuration: number;
 }
 
-// Shared Kenney blaster-kit rig tuning; per-weapon overrides capture feel differences.
-// Authored nose/barrel axis in each model's local space (see weaponMesh.ts).
-const BLASTER_FORWARD_AXIS: Vec3 = { x: 0, y: 0, z: 1 };
-const BLASTER_GRIP_OFFSET: Vec3 = { x: 0, y: -1.2, z: 0.2 };
-const FOAM_BULLET: Pick<WeaponRecipe, "bulletModelUrl" | "bulletLength" | "bulletForwardAxis"> = {
-  bulletModelUrl: "/models/bullet-foam-tip.glb",
-  bulletLength: 0.12,
-  bulletForwardAxis: { x: 0, y: 1, z: 0 },
-};
-const THICK_BULLET: Pick<WeaponRecipe, "bulletModelUrl" | "bulletLength" | "bulletForwardAxis"> = {
-  bulletModelUrl: "/models/bullet-foam-thick.glb",
-  bulletLength: 0.14,
-  bulletForwardAxis: { x: 0, y: 1, z: 0 },
-};
-
-function muzzleFlashOffset(grip: Vec3): Vec3 {
-  return { x: grip.x, y: grip.y - 0.3, z: grip.z };
-}
-
-function weapon(
-  id: string,
-  overrides: Partial<Omit<WeaponRecipe, "id" | "modelUrl">> = {},
-): WeaponRecipe {
-  const gripOffset = overrides.gripOffset ?? BLASTER_GRIP_OFFSET;
-  return {
-    id,
-    modelUrl: `/models/${id}.glb`,
-    size: 0.6,
-    forwardAxis: BLASTER_FORWARD_AXIS,
-    gripOffset,
-    fireRate: 10,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
-    ...FOAM_BULLET,
-    muzzleFlashOffset: muzzleFlashOffset(gripOffset),
-    muzzleFlashDuration: 0.06,
-    ...overrides,
-  };
-}
-
 export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
-  "blaster-a": weapon("blaster-a", {
-    size: 0.55,
+  "blaster-a": {
+    id: "blaster-a",
+    modelUrl: "/models/blaster-a.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.14, z: 0.34 },
     fireRate: 14,
     projectileSpeed: 700,
     projectileMaxRange: 80,
-  }),
-  "blaster-b": weapon("blaster-b", {
-    size: 0.45,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.41, z: 0.29 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-b": {
+    id: "blaster-b",
+    modelUrl: "/models/blaster-b.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1, z: 0.3 },
     fireRate: 6,
     projectileSpeed: 600,
     projectileMaxRange: 60,
-  }),
-  "blaster-c": weapon("blaster-c", {
-    size: 0.65,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.41, z: 0.29 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-c": {
+    id: "blaster-c",
+    modelUrl: "/models/blaster-c.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.11, z: 0.2 },
     fireRate: 7,
     projectileSpeed: 900,
     projectileMaxRange: 120,
-  }),
-  "blaster-d": weapon("blaster-d", {
-    size: 0.62,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.77, z: -0.04 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-d": {
+    id: "blaster-d",
+    modelUrl: "/models/blaster-d.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.11, z: 0.18 },
     fireRate: 2.5,
     projectileSpeed: 500,
     projectileMaxRange: 45,
-    ...THICK_BULLET,
-  }),
-  "blaster-e": weapon("blaster-e", {
-    size: 0.7,
+    bulletModelUrl: "/models/bullet-foam-thick.glb",
+    bulletLength: 0.14,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.399, z: 0.16 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-e": {
+    id: "blaster-e",
+    modelUrl: "/models/blaster-e.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -2.34, z: 0.22 },
     fireRate: 1.5,
     projectileSpeed: 1200,
     projectileMaxRange: 150,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: -0.02, y: -1.78, z: 0.56 },
     muzzleFlashDuration: 0.08,
-  }),
-  "blaster-g": weapon("blaster-g"),
-  "blaster-h": weapon("blaster-h", {
-    size: 0.5,
+  },
+  "blaster-f": {
+    id: "blaster-f",
+    modelUrl: "/models/blaster-f.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.39, z: 0.19 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-g": {
+    id: "blaster-g",
+    modelUrl: "/models/blaster-g.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.27, z: 0.22 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-h": {
+    id: "blaster-h",
+    modelUrl: "/models/blaster-h.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.25, z: 0.24 },
     fireRate: 11,
     projectileSpeed: 750,
     projectileMaxRange: 85,
-  }),
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.73, z: 0.05 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-i": {
+    id: "blaster-i",
+    modelUrl: "/models/blaster-i.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -0.93, z: 0.22 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-j": {
+    id: "blaster-j",
+    modelUrl: "/models/blaster-j.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.2, z: 0.15 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-k": {
+    id: "blaster-k",
+    modelUrl: "/models/blaster-k.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.09, z: 0.2 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-l": {
+    id: "blaster-l",
+    modelUrl: "/models/blaster-l.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.16, z: 0.2 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-m": {
+    id: "blaster-m",
+    modelUrl: "/models/blaster-m.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.18, z: 0.26 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-n": {
+    id: "blaster-n",
+    modelUrl: "/models/blaster-n.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -0.99, z: 0.22 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-o": {
+    id: "blaster-o",
+    modelUrl: "/models/blaster-o.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.06, z: 0.19 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-p": {
+    id: "blaster-p",
+    modelUrl: "/models/blaster-p.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.21, z: 0.14 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-q": {
+    id: "blaster-q",
+    modelUrl: "/models/blaster-q.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.28, z: 0.19 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
+  "blaster-r": {
+    id: "blaster-r",
+    modelUrl: "/models/blaster-r.glb",
+    forwardAxis: { x: 0, y: 0, z: 1 },
+    gripOffset: { x: 0, y: -1.18, z: 0.1 },
+    fireRate: 10,
+    projectileSpeed: 800,
+    projectileMaxRange: 100,
+    bulletModelUrl: "/models/bullet-foam-tip.glb",
+    bulletLength: 0.12,
+    bulletForwardAxis: { x: 0, y: 1, z: 0 },
+    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzleFlashDuration: 0.06,
+  },
 };
 
-export const WEAPON_IDS = Object.keys(WEAPON_RECIPES);
+export const WEAPON_IDS = [
+  "blaster-a",
+  "blaster-b",
+  "blaster-c",
+  "blaster-d",
+  "blaster-e",
+  "blaster-f",
+  "blaster-g",
+  "blaster-h",
+  "blaster-i",
+  "blaster-j",
+  "blaster-k",
+  "blaster-l",
+  "blaster-m",
+  "blaster-n",
+  "blaster-o",
+  "blaster-p",
+  "blaster-q",
+  "blaster-r",
+] as const;
 
 export const DEFAULT_WEAPON_ID = "blaster-g";
 
@@ -132,7 +323,7 @@ export function setCurrentWeaponId(id: string): void {
 }
 
 export function cycleWeaponId(): string {
-  const index = WEAPON_IDS.indexOf(currentWeaponId);
+  const index = WEAPON_IDS.indexOf(currentWeaponId as (typeof WEAPON_IDS)[number]);
   const next = WEAPON_IDS[(index + 1) % WEAPON_IDS.length];
   setCurrentWeaponId(next);
   return next;

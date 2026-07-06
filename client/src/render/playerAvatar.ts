@@ -55,12 +55,6 @@ function scaleToHeight(object: THREE.Object3D, targetHeight: number): void {
   object.scale.setScalar(targetHeight / height);
 }
 
-function scaleToLargestDimension(object: THREE.Object3D, targetSize: number): void {
-  object.updateMatrixWorld(true);
-  const size = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
-  object.scale.setScalar(targetSize / Math.max(size.x, size.y, size.z));
-}
-
 function findClip(clips: THREE.AnimationClip[], name: string): THREE.AnimationClip {
   const clip = clips.find((candidate) => candidate.name === name);
   if (!clip) throw new Error(`missing animation clip: ${name}`);
@@ -101,7 +95,6 @@ export async function loadPlayerAvatar(
 
   const weaponMesh = weaponGltf.scene;
   disableFrustumCulling(weaponMesh);
-  scaleToLargestDimension(weaponMesh, weapon.size);
   orientWeaponForHeld(weaponMesh, weapon);
   weaponMesh.position.set(weapon.gripOffset.x, weapon.gripOffset.y, weapon.gripOffset.z);
 

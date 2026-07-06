@@ -14,11 +14,13 @@ export const STAMINA = {
   enterFloor: 30,
 } as const;
 
-export const MOUSE_SENSITIVITY = 0.0025;
+export const MOUSE_SENSITIVITY = 0.002;
 /** Per pointermove delivery; spikes in recordings were ~460px while normal frames are ~15px. */
 export const MAX_POINTER_DELTA_PX = 80;
-// Vertical look clamp. Kept below ±90° so gun aim can climb past the view toward screen edges.
-export const MAX_PITCH = (60 * Math.PI) / 180;
+/** Ocular pitch cap (AIM.md): below ±90° so the weapon line can pass the view toward screen edges. */
+export const MAX_PITCH = (80 * Math.PI) / 180;
+
+export const CAMERA_FOV = 90;
 
 export const GRAVITY = -32;
 export const JUMP_SPEED = 7.5;

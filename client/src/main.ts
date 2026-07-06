@@ -6,18 +6,18 @@ import { initKeyboard } from "./input/keyboard.ts";
 import { initMouse } from "./input/mouse.ts";
 import { connect, sendPosition } from "./net/connection.ts";
 import { createCrosshair } from "./render/crosshair.ts";
+import { createPlayerSceneManager, getCharacterHitRoots } from "./render/players.ts";
 import { createProjectileRenderer, type ProjectileRenderer } from "./render/projectiles.ts";
-import { createRemotePlayerManager, getCharacterHitRoots } from "./render/remotePlayers.ts";
 import { createScene } from "./render/scene.ts";
-import { loadWeaponViewModel, type WeaponViewModel } from "./render/weaponView.ts";
 import { recordRenderFrame, recordSimTick } from "./debug/inputRates.ts";
+import { bindLocalWeaponAimSampler } from "./sim/aimDirection.ts";
 import { tickAimCascade } from "./sim/aimCascade.ts";
 
 import { initCombatFeedback, tickCombatFeedback } from "./sim/combatFeedback.ts";
-import { tickCameraEffects, type CameraEffectOffsets } from "./sim/cameraEffects.ts";
+import { tickCameraEffects } from "./sim/cameraEffects.ts";
 import { initHealth } from "./sim/health.ts";
 import { tickMovement } from "./sim/movement.ts";
-import { advanceProjectiles, tickProjectileFire } from "./sim/projectiles.ts";
+import { advanceProjectiles, bindProjectileEyeSampler, tickProjectileFire } from "./sim/projectiles.ts";
 import { tickRemoteSync } from "./sim/remoteSync.ts";
 import { localPlayer } from "./state/world.ts";
 import { createDamageOverlay } from "./ui/damageOverlay.ts";
@@ -32,7 +32,6 @@ const MAX_DT = 0.1;
 
 const { scene, camera, renderer } = createScene();
 
-let weaponView: WeaponViewModel | undefined;
 let projectileRenderer: ProjectileRenderer | undefined;
 let currentBulletModelUrl: string | undefined;
 
@@ -43,7 +42,9 @@ const weaponHud = createWeaponHud();
 const killFeed = createKillFeed();
 const deathOverlay = createDeathOverlay();
 const aimDebugHud = createAimDebugHud();
-const remotePlayerManager = createRemotePlayerManager(scene);
+const playerScene = createPlayerSceneManager(scene);
+bindProjectileEyeSampler(playerScene.sampleEyeWorldPosition);
+bindLocalWeaponAimSampler(playerScene.sampleLocalWeaponAimDirection);
 
 initHealth();
 initCombatFeedback(hitMarker, damageOverlay);
@@ -51,21 +52,16 @@ initCombatFeedback(hitMarker, damageOverlay);
 let lastTime = performance.now();
 let posBroadcastElapsed = 0;
 let gameStarted = false;
-let weaponLoadGeneration = 0;
+let assetLoadGeneration = 0;
 
-async function loadLocalWeaponAssets(): Promise<void> {
-  const generation = ++weaponLoadGeneration;
+async function loadLocalPlayerAssets(): Promise<void> {
+  const generation = ++assetLoadGeneration;
+  const character = getCurrentCharacter();
   const weapon = getCurrentWeapon();
-  const previousView = weaponView;
-  const view = await loadWeaponViewModel(camera, weapon);
 
-  if (generation !== weaponLoadGeneration) {
-    view.dispose();
-    return;
-  }
+  await playerScene.loadLocal(character, weapon);
+  if (generation !== assetLoadGeneration) return;
 
-  previousView?.dispose();
-  weaponView = view;
   weaponHud.update(weapon.id);
 
   if (weapon.bulletModelUrl !== currentBulletModelUrl) {
@@ -79,7 +75,7 @@ bus.on("weaponCycleRequested", () => {
   if (!gameStarted) return;
   const weaponId = cycleWeaponId();
   bus.emit("weaponSwitched", { weaponId });
-  void loadLocalWeaponAssets().catch((error) => {
+  void loadLocalPlayerAssets().catch((error) => {
     console.error("weapon swap failed", error);
   });
 });
@@ -88,7 +84,8 @@ function tick(dt: number): void {
   recordSimTick();
   tickMovement(dt);
   tickAimCascade(dt);
-  updateCamera(tickCameraEffects(dt));
+  playerScene.update(dt);
+  playerScene.applyCamera(camera, tickCameraEffects(dt));
   tickProjectileFire(dt, camera);
   tickRemoteSync(dt);
   tickPosBroadcast(dt);
@@ -101,18 +98,6 @@ function tickPosBroadcast(dt: number): void {
   sendPosition(localPlayer.position, localPlayer.targetYaw, localPlayer.targetPitch);
 }
 
-function updateCamera(
-  effects: CameraEffectOffsets = { pitch: 0, yaw: 0, bobY: 0 },
-): void {
-  camera.position.set(
-    localPlayer.position.x,
-    localPlayer.position.y + getCurrentCharacter().eyeHeight + effects.bobY,
-    localPlayer.position.z,
-  );
-  camera.rotation.y = localPlayer.targetYaw + effects.yaw;
-  camera.rotation.x = localPlayer.targetPitch + effects.pitch;
-}
-
 function loop(now: number): void {
   const dt = gameStarted ? Math.min((now - lastTime) / 1000, MAX_DT) : 0;
   lastTime = now;
@@ -120,14 +105,12 @@ function loop(now: number): void {
   if (gameStarted) {
     recordRenderFrame();
     tick(dt);
-    weaponView?.update(dt);
     crosshair.update(camera);
     tickCombatFeedback(dt, camera, hitMarker, damageOverlay);
     deathOverlay.update();
     aimDebugHud.update();
     killFeed.tick(dt);
     projectileRenderer?.update();
-    remotePlayerManager.update(dt);
     advanceProjectiles(dt, getCharacterHitRoots());
   }
 
@@ -163,11 +146,11 @@ function startGame(characterId: string): void {
   bus.on("welcomed", (message) => {
     console.log("joined as", message.characterId);
     dismissConnecting();
-    updateCamera();
+    playerScene.applyCamera(camera, { pitch: 0, yaw: 0, bobY: 0 });
     renderer.domElement.style.display = "block";
     gameStarted = true;
-    void loadLocalWeaponAssets().catch((error) => {
-      console.error("failed to load weapon assets", error);
+    void loadLocalPlayerAssets().catch((error) => {
+      console.error("failed to load player assets", error);
     });
   });
 
@@ -175,11 +158,7 @@ function startGame(characterId: string): void {
   initMouse(renderer.domElement);
   connect(characterId);
 
-  // Begin loading the view-model while the socket connects so it is ready at spawn.
   weaponHud.update(getCurrentWeaponId());
-  void loadLocalWeaponAssets().catch((error) => {
-    console.error("failed to preload weapon assets", error);
-  });
 }
 
 showLobby((characterId) => {

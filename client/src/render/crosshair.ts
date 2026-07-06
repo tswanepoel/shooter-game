@@ -1,8 +1,8 @@
 import type * as THREE from "three";
 import { CROSSHAIR } from "../config/feedback.ts";
 import { localPlayer } from "../state/world.ts";
-import { armAimDelta } from "../sim/aimCascade.ts";
-import { applyAimScreenPosition, projectAimDeltaToScreen } from "../ui/aimScreen.ts";
+import { computeAimDirection } from "../sim/aimDirection.ts";
+import { applyAimScreenPosition, projectWeaponLineToScreen } from "../ui/aimScreen.ts";
 
 export interface Crosshair {
   update(camera: THREE.Camera): void;
@@ -18,7 +18,7 @@ export function createCrosshair(): Crosshair {
     `height:${CROSSHAIR.sizePx}px`,
     "border-radius:50%",
     "background:#fff",
-    "box-shadow:0 0 0 1px rgba(0,0,0,0.9)",
+    "box-shadow:0 0 0 1px rgba(0,0,0,1)",
     "pointer-events:none",
     "will-change:transform",
   ].join(";");
@@ -30,11 +30,11 @@ export function createCrosshair(): Crosshair {
       return;
     }
 
-    const projected = projectAimDeltaToScreen(camera, armAimDelta(localPlayer));
-    if (!projected.visible) {
-      element.style.display = "none";
-      return;
-    }
+    const projected = projectWeaponLineToScreen(
+      camera,
+      camera.position,
+      computeAimDirection(camera),
+    );
 
     element.style.display = "block";
     applyAimScreenPosition(element, projected);

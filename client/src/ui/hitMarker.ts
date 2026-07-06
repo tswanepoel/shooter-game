@@ -1,8 +1,7 @@
 import * as THREE from "three";
 import { HIT_MARKER } from "../config/feedback.ts";
-import { armAimDelta } from "../sim/aimCascade.ts";
-import { localPlayer } from "../state/world.ts";
-import { applyAimScreenPosition, projectAimDeltaToScreen } from "./aimScreen.ts";
+import { computeAimDirection } from "../sim/aimDirection.ts";
+import { applyAimScreenPosition, projectWeaponLineToScreen } from "./aimScreen.ts";
 
 export interface HitMarker {
   flash(): void;
@@ -70,13 +69,19 @@ export function createHitMarker(): HitMarker {
     applyOpacity(1);
   }
 
+  const eyeOrigin = new THREE.Vector3();
+
   function tick(dt: number, camera: THREE.Camera): void {
     if (elapsed >= totalDuration) {
       root.style.display = "none";
       return;
     }
 
-    applyAimScreenPosition(root, projectAimDeltaToScreen(camera, armAimDelta(localPlayer)));
+    eyeOrigin.copy(camera.position);
+    applyAimScreenPosition(
+      root,
+      projectWeaponLineToScreen(camera, eyeOrigin, computeAimDirection(camera)),
+    );
     root.style.display = "block";
 
     if (elapsed < HIT_MARKER.holdDuration) {

@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { CAMERA_FOV } from "../config/physics.ts";
 
 export interface SceneContext {
   scene: THREE.Scene;
@@ -11,7 +12,7 @@ export function createScene(): SceneContext {
   scene.background = new THREE.Color(0x87ceeb);
 
   const camera = new THREE.PerspectiveCamera(
-    75,
+    CAMERA_FOV,
     window.innerWidth / window.innerHeight,
     0.1,
     1000,
@@ -35,6 +36,10 @@ export function createScene(): SceneContext {
   const grid = new THREE.GridHelper(200, 40, 0x1f2f1f, 0x1f2f1f);
   grid.position.y = 0.01;
   scene.add(grid);
+
+  const skyGrid = new THREE.GridHelper(200, 40, 0xffe8a8, 0xd4b870);
+  skyGrid.position.y = 60;
+  scene.add(skyGrid);
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.6);
   scene.add(ambient);

@@ -7,6 +7,16 @@ const cameraRight = new THREE.Vector3();
 const rotQuat = new THREE.Quaternion();
 const direction = new THREE.Vector3();
 
+let sampleLocalWeaponAimDirection:
+  | ((out: THREE.Vector3) => boolean)
+  | undefined;
+
+export function bindLocalWeaponAimSampler(
+  sampler: (out: THREE.Vector3) => boolean,
+): void {
+  sampleLocalWeaponAimDirection = sampler;
+}
+
 /** World-yaw then camera-local pitch — screen axes stay independent on diagonals. */
 export function applyAimDeltaToDirection(
   camera: THREE.Camera,
@@ -31,6 +41,10 @@ export function applyAimDeltaToDirection(
 }
 
 export function computeAimDirection(camera: THREE.Camera): THREE.Vector3 {
+  if (sampleLocalWeaponAimDirection?.(direction)) {
+    return direction;
+  }
+
   const { pitch, yaw } = armAimDelta(localPlayer);
   return applyAimDeltaToDirection(camera, pitch, yaw, direction);
 }

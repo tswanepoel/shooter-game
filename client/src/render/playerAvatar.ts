@@ -1,28 +1,27 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { bus } from "../bus.ts";
-import { getCharacterRecipe, type CharacterRecipe } from "../config/characters.ts";
-import { DEATH_POSE_PITCH } from "../config/feedback.ts";
+import type { CharacterRecipe } from "../config/characters.ts";
 import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
-import { getWeaponRecipe, type WeaponRecipe } from "../config/weapons.ts";
-import { orientWeaponForHeld } from "./weaponMesh.ts";
+import type { WeaponRecipe } from "../config/weapons.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
-import { remotePlayers } from "../state/world.ts";
+import { orientWeaponForHeld } from "./weaponMesh.ts";
 
 export type LocomotionState = "idle" | "walk" | "sprint";
 
-export interface CharacterInstance {
-  object: THREE.Object3D;
-  setLocomotion(state: LocomotionState): void;
-  triggerMuzzleFlash(): void;
-  update(dt: number, aim?: AimCascadeState): void;
+const BLEND_RATE = 6;
+const loader = new GLTFLoader();
+const aimEuler = new THREE.Euler(0, 0, 0, "YXZ");
+
+export function classifyLocomotionFromSpeed(speed: number): LocomotionState {
+  if (speed >= LOCOMOTION_SPEED_THRESHOLD.sprint) return "sprint";
+  if (speed >= LOCOMOTION_SPEED_THRESHOLD.walk) return "walk";
+  return "idle";
 }
 
-const BLEND_RATE = 6;
-
-const loader = new GLTFLoader();
-
-const aimEuler = new THREE.Euler(0, 0, 0, "YXZ");
+export function classifyLocalLocomotion(sprinting: boolean, speed: number): LocomotionState {
+  if (sprinting) return "sprint";
+  return classifyLocomotionFromSpeed(speed);
+}
 
 function wrapWithAimPivot(bone: THREE.Object3D): THREE.Object3D {
   const parent = bone.parent;
@@ -74,10 +73,21 @@ function approach(current: number, target: number, dt: number): number {
   return Math.abs(delta) <= step ? target : current + Math.sign(delta) * step;
 }
 
-export async function loadCharacterWithWeapon(
+export interface PlayerAvatar {
+  readonly root: THREE.Object3D;
+  readonly weaponMesh: THREE.Object3D;
+  setLocomotion(state: LocomotionState): void;
+  triggerMuzzleFlash(): void;
+  update(dt: number, aim?: AimCascadeState): void;
+  sampleEyeWorldPosition(out: THREE.Vector3): void;
+  sampleWeaponAimDirection(out: THREE.Vector3): void;
+  dispose(): void;
+}
+
+export async function loadPlayerAvatar(
   character: CharacterRecipe,
   weapon: WeaponRecipe,
-): Promise<CharacterInstance> {
+): Promise<PlayerAvatar> {
   const [characterGltf, weaponGltf] = await Promise.all([
     loader.loadAsync(character.modelUrl),
     loader.loadAsync(weapon.modelUrl),
@@ -94,18 +104,28 @@ export async function loadCharacterWithWeapon(
   weaponMesh.position.set(weapon.gripOffset.x, weapon.gripOffset.y, weapon.gripOffset.z);
 
   const torsoNode = characterMesh.getObjectByName("torso");
-  const headNode = characterMesh.getObjectByName("head");
-  const gripNode = characterMesh.getObjectByName("arm-right") ?? characterMesh;
+  const headLookup = characterMesh.getObjectByName("head");
+  const armRightLookup = characterMesh.getObjectByName("arm-right");
+  if (!headLookup) throw new Error(`missing head bone on ${character.id}`);
+  if (!armRightLookup) throw new Error(`missing arm-right bone on ${character.id}`);
+  const headBone: THREE.Object3D = headLookup;
+  const armRight: THREE.Object3D = armRightLookup;
+
+  const eyeOffset = new THREE.Vector3(
+    character.eyeOffset.x,
+    character.eyeOffset.y,
+    character.eyeOffset.z,
+  );
 
   const torsoAimPivot = torsoNode ? wrapWithAimPivot(torsoNode) : undefined;
-  const headAimPivot = headNode ? wrapWithAimPivot(headNode) : undefined;
-  const armAimPivot = gripNode !== characterMesh ? wrapWithAimPivot(gripNode) : undefined;
+  const headAimPivot = wrapWithAimPivot(headBone);
+  const armAimPivot = wrapWithAimPivot(armRight);
 
-  gripNode.add(weaponMesh);
+  armRight.add(weaponMesh);
 
   const gripWorldScale = new THREE.Vector3();
-  gripNode.updateMatrixWorld(true);
-  gripNode.getWorldScale(gripWorldScale);
+  armRight.updateMatrixWorld(true);
+  armRight.getWorldScale(gripWorldScale);
   weaponMesh.scale.divideScalar(gripWorldScale.x);
 
   const muzzleFlash = new THREE.Mesh(
@@ -118,13 +138,12 @@ export async function loadCharacterWithWeapon(
     weapon.muzzleFlashOffset.z,
   );
   muzzleFlash.visible = false;
-  gripNode.add(muzzleFlash);
+  armRight.add(muzzleFlash);
   let muzzleFlashTimer = 0;
 
   const mixer = new THREE.AnimationMixer(characterMesh);
   const clips = characterGltf.animations;
   const staticClip = findClip(clips, "static");
-
   const walkClip = THREE.AnimationUtils.makeClipAdditive(findClip(clips, "walk").clone(), 0, staticClip);
   const sprintClip = THREE.AnimationUtils.makeClipAdditive(findClip(clips, "sprint").clone(), 0, staticClip);
 
@@ -132,7 +151,6 @@ export async function loadCharacterWithWeapon(
 
   const walkAction = mixer.clipAction(walkClip);
   const sprintAction = mixer.clipAction(sprintClip);
-
   for (const action of [walkAction, sprintAction]) {
     action.blendMode = THREE.AdditiveAnimationBlendMode;
     action.play();
@@ -153,16 +171,38 @@ export async function loadCharacterWithWeapon(
   }
 
   function applyAimPose(aim: AimCascadeState): void {
-    // Aim lives on pivots the mixer never touches; animated bones stay inside.
-    // Pivots are reassigned every frame so pitch cannot stack across walk cycles.
-    // Cascade pitch is camera convention (positive = look up); rig local X is
-    // opposite, so only the bone mapping is negated — wire/cascade stay as-is.
-    //
-    // Pelvis/root rotation.y already faces torsoYaw (+ π model forward). Pivots only
-    // add local bend: neck yaw relative to torso, pitch slices on the chain.
     setAimPivot(torsoAimPivot, -aim.torsoPitch, 0);
     setAimPivot(headAimPivot, -aim.headPitch, aim.headYaw - aim.torsoYaw);
     setAimPivot(armAimPivot, -aim.shoulderPitch, 0);
+  }
+
+  function sampleEyeWorldPosition(out: THREE.Vector3): void {
+    characterMesh.updateMatrixWorld(true);
+    headBone.updateMatrixWorld(true);
+    out.copy(eyeOffset).applyMatrix4(headBone.matrixWorld);
+  }
+
+  const gripWorld = new THREE.Vector3();
+  const muzzleWorld = new THREE.Vector3();
+
+  function sampleWeaponAimDirection(out: THREE.Vector3): void {
+    characterMesh.updateMatrixWorld(true);
+    armRight.updateMatrixWorld(true);
+    weaponMesh.updateMatrixWorld(true);
+    gripWorld.setFromMatrixPosition(weaponMesh.matrixWorld);
+    muzzleWorld
+      .set(
+        weapon.muzzleFlashOffset.x,
+        weapon.muzzleFlashOffset.y,
+        weapon.muzzleFlashOffset.z,
+      )
+      .applyMatrix4(armRight.matrixWorld);
+    out.copy(muzzleWorld).sub(gripWorld);
+    if (out.lengthSq() < 1e-8) {
+      out.set(0, 0, -1).transformDirection(characterMesh.matrixWorld);
+    } else {
+      out.normalize();
+    }
   }
 
   function update(dt: number, aim?: AimCascadeState): void {
@@ -177,122 +217,25 @@ export async function loadCharacterWithWeapon(
     }
   }
 
-  return { object: characterMesh, setLocomotion, triggerMuzzleFlash, update };
-}
-
-export interface RemotePlayerManager {
-  update(dt: number): void;
-}
-
-interface LoadedRemote {
-  instance: CharacterInstance;
-  characterId: string;
-  weaponId: string;
-}
-
-function classifyLocomotion(speed: number): LocomotionState {
-  if (speed >= LOCOMOTION_SPEED_THRESHOLD.sprint) return "sprint";
-  if (speed >= LOCOMOTION_SPEED_THRESHOLD.walk) return "walk";
-  return "idle";
-}
-
-export function getCharacterHitRoots(): THREE.Object3D[] {
-  return Array.from(hitRoots.values());
-}
-
-const hitRoots = new Map<string, THREE.Object3D>();
-
-export function createRemotePlayerManager(scene: THREE.Scene): RemotePlayerManager {
-  const loaded = new Map<string, LoadedRemote>();
-  const pending = new Set<string>();
-  const pendingRecipe = new Map<string, { characterId: string; weaponId: string }>();
-
-  bus.on("fireReceived", ({ id }) => {
-    loaded.get(id)?.instance.triggerMuzzleFlash();
-  });
-
-  function removeInstance(id: string): void {
-    const entry = loaded.get(id);
-    if (!entry) return;
-    scene.remove(entry.instance.object);
-    hitRoots.delete(id);
-    loaded.delete(id);
-  }
-
-  function ensureInstance(id: string): void {
-    const remote = remotePlayers.get(id);
-    if (!remote) return;
-
-    const entry = loaded.get(id);
-    if (
-      entry &&
-      entry.characterId === remote.characterId &&
-      entry.weaponId === remote.weaponId
-    ) {
-      return;
-    }
-
-    const queued = pendingRecipe.get(id);
-    if (
-      pending.has(id) &&
-      queued?.characterId === remote.characterId &&
-      queued?.weaponId === remote.weaponId
-    ) {
-      return;
-    }
-    if (entry) removeInstance(id);
-
-    pending.add(id);
-    const character = getCharacterRecipe(remote.characterId);
-    const weapon = getWeaponRecipe(remote.weaponId);
-    pendingRecipe.set(id, { characterId: character.id, weaponId: weapon.id });
-    loadCharacterWithWeapon(character, weapon).then((instance) => {
-      pending.delete(id);
-      pendingRecipe.delete(id);
-      const current = remotePlayers.get(id);
-      if (!current) return;
-      if (
-        current.characterId !== character.id ||
-        current.weaponId !== weapon.id
-      ) {
-        return; // stale load; a newer recipe is already queued
+  function dispose(): void {
+    mixer.stopAllAction();
+    characterMesh.traverse((node) => {
+      if (node instanceof THREE.Mesh) {
+        node.geometry.dispose();
+        const materials = Array.isArray(node.material) ? node.material : [node.material];
+        for (const material of materials) material.dispose();
       }
-      instance.object.userData.playerId = id;
-      scene.add(instance.object);
-      hitRoots.set(id, instance.object);
-      loaded.set(id, { instance, characterId: character.id, weaponId: weapon.id });
     });
   }
 
-  function update(dt: number): void {
-    for (const id of remotePlayers.keys()) {
-      ensureInstance(id);
-    }
-
-    for (const [id, entry] of loaded) {
-      const remote = remotePlayers.get(id);
-      if (!remote) {
-        removeInstance(id);
-        continue;
-      }
-
-      if (entry.characterId !== remote.characterId || entry.weaponId !== remote.weaponId) {
-        ensureInstance(id);
-        continue;
-      }
-
-      entry.instance.object.position.set(remote.position.x, remote.position.y, remote.position.z);
-      entry.instance.object.rotation.y = remote.torsoYaw + Math.PI;
-
-      if (remote.alive) {
-        entry.instance.object.rotation.x = 0;
-        entry.instance.setLocomotion(classifyLocomotion(remote.measuredSpeed));
-        entry.instance.update(dt, remote);
-      } else {
-        entry.instance.object.rotation.x = DEATH_POSE_PITCH;
-      }
-    }
-  }
-
-  return { update };
+  return {
+    root: characterMesh,
+    weaponMesh,
+    setLocomotion,
+    triggerMuzzleFlash,
+    update,
+    sampleEyeWorldPosition,
+    sampleWeaponAimDirection,
+    dispose,
+  };
 }

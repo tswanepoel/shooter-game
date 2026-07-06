@@ -29,7 +29,7 @@ export const AIM_PITCH = {
   bendAtMax: {
     torso: (10 * Math.PI) / 180,
     shoulder: (85 * Math.PI) / 180,
-    headCosmetic: (45 * Math.PI) / 180,
+    headCosmetic: (55 * Math.PI) / 180,
   },
   lagShare: {
     torso: 10 / (10 + 85),

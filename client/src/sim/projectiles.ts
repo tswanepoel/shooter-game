@@ -1,6 +1,5 @@
 import * as THREE from "three";
 import { bus } from "../bus.ts";
-import { getCurrentCharacter } from "../config/characters.ts";
 import { getCurrentWeapon } from "../config/weapons.ts";
 import { sendHit } from "../net/connection.ts";
 import { localPlayer, localPlayerId, projectiles, remotePlayers } from "../state/world.ts";
@@ -14,6 +13,17 @@ let nextId = 1;
 const raycaster = new THREE.Raycaster();
 const rayDirection = new THREE.Vector3();
 const rayOrigin = new THREE.Vector3();
+const fireOrigin = new THREE.Vector3();
+
+let samplePlayerEyeWorldPosition:
+  | ((playerId: string, out: THREE.Vector3) => boolean)
+  | undefined;
+
+export function bindProjectileEyeSampler(
+  sampler: (playerId: string, out: THREE.Vector3) => boolean,
+): void {
+  samplePlayerEyeWorldPosition = sampler;
+}
 
 bus.on("fireStarted", () => {
   fireHeld = true;
@@ -31,11 +41,11 @@ bus.on("controlReleased", () => {
 
 bus.on("fireReceived", ({ id }) => {
   // Cosmetic only: the remote's own client owns hit authority for its shots.
-  const remote = remotePlayers.get(id);
-  if (!remote) return;
-  const { eyeHeight } = getCurrentCharacter();
+  if (!remotePlayers.get(id)) return;
+  if (!samplePlayerEyeWorldPosition?.(id, fireOrigin)) return;
+  const remote = remotePlayers.get(id)!;
   spawnProjectile(
-    { x: remote.position.x, y: remote.position.y + eyeHeight, z: remote.position.z },
+    { x: fireOrigin.x, y: fireOrigin.y, z: fireOrigin.z },
     { yaw: remote.torsoYaw, pitch: remote.armPitch },
     id,
   );
@@ -47,14 +57,13 @@ export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
 
   cooldown = Math.max(0, cooldown - dt);
 
-  if (fireHeld && controlEngaged && localPlayer.alive && cooldown <= 0) {
-    const { eyeHeight } = getCurrentCharacter();
+  if (fireHeld && controlEngaged && localPlayer.alive && !localPlayer.sprinting && cooldown <= 0) {
     const direction = computeAimDirection(camera);
     spawnProjectile(
       {
-        x: localPlayer.position.x,
-        y: localPlayer.position.y + eyeHeight,
-        z: localPlayer.position.z,
+        x: camera.position.x,
+        y: camera.position.y,
+        z: camera.position.z,
       },
       direction,
     );

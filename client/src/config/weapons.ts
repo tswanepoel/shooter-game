@@ -21,7 +21,8 @@ export interface WeaponRecipe {
 }
 
 // Shared Kenney blaster-kit rig tuning; per-weapon overrides capture feel differences.
-const BLASTER_FORWARD_AXIS: Vec3 = { x: 0, y: 0, z: 0 };
+// Authored nose/barrel axis in each model's local space (see weaponMesh.ts).
+const BLASTER_FORWARD_AXIS: Vec3 = { x: 0, y: 0, z: 1 };
 const BLASTER_GRIP_OFFSET: Vec3 = { x: 0, y: -1.2, z: 0.2 };
 const FOAM_BULLET: Pick<WeaponRecipe, "bulletModelUrl" | "bulletLength" | "bulletForwardAxis"> = {
   bulletModelUrl: "/models/bullet-foam-tip.glb",

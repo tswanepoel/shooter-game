@@ -3,6 +3,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { getCurrentCharacter, type ViewChain } from "../config/characters.ts";
 import type { WeaponRecipe } from "../config/weapons.ts";
 import { localPlayer } from "../state/world.ts";
+import { orientWeaponForView } from "./weaponMesh.ts";
 
 export interface WeaponViewModel {
   update(dt: number): void;
@@ -32,18 +33,6 @@ function scaleToLargestDimension(object: THREE.Object3D, targetSize: number): vo
   object.updateMatrixWorld(true);
   const size = new THREE.Box3().setFromObject(object).getSize(new THREE.Vector3());
   object.scale.setScalar(targetSize / Math.max(size.x, size.y, size.z));
-}
-
-function orientToForward(
-  object: THREE.Object3D,
-  authoredForward: THREE.Vector3,
-  desiredForward: THREE.Vector3,
-): void {
-  const rotation = new THREE.Quaternion().setFromUnitVectors(
-    authoredForward.clone().normalize(),
-    desiredForward.clone().normalize(),
-  );
-  object.quaternion.premultiply(rotation);
 }
 
 /** Camera-local unit vector pitched on X (before yaw). */
@@ -90,12 +79,7 @@ export async function loadWeaponViewModel(
   disableFrustumCulling(mesh);
   scaleToLargestDimension(mesh, weapon.size);
 
-  const authoredForward = new THREE.Vector3(
-    weapon.forwardAxis.x,
-    weapon.forwardAxis.y,
-    weapon.forwardAxis.z,
-  ).normalize();
-  orientToForward(mesh, authoredForward, new THREE.Vector3(0, 0, -1));
+  orientWeaponForView(mesh, weapon);
 
   const mount = new THREE.Object3D();
   mount.name = "weapon-view-mount";

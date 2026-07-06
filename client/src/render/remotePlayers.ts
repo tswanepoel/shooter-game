@@ -5,6 +5,7 @@ import { getCharacterRecipe, type CharacterRecipe } from "../config/characters.t
 import { DEATH_POSE_PITCH } from "../config/feedback.ts";
 import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
 import { getWeaponRecipe, type WeaponRecipe } from "../config/weapons.ts";
+import { orientWeaponForHeld } from "./weaponMesh.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
 import { remotePlayers } from "../state/world.ts";
 
@@ -61,14 +62,6 @@ function scaleToLargestDimension(object: THREE.Object3D, targetSize: number): vo
   object.scale.setScalar(targetSize / Math.max(size.x, size.y, size.z));
 }
 
-function orientToForward(object: THREE.Object3D, authoredForward: THREE.Vector3, desiredForward: THREE.Vector3): void {
-  const rotation = new THREE.Quaternion().setFromUnitVectors(
-    authoredForward.clone().normalize(),
-    desiredForward.clone().normalize(),
-  );
-  object.quaternion.premultiply(rotation);
-}
-
 function findClip(clips: THREE.AnimationClip[], name: string): THREE.AnimationClip {
   const clip = clips.find((candidate) => candidate.name === name);
   if (!clip) throw new Error(`missing animation clip: ${name}`);
@@ -97,13 +90,7 @@ export async function loadCharacterWithWeapon(
   const weaponMesh = weaponGltf.scene;
   disableFrustumCulling(weaponMesh);
   scaleToLargestDimension(weaponMesh, weapon.size);
-  const authoredForward = new THREE.Vector3(
-    weapon.forwardAxis.x,
-    weapon.forwardAxis.y,
-    weapon.forwardAxis.z,
-  ).normalize();
-  //orientToForward(weaponMesh, authoredForward, new THREE.Vector3(0, 1, 0));
-  //weaponMesh.rotateOnAxis(authoredForward, Math.PI);
+  orientWeaponForHeld(weaponMesh, weapon);
   weaponMesh.position.set(weapon.gripOffset.x, weapon.gripOffset.y, weapon.gripOffset.z);
 
   const torsoNode = characterMesh.getObjectByName("torso");

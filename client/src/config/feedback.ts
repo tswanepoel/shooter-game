@@ -36,13 +36,6 @@ export const HIT_MARKER = {
   tickAngles: [45, 135, 225, 315],
 } as const;
 
-export const DAMAGE_INDICATOR = {
-  duration: 0.75,
-  arcDegrees: 36,
-  radius: 52,
-  strokeWidth: 3,
-} as const;
-
 export const DAMAGE_OVERLAY = {
   maxConcurrentSplats: 4,
   splatSizePx: 200,

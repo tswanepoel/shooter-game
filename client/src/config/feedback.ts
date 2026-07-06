@@ -25,8 +25,8 @@ export const CROSSHAIR = {
 } as const;
 
 export const HIT_MARKER = {
-  holdDuration: 0.04,
-  fadeDuration: 0.08,
+  holdDuration: 0.03,
+  fadeDuration: 0.01,
   tickLength: 6,
   centerGap: 4,
   strokePx: 1.5,

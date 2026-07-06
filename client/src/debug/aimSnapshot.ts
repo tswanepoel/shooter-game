@@ -1,18 +1,13 @@
-import {
-  AIM_ARM_EYE_REMAINDER,
-  AIM_CHASE,
-  AIM_EYE_REMAINDER,
-  AIM_LAG_SHARE,
-  AIM_SHARE,
-} from "../config/aim.ts";
+import { AIM_PITCH, AIM_YAW, weaponPitchTarget } from "../config/aim.ts";
 import { MAX_PITCH } from "../config/physics.ts";
 import {
-  aimChaseRates,
   armAimDelta,
-  armPitchTarget,
   laggedShareTotals,
+  pitchChaseRates,
+  yawChaseRates,
   type AimCascadeState,
 } from "../sim/aimCascade.ts";
+import { consumeInputRateWindow } from "./inputRates.ts";
 import { localPlayer } from "../state/world.ts";
 
 const RAD_TO_DEG = 180 / Math.PI;
@@ -42,13 +37,24 @@ export interface AimDebugStreamFrame {
   offsetPitchDeg: number;
   torsoYawDeg: number;
   headYawDeg: number;
+  shoulderPitchDeg: number;
   armPitchDeg: number;
   inputSpeedRadPerSec: number;
   yawSpeedRadPerSec: number;
   pitchSpeedRadPerSec: number;
-  chaseHead: number;
-  chaseTorso: number;
-  chaseArm: number;
+  chaseYawHead: number;
+  chaseYawTorso: number;
+  chasePitchHead: number;
+  chasePitchTorso: number;
+  chasePitchShoulder: number;
+  /** pointermove handler invocations since the previous stream frame */
+  pointerEvents: number;
+  /** sum(getCoalescedEvents().length) over those deliveries */
+  coalescedSamples: number;
+  /** tick() calls since the previous stream frame */
+  simTicks: number;
+  /** game-loop rAF iterations since the previous stream frame */
+  renderFrames: number;
 }
 
 /** Full context once per recording (phase start). */
@@ -64,30 +70,22 @@ export interface AimDebugSessionStart {
     mouseTarget: AimAngles;
     eyes: AimAngles;
     torso: AimAngles;
-    head: AimAngles;
-    arm: AimAngles & { note: string };
-    armTargetPitchDeg: number;
+    head: AimAngles & { note: string };
+    shoulder: AimAngles & { note: string };
+    weapon: AimAngles & { note: string };
+    weaponTargetPitchDeg: number;
     pitchLimitEyesDeg: number;
     crosshairOffset: AimAngles & { note: string };
     inputSpeedRadPerSec: number;
     yawSpeedRadPerSec: number;
     pitchSpeedRadPerSec: number;
-    chaseRates: {
-      head: number;
-      torso: number;
-      arm: number;
-    };
-    laggedShareTotals: {
-      azimuth: number;
-      elevation: number;
-    };
+    yawChaseRates: ReturnType<typeof yawChaseRates>;
+    pitchChaseRates: ReturnType<typeof pitchChaseRates>;
+    laggedShareTotals: ReturnType<typeof laggedShareTotals>;
   };
   config: {
-    aimShare: typeof AIM_SHARE;
-    aimLagShare: typeof AIM_LAG_SHARE;
-    aimEyeRemainder: number;
-    aimArmEyeRemainder: number;
-    aimChase: typeof AIM_CHASE;
+    aimYaw: typeof AIM_YAW;
+    aimPitch: typeof AIM_PITCH;
     maxPitchDeg: number;
   };
 }
@@ -112,23 +110,26 @@ function row(label: string, yaw: number, pitch: number, note?: string): string {
 
 export function formatAimDebugHud(state: AimCascadeState, streamLine?: string): string {
   const delta = armAimDelta(state);
-  const rates = aimChaseRates(state.smoothedInputSpeed);
-  const armTarget = armPitchTarget(state.targetPitch);
+  const yawRates = yawChaseRates(state.smoothedYawSpeed);
+  const pitchRates = pitchChaseRates(state.smoothedPitchSpeed);
+  const weaponTarget = weaponPitchTarget(state.targetPitch);
   const lagTotals = laggedShareTotals();
 
   return [
     "Aim chain  (` show/hide · hold . record · C copy)",
     row("Mouse target", state.targetYaw, state.targetPitch),
     row("Eyes / camera", state.targetYaw, state.targetPitch, "(instant)"),
-    row("Head", state.headYaw, state.headPitch, "(lags eyes)"),
-    row("Torso", state.torsoYaw, state.torsoPitch, "(lags head)"),
-    row("Arm", state.torsoYaw, state.armPitch, "(yaw = torso)"),
-    `Arm target pitch     ${(armTarget * RAD_TO_DEG).toFixed(1)}°`,
+    row("Head", state.headYaw, state.headPitch, "(3P cosmetic)"),
+    row("Torso", state.torsoYaw, state.torsoPitch),
+    row("Shoulder", state.torsoYaw, state.shoulderPitch, "(weapon pitch)"),
+    row("Weapon", state.torsoYaw, state.armPitch, "(torso + shoulder)"),
+    `Weapon target pitch ${(weaponTarget * RAD_TO_DEG).toFixed(1)}°`,
     `Pitch limit (eyes)   ${(MAX_PITCH * RAD_TO_DEG).toFixed(1)}°`,
-    row("Crosshair offset", delta.yaw, delta.pitch, "(arm − eyes)"),
+    row("Crosshair offset", delta.yaw, delta.pitch, "(weapon − eyes)"),
     `Input speed          ${state.smoothedInputSpeed.toFixed(1)} rad/s  (yaw ${state.smoothedYawSpeed.toFixed(1)} · pitch ${state.smoothedPitchSpeed.toFixed(1)})`,
-    `Chase rates          head ${rates.head.toFixed(0)}   torso ${rates.torso.toFixed(0)}   arm ${rates.arm.toFixed(0)}`,
-    `Lagged share totals  az ${lagTotals.azimuth.toFixed(2)}   el ${lagTotals.elevation.toFixed(2)}`,
+    `Yaw chase            head ${yawRates.headCosmetic.toFixed(0)}   torso ${yawRates.torso.toFixed(0)}`,
+    `Pitch chase          head ${pitchRates.headCosmetic.toFixed(0)}   torso ${pitchRates.torso.toFixed(0)}   shoulder ${pitchRates.shoulder.toFixed(0)}`,
+    `Lagged share totals  yaw ${lagTotals.yaw.toFixed(2)}   pitch ${lagTotals.pitch.toFixed(2)}`,
     streamLine ?? "",
   ]
     .filter(Boolean)
@@ -137,7 +138,9 @@ export function formatAimDebugHud(state: AimCascadeState, streamLine?: string): 
 
 function captureStreamFrame(state: AimCascadeState, session: AimDebugSession): AimDebugStreamFrame {
   const delta = armAimDelta(state);
-  const rates = aimChaseRates(state.smoothedInputSpeed);
+  const yawRates = yawChaseRates(state.smoothedYawSpeed);
+  const pitchRates = pitchChaseRates(state.smoothedPitchSpeed);
+  const inputRates = consumeInputRateWindow();
 
   return {
     capturedAt: new Date().toISOString(),
@@ -148,13 +151,20 @@ function captureStreamFrame(state: AimCascadeState, session: AimDebugSession): A
     offsetPitchDeg: delta.pitch * RAD_TO_DEG,
     torsoYawDeg: state.torsoYaw * RAD_TO_DEG,
     headYawDeg: state.headYaw * RAD_TO_DEG,
+    shoulderPitchDeg: state.shoulderPitch * RAD_TO_DEG,
     armPitchDeg: state.armPitch * RAD_TO_DEG,
     inputSpeedRadPerSec: state.smoothedInputSpeed,
     yawSpeedRadPerSec: state.smoothedYawSpeed,
     pitchSpeedRadPerSec: state.smoothedPitchSpeed,
-    chaseHead: rates.head,
-    chaseTorso: rates.torso,
-    chaseArm: rates.arm,
+    chaseYawHead: yawRates.headCosmetic,
+    chaseYawTorso: yawRates.torso,
+    chasePitchHead: pitchRates.headCosmetic,
+    chasePitchTorso: pitchRates.torso,
+    chasePitchShoulder: pitchRates.shoulder,
+    pointerEvents: inputRates.pointerEvents,
+    coalescedSamples: inputRates.coalescedSamples,
+    simTicks: inputRates.simTicks,
+    renderFrames: inputRates.renderFrames,
   };
 }
 
@@ -164,8 +174,9 @@ function captureSessionStart(
   streamLine?: string,
 ): AimDebugSessionStart {
   const delta = armAimDelta(state);
-  const rates = aimChaseRates(state.smoothedInputSpeed);
-  const armTarget = armPitchTarget(state.targetPitch);
+  const yawRates = yawChaseRates(state.smoothedYawSpeed);
+  const pitchRates = pitchChaseRates(state.smoothedPitchSpeed);
+  const weaponTarget = weaponPitchTarget(state.targetPitch);
   const formatted = formatAimDebugHud(state, streamLine);
 
   return {
@@ -180,23 +191,22 @@ function captureSessionStart(
       mouseTarget: angles(state.targetYaw, state.targetPitch),
       eyes: angles(state.targetYaw, state.targetPitch),
       torso: angles(state.torsoYaw, state.torsoPitch),
-      head: angles(state.headYaw, state.headPitch),
-      arm: { ...angles(state.torsoYaw, state.armPitch), note: "yaw = torso" },
-      armTargetPitchDeg: armTarget * RAD_TO_DEG,
+      head: { ...angles(state.headYaw, state.headPitch), note: "3P cosmetic" },
+      shoulder: { ...angles(state.torsoYaw, state.shoulderPitch), note: "weapon pitch" },
+      weapon: { ...angles(state.torsoYaw, state.armPitch), note: "torso + shoulder" },
+      weaponTargetPitchDeg: weaponTarget * RAD_TO_DEG,
       pitchLimitEyesDeg: MAX_PITCH * RAD_TO_DEG,
-      crosshairOffset: { ...angles(delta.yaw, delta.pitch), note: "arm − eyes" },
+      crosshairOffset: { ...angles(delta.yaw, delta.pitch), note: "weapon − eyes" },
       inputSpeedRadPerSec: state.smoothedInputSpeed,
       yawSpeedRadPerSec: state.smoothedYawSpeed,
       pitchSpeedRadPerSec: state.smoothedPitchSpeed,
-      chaseRates: rates,
+      yawChaseRates: yawRates,
+      pitchChaseRates: pitchRates,
       laggedShareTotals: laggedShareTotals(),
     },
     config: {
-      aimShare: AIM_SHARE,
-      aimLagShare: AIM_LAG_SHARE,
-      aimEyeRemainder: AIM_EYE_REMAINDER,
-      aimArmEyeRemainder: AIM_ARM_EYE_REMAINDER,
-      aimChase: AIM_CHASE,
+      aimYaw: AIM_YAW,
+      aimPitch: AIM_PITCH,
       maxPitchDeg: MAX_PITCH * RAD_TO_DEG,
     },
   };

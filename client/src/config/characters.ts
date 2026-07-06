@@ -1,14 +1,35 @@
+/** Camera-local eye → hand chain lengths (blocky-character rig). */
+export interface ViewChain {
+  halfHeadDepth: number;
+  halfHeadHeight: number;
+  armLength: number;
+  /** Extra reach on the shoulder→grip segment (rig is short vs first-person expectation). */
+  armLengthCorrection: number;
+  handOffsetX: number;
+  /** Downward shoulder→grip angle at neutral aim (camera-local pitch, radians). */
+  armRestPitch: number;
+}
+
 export interface CharacterRecipe {
   id: string;
   modelUrl: string;
   height: number;
   eyeHeight: number;
+  viewChain: ViewChain;
 }
 
 // All blocky-character variants share the same rig and canonical world height.
 const CHARACTER_BODY = {
   height: 1.8,
   eyeHeight: 1.505,
+  viewChain: {
+    halfHeadDepth: 0.1,
+    halfHeadHeight: (1.8 - 1.505) * 0.5,
+    armLength: 0.55,
+    armLengthCorrection: 0.25,
+    handOffsetX: 0.2,
+    armRestPitch: -0.35,
+  },
 } as const;
 
 function character(id: string): CharacterRecipe {

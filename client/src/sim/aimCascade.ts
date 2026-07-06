@@ -1,12 +1,12 @@
 import {
-  AIM_ARM_EYE_REMAINDER,
-  AIM_CHASE,
-  AIM_EYE_REMAINDER,
-  AIM_LAG_SHARE,
-  AIM_SHARE,
-  type AxisChase,
+  AIM_PITCH,
+  AIM_YAW,
+  headPitchTarget,
+  shoulderPitchTarget,
+  torsoPitchTarget,
+  weaponPitchTarget,
+  type ChaseConfig,
 } from "../config/aim.ts";
-import { getCurrentWeapon, type WeaponRecipe } from "../config/weapons.ts";
 import { localPlayer } from "../state/world.ts";
 
 export interface AimDelta {
@@ -26,29 +26,14 @@ export interface AimCascadeState {
   torsoPitch: number;
   headYaw: number;
   headPitch: number;
+  shoulderPitch: number;
   armPitch: number;
 }
 
-/** Pelvis is implicit: locomotion root / torso anchor carries world yaw; rig bones are torso → head → arm. */
-export function shoulderPitch(state: AimCascadeState): number {
-  return state.torsoPitch + state.headPitch;
-}
-
-export function armPitchTarget(targetPitch: number): number {
-  return (
-    AIM_SHARE.torso * targetPitch +
-    AIM_SHARE.head * targetPitch +
-    AIM_ARM_EYE_REMAINDER * AIM_EYE_REMAINDER * targetPitch
-  );
-}
-
-export function laggedShareTotals(): { azimuth: number; elevation: number } {
+export function laggedShareTotals(): { yaw: number; pitch: number } {
   return {
-    azimuth: AIM_LAG_SHARE.azimuth.head + AIM_LAG_SHARE.azimuth.torso,
-    elevation:
-      AIM_LAG_SHARE.elevation.head +
-      AIM_LAG_SHARE.elevation.torso +
-      AIM_LAG_SHARE.elevation.arm,
+    yaw: AIM_YAW.lagShare.torso,
+    pitch: AIM_PITCH.lagShare.torso + AIM_PITCH.lagShare.shoulder,
   };
 }
 
@@ -61,9 +46,10 @@ export function armAimDelta(state: AimCascadeState): AimDelta {
 }
 
 export function snapCascadeToTarget(state: AimCascadeState): void {
-  state.headPitch = AIM_SHARE.head * state.targetPitch;
-  state.torsoPitch = AIM_SHARE.torso * state.targetPitch;
-  state.armPitch = armPitchTarget(state.targetPitch);
+  state.headPitch = headPitchTarget(state.targetPitch);
+  state.torsoPitch = torsoPitchTarget(state.targetPitch);
+  state.shoulderPitch = shoulderPitchTarget(state.targetPitch);
+  state.armPitch = weaponPitchTarget(state.targetPitch);
   state.headYaw = state.targetYaw;
   state.torsoYaw = state.targetYaw;
   state.lastTargetPitch = state.targetPitch;
@@ -77,20 +63,30 @@ function chase(current: number, target: number, rate: number, dt: number): numbe
   return current + (target - current) * (1 - Math.exp(-rate * dt));
 }
 
-function chaseRate(config: AxisChase, inputSpeed: number): number {
+function chaseRate(config: ChaseConfig, inputSpeed: number): number {
   const { snappy, laggy, speedScale } = config;
   return laggy + (snappy - laggy) * Math.exp(-speedScale * inputSpeed);
 }
 
-export function aimChaseRates(inputSpeed: number): {
-  head: number;
+export function yawChaseRates(yawSpeed: number): {
+  headCosmetic: number;
   torso: number;
-  arm: number;
 } {
   return {
-    head: chaseRate(AIM_CHASE.head, inputSpeed),
-    torso: chaseRate(AIM_CHASE.torso, inputSpeed),
-    arm: chaseRate(AIM_CHASE.arm, inputSpeed),
+    headCosmetic: chaseRate(AIM_YAW.chase.headCosmetic, yawSpeed),
+    torso: chaseRate(AIM_YAW.chase.torso, yawSpeed),
+  };
+}
+
+export function pitchChaseRates(pitchSpeed: number): {
+  headCosmetic: number;
+  torso: number;
+  shoulder: number;
+} {
+  return {
+    headCosmetic: chaseRate(AIM_PITCH.chase.headCosmetic, pitchSpeed),
+    torso: chaseRate(AIM_PITCH.chase.torso, pitchSpeed),
+    shoulder: chaseRate(AIM_PITCH.chase.shoulder, pitchSpeed),
   };
 }
 
@@ -98,11 +94,7 @@ function smoothToward(current: number, target: number, rate: number, dt: number)
   return current + (target - current) * (1 - Math.exp(-rate * dt));
 }
 
-export function tickCascade(
-  state: AimCascadeState,
-  dt: number,
-  _weapon: WeaponRecipe = getCurrentWeapon(),
-): void {
+export function tickCascade(state: AimCascadeState, dt: number): void {
   const pitchStep = state.targetPitch - state.lastTargetPitch;
   const pitchSpeed = Math.abs(pitchStep) / Math.max(dt, 1e-6);
   state.lastTargetPitch = state.targetPitch;
@@ -111,35 +103,50 @@ export function tickCascade(
   const yawSpeed = Math.abs(yawStep) / Math.max(dt, 1e-6);
   state.lastTargetYaw = state.targetYaw;
 
-  const instantInputSpeed = Math.hypot(pitchSpeed, yawSpeed);
-  const speedSmoothing = AIM_CHASE.speedSmoothing;
   state.smoothedInputSpeed = smoothToward(
     state.smoothedInputSpeed,
-    instantInputSpeed,
-    speedSmoothing,
+    Math.hypot(pitchSpeed, yawSpeed),
+    Math.max(AIM_YAW.speedSmoothing, AIM_PITCH.speedSmoothing),
     dt,
   );
-  state.smoothedYawSpeed = smoothToward(state.smoothedYawSpeed, yawSpeed, speedSmoothing, dt);
+  state.smoothedYawSpeed = smoothToward(
+    state.smoothedYawSpeed,
+    yawSpeed,
+    AIM_YAW.speedSmoothing,
+    dt,
+  );
   state.smoothedPitchSpeed = smoothToward(
     state.smoothedPitchSpeed,
     pitchSpeed,
-    speedSmoothing,
+    AIM_PITCH.speedSmoothing,
     dt,
   );
 
-  const rates = aimChaseRates(state.smoothedInputSpeed);
+  const yawRates = yawChaseRates(state.smoothedYawSpeed);
+  const pitchRates = pitchChaseRates(state.smoothedPitchSpeed);
 
-  // Serial chain: ocular → head → torso → arm (weapon line reads torso yaw + arm pitch).
-  state.headYaw = chase(state.headYaw, state.targetYaw, rates.head, dt);
-  state.torsoYaw = chase(state.torsoYaw, state.headYaw, rates.torso, dt);
+  state.headYaw = chase(state.headYaw, state.targetYaw, yawRates.headCosmetic, dt);
+  state.torsoYaw = chase(state.torsoYaw, state.targetYaw, yawRates.torso, dt);
 
-  const headPitchTarget = AIM_SHARE.head * state.targetPitch;
-  state.headPitch = chase(state.headPitch, headPitchTarget, rates.head, dt);
-
-  const torsoPitchTarget = state.headPitch * (AIM_SHARE.torso / AIM_SHARE.head);
-  state.torsoPitch = chase(state.torsoPitch, torsoPitchTarget, rates.torso, dt);
-
-  state.armPitch = chase(state.armPitch, armPitchTarget(state.targetPitch), rates.arm, dt);
+  state.headPitch = chase(
+    state.headPitch,
+    headPitchTarget(state.targetPitch),
+    pitchRates.headCosmetic,
+    dt,
+  );
+  state.torsoPitch = chase(
+    state.torsoPitch,
+    torsoPitchTarget(state.targetPitch),
+    pitchRates.torso,
+    dt,
+  );
+  state.shoulderPitch = chase(
+    state.shoulderPitch,
+    shoulderPitchTarget(state.targetPitch),
+    pitchRates.shoulder,
+    dt,
+  );
+  state.armPitch = state.torsoPitch + state.shoulderPitch;
 }
 
 export function tickAimCascade(dt: number): void {

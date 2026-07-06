@@ -10,6 +10,7 @@ import { createProjectileRenderer, type ProjectileRenderer } from "./render/proj
 import { createRemotePlayerManager, getCharacterHitRoots } from "./render/remotePlayers.ts";
 import { createScene } from "./render/scene.ts";
 import { loadWeaponViewModel, type WeaponViewModel } from "./render/weaponView.ts";
+import { recordRenderFrame, recordSimTick } from "./debug/inputRates.ts";
 import { tickAimCascade } from "./sim/aimCascade.ts";
 
 import { initCombatFeedback, tickCombatFeedback } from "./sim/combatFeedback.ts";
@@ -86,6 +87,7 @@ bus.on("weaponCycleRequested", () => {
 });
 
 function tick(dt: number): void {
+  recordSimTick();
   tickMovement(dt);
   tickAimCascade(dt);
   updateCamera(tickCameraEffects(dt));
@@ -118,6 +120,7 @@ function loop(now: number): void {
   lastTime = now;
 
   if (gameStarted) {
+    recordRenderFrame();
     tick(dt);
     weaponView?.update(dt);
     crosshair.update(camera);

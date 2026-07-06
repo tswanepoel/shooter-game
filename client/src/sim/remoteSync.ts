@@ -1,5 +1,5 @@
 import { bus } from "../bus.ts";
-import { getWeaponRecipe } from "../config/weapons.ts";
+
 import { GRAVITY, JUMP_SPEED, REMOTE_POSITION_LERP_RATE } from "../config/physics.ts";
 import { remotePlayers } from "../state/world.ts";
 import { snapCascadeToTarget, tickCascade } from "./aimCascade.ts";
@@ -60,6 +60,6 @@ export function tickRemoteSync(dt: number): void {
       }
     }
 
-    tickCascade(remote, dt, getWeaponRecipe(remote.weaponId));
+    tickCascade(remote, dt);
   }
 }

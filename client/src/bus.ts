@@ -57,7 +57,6 @@ export interface BusEvents {
   fired: undefined;
   weaponCycleRequested: undefined;
   weaponSwitched: { weaponId: string };
-  turned: { dx: number; dy: number };
   controlEngaged: undefined;
   controlReleased: undefined;
   welcomed: WelcomeMessage;

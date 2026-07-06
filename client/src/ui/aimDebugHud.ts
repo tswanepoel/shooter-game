@@ -4,6 +4,7 @@ import {
   formatAimDebugHud,
   type DebugSessionPhase,
 } from "../debug/aimSnapshot.ts";
+import { resetInputRateProbe } from "../debug/inputRates.ts";
 import { debugStreamStatus, publishAimDebugSnapshot } from "../debug/publish.ts";
 import { localPlayer } from "../state/world.ts";
 
@@ -122,6 +123,7 @@ export function createAimDebugHud(): AimDebugHud {
   function startRecording(): void {
     if (!visible || recording) return;
     recording = true;
+    resetInputRateProbe();
     sessionId = crypto.randomUUID();
     sessionSeq = 0;
     setHudText(hudText("start"));

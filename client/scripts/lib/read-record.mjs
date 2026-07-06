@@ -11,7 +11,7 @@ export const DEG_TO_RAD = Math.PI / 180;
 
 /**
  * Lean stream line (phase stream/end) — grep/jq friendly:
- *   offsetYawDeg, targetYawDeg, yawSpeedRadPerSec, chaseTorso, session.seq
+ *   offsetYawDeg, targetYawDeg, yawSpeedRadPerSec, chaseYawTorso, session.seq
  * Full context once per hold (phase start): formatted, config, aim.*
  */
 export function readRecordLines(file = RECORD_PATH) {

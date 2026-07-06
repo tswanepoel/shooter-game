@@ -5,7 +5,7 @@ const rows = withTiming(loadStreamFrames(), (f, _i, _arr, { dtMs }) => ({
   target: deg(f.targetYawDeg),
   offset: deg(f.offsetYawDeg),
   inputSpeed: f.inputSpeedRadPerSec,
-  torsoRate: f.chaseTorso,
+  torsoRate: f.chaseYawTorso,
 }));
 
 const flat = [];

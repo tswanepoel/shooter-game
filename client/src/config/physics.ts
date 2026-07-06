@@ -16,7 +16,7 @@ export const STAMINA = {
 
 export const MOUSE_SENSITIVITY = 0.0025;
 // Vertical look clamp. Kept below ±90° so gun aim can climb past the view toward screen edges.
-export const MAX_PITCH = (55 * Math.PI) / 180;
+export const MAX_PITCH = (60 * Math.PI) / 180;
 
 export const GRAVITY = -32;
 export const JUMP_SPEED = 6.5;

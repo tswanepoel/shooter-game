@@ -102,8 +102,8 @@ export async function loadCharacterWithWeapon(
     weapon.forwardAxis.y,
     weapon.forwardAxis.z,
   ).normalize();
-  orientToForward(weaponMesh, authoredForward, new THREE.Vector3(0, 1, 0));
-  weaponMesh.rotateOnAxis(authoredForward, Math.PI);
+  //orientToForward(weaponMesh, authoredForward, new THREE.Vector3(0, 1, 0));
+  //weaponMesh.rotateOnAxis(authoredForward, Math.PI);
   weaponMesh.position.set(weapon.gripOffset.x, weapon.gripOffset.y, weapon.gripOffset.z);
 
   const torsoNode = characterMesh.getObjectByName("torso");
@@ -175,7 +175,7 @@ export async function loadCharacterWithWeapon(
     // add local bend: neck yaw relative to torso, pitch slices on the chain.
     setAimPivot(torsoAimPivot, -aim.torsoPitch, 0);
     setAimPivot(headAimPivot, -aim.headPitch, aim.headYaw - aim.torsoYaw);
-    setAimPivot(armAimPivot, -(aim.armPitch - aim.torsoPitch - aim.headPitch), 0);
+    setAimPivot(armAimPivot, -aim.shoulderPitch, 0);
   }
 
   function update(dt: number, aim?: AimCascadeState): void {

@@ -1,4 +1,5 @@
 import { bus } from "../bus.ts";
+import { clearPointerDelta, drainPointerDelta } from "../input/pointerInput.ts";
 import {
   GRAVITY,
   JUMP_SPEED,
@@ -53,14 +54,18 @@ bus.on("controlEngaged", () => {
 });
 bus.on("controlReleased", () => {
   controlEngaged = false;
+  clearPointerDelta();
 });
 
-bus.on("turned", ({ dx, dy }) => {
-  if (!controlEngaged) return;
+function applyBufferedPointerTurn(): void {
+  const { dx, dy } = drainPointerDelta();
+  if (!controlEngaged || !localPlayer.alive) return;
+  if (dx === 0 && dy === 0) return;
+
   localPlayer.targetYaw -= dx * MOUSE_SENSITIVITY;
   localPlayer.targetPitch -= dy * MOUSE_SENSITIVITY;
   localPlayer.targetPitch = clamp(localPlayer.targetPitch, -MAX_PITCH, MAX_PITCH);
-});
+}
 
 bus.on("jumped", () => {
   if (!localPlayer.alive) {
@@ -77,6 +82,8 @@ bus.on("jumped", () => {
 });
 
 export function tickMovement(dt: number): void {
+  applyBufferedPointerTurn();
+
   if (!localPlayer.alive) {
     localPlayer.horizontalSpeed = 0;
     return;

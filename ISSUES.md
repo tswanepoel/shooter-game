@@ -45,8 +45,8 @@ Tracked tuning, polish, and feature gaps.
 ## Death & respawn
 
 - [x] **11. Own weapon visible when dead** — local view-model should hide on death.
-- [x] **12. Look-around while dead** — allow mouse look when dead (currently gated).
 - [x] **13. Respawn timer too simple** — allow manual respawn sooner (shorter minimum delay); still force respawn after a longer cap.
+- [x] **47. Death camera stuck** — when the player dies, the camera does not move to the death-pose vantage point.
 
 ## Loadout & lobby
 

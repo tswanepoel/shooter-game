@@ -23,7 +23,8 @@ export function initHealth(): void {
   bus.on("deathReceived", ({ victimId }) => {
     if (victimId === localPlayerId) {
       localPlayer.alive = false;
-      localPlayer.horizontalSpeed = 0;
+      localPlayer.targetPitch = 0;
+      snapCascadeToTarget(localPlayer);
       return;
     }
     const remote = remotePlayers.get(victimId);

@@ -51,5 +51,3 @@ export const DAMAGE_OVERLAY = {
   vignetteRestCurve: 1.2,
   vignetteRestSmoothing: 5,
 } as const;
-
-export const DEATH_POSE_PITCH = -Math.PI / 2 + 0.15;

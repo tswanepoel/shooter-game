@@ -130,5 +130,6 @@ export function tickCascade(state: AimCascadeState, dt: number): void {
 }
 
 export function tickAimCascade(dt: number): void {
+  if (!localPlayer.alive) return;
   tickCascade(localPlayer, dt);
 }

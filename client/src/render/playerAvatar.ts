@@ -79,7 +79,9 @@ export interface PlayerAvatar {
   setLocomotion(state: LocomotionState): void;
   triggerMuzzleFlash(): void;
   update(dt: number, aim?: AimCascadeState): void;
+  updateDeath(dt: number): void;
   sampleEyeWorldPosition(out: THREE.Vector3): void;
+  applyDeathCamera(camera: THREE.PerspectiveCamera): void;
   sampleWeaponAimDirection(out: THREE.Vector3): void;
   dispose(): void;
 }
@@ -116,6 +118,10 @@ export async function loadPlayerAvatar(
     character.eyeOffset.y,
     character.eyeOffset.z,
   );
+  const headForward = new THREE.Vector3();
+  const lookTarget = new THREE.Vector3();
+  const lookAtMatrix = new THREE.Matrix4();
+  const worldUp = new THREE.Vector3(0, 1, 0);
 
   const torsoAimPivot = torsoNode ? wrapWithAimPivot(torsoNode) : undefined;
   const headAimPivot = wrapWithAimPivot(headBone);
@@ -147,7 +153,12 @@ export async function loadPlayerAvatar(
   const walkClip = THREE.AnimationUtils.makeClipAdditive(findClip(clips, "walk").clone(), 0, staticClip);
   const sprintClip = THREE.AnimationUtils.makeClipAdditive(findClip(clips, "sprint").clone(), 0, staticClip);
 
-  mixer.clipAction(findClip(clips, "holding-right")).play();
+  const holdingRightAction = mixer.clipAction(findClip(clips, "holding-right"));
+  holdingRightAction.play();
+
+  const dieAction = mixer.clipAction(findClip(clips, "die"));
+  dieAction.setLoop(THREE.LoopOnce, 1);
+  dieAction.clampWhenFinished = true;
 
   const walkAction = mixer.clipAction(walkClip);
   const sprintAction = mixer.clipAction(sprintClip);
@@ -159,6 +170,7 @@ export async function loadPlayerAvatar(
   sprintAction.setEffectiveWeight(0);
 
   const targetWeight = { walk: 0, sprint: 0 };
+  let deathActive = false;
 
   function setLocomotion(state: LocomotionState): void {
     targetWeight.walk = state === "walk" ? 1 : 0;
@@ -170,16 +182,45 @@ export async function loadPlayerAvatar(
     muzzleFlash.visible = true;
   }
 
+  function resetAimPivots(): void {
+    setAimPivot(torsoAimPivot, 0, 0);
+    setAimPivot(headAimPivot, 0, 0);
+    setAimPivot(armAimPivot, 0, 0);
+  }
+
   function applyAimPose(aim: AimCascadeState): void {
     setAimPivot(torsoAimPivot, -aim.torsoPitch, 0);
     setAimPivot(headAimPivot, -aim.headPitch, aim.headYaw - aim.torsoYaw);
     setAimPivot(armAimPivot, -aim.shoulderPitch, 0);
   }
 
+  function updateDeath(dt: number): void {
+    if (!deathActive) {
+      deathActive = true;
+      resetAimPivots();
+      targetWeight.walk = 0;
+      targetWeight.sprint = 0;
+      walkAction.setEffectiveWeight(0);
+      sprintAction.setEffectiveWeight(0);
+      holdingRightAction.fadeOut(0.1);
+      dieAction.reset().setEffectiveWeight(1).fadeIn(0.05).play();
+    }
+    mixer.update(dt);
+  }
+
   function sampleEyeWorldPosition(out: THREE.Vector3): void {
     characterMesh.updateMatrixWorld(true);
     headBone.updateMatrixWorld(true);
     out.copy(eyeOffset).applyMatrix4(headBone.matrixWorld);
+  }
+
+  function applyDeathCamera(camera: THREE.PerspectiveCamera): void {
+    sampleEyeWorldPosition(camera.position);
+    headForward.set(0, 0, 1).transformDirection(headBone.matrixWorld).normalize();
+    lookTarget.copy(camera.position).add(headForward);
+    lookAtMatrix.lookAt(camera.position, lookTarget, worldUp);
+    camera.quaternion.setFromRotationMatrix(lookAtMatrix);
+    camera.rotation.setFromQuaternion(camera.quaternion, "YXZ");
   }
 
   const gripWorld = new THREE.Vector3();
@@ -205,7 +246,19 @@ export async function loadPlayerAvatar(
     }
   }
 
+  function restoreAlivePose(): void {
+    dieAction.stop();
+    dieAction.setEffectiveWeight(0);
+    resetAimPivots();
+    holdingRightAction.reset().setEffectiveWeight(1).play();
+    mixer.update(0);
+  }
+
   function update(dt: number, aim?: AimCascadeState): void {
+    if (deathActive) {
+      deathActive = false;
+      restoreAlivePose();
+    }
     walkAction.setEffectiveWeight(approach(walkAction.getEffectiveWeight(), targetWeight.walk, dt));
     sprintAction.setEffectiveWeight(approach(sprintAction.getEffectiveWeight(), targetWeight.sprint, dt));
     mixer.update(dt);
@@ -234,7 +287,9 @@ export async function loadPlayerAvatar(
     setLocomotion,
     triggerMuzzleFlash,
     update,
+    updateDeath,
     sampleEyeWorldPosition,
+    applyDeathCamera,
     sampleWeaponAimDirection,
     dispose,
   };

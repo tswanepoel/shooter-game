@@ -2,7 +2,6 @@ import * as THREE from "three";
 import { bus } from "../bus.ts";
 import { getCharacterRecipe } from "../config/characters.ts";
 import type { CharacterRecipe } from "../config/characters.ts";
-import { DEATH_POSE_PITCH } from "../config/feedback.ts";
 import { getWeaponRecipe, type WeaponRecipe } from "../config/weapons.ts";
 import type { CameraEffectOffsets } from "../sim/cameraEffects.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
@@ -52,12 +51,12 @@ function syncAvatar(
   avatar.root.rotation.y = torsoYaw + Math.PI;
 
   if (alive) {
-    avatar.root.rotation.x = 0;
     avatar.setLocomotion(locomotion);
     avatar.update(dt, aim);
-  } else {
-    avatar.root.rotation.x = DEATH_POSE_PITCH;
+    return;
   }
+
+  avatar.updateDeath(dt);
 }
 
 export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager {
@@ -169,6 +168,7 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
   function updateLocal(dt: number): void {
     if (!localAvatar) return;
 
+    localAvatar.weaponMesh.visible = localPlayer.alive;
     syncAvatar(
       localAvatar,
       localPlayer.position,
@@ -178,18 +178,21 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
       dt,
       localPlayer,
     );
-    localAvatar.weaponMesh.visible = localPlayer.alive;
   }
 
   function applyCamera(camera: THREE.PerspectiveCamera, effects: CameraEffectOffsets): void {
-    if (localAvatar) {
+    if (!localAvatar) return;
+
+    if (localPlayer.alive) {
       localAvatar.sampleEyeWorldPosition(eyeWorld);
       camera.position.copy(eyeWorld);
       camera.position.y += effects.bobY;
+      camera.rotation.y = localPlayer.targetYaw + effects.yaw;
+      camera.rotation.x = localPlayer.targetPitch + effects.pitch;
+      return;
     }
 
-    camera.rotation.y = localPlayer.targetYaw + effects.yaw;
-    camera.rotation.x = localPlayer.targetPitch + effects.pitch;
+    localAvatar.applyDeathCamera(camera);
   }
 
   function update(dt: number): void {
@@ -209,6 +212,7 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
         continue;
       }
 
+      entry.avatar.weaponMesh.visible = remote.alive;
       syncAvatar(
         entry.avatar,
         remote.position,

@@ -15,7 +15,7 @@ export const AIM_YAW = {
     torso: 1,
   },
   chase: {
-    torso: { snappy: 78, laggy: 18, speedScale: 1 },
+    torso: { snappy: 256, laggy: 32, speedScale: 1 },
     headCosmetic: { snappy: 368, laggy: 96, speedScale: 1 },
   },
   speedSmoothing: 5,
@@ -32,12 +32,12 @@ export const AIM_PITCH = {
     headCosmetic: (45 * Math.PI) / 180,
   },
   lagShare: {
-    torso: 0.3,
-    shoulder: 0.7,
+    torso: 10 / (10 + 85),
+    shoulder: 85 / (10 + 85),
   },
   chase: {
-    torso: { snappy: 78, laggy: 18, speedScale: 1 },
-    shoulder: { snappy: 70, laggy: 28, speedScale: 1 },
+    torso: { snappy: 48, laggy: 10, speedScale: 1 },
+    shoulder: { snappy: 48, laggy: 10, speedScale: 1 },
     headCosmetic: { snappy: 368, laggy: 96, speedScale: 1 },
   },
   speedSmoothing: 5,

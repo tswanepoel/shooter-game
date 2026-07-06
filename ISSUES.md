@@ -16,7 +16,7 @@ Tracked tuning, polish, and feature gaps.
 - [ ] **17. ADS** — aim-down-sights on right mouse button.
 - [ ] **38. No hip-fire crosshair** — crosshair hidden by default; visual aim aids only while ADS.
 - [x] **44. Crosshair jitters when turning** — horizontal look causes the crosshair to shake or stutter side to side.
-- [ ] **45. Aim lag unbalanced on diagonals** — crosshair trails mouse through the body-part cascade; up/down vs left/right feel mismatched, and fast diagonal flicks produce a strong vertical arc with weak horizontal follow.
+- [x] **45. Aim lag unbalanced on diagonals** — crosshair trails mouse through the body-part cascade; up/down vs left/right feel mismatched, and fast diagonal flicks produce a strong vertical arc with weak horizontal follow.
 
 ## Combat feel
 

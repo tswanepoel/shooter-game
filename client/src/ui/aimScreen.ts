@@ -16,6 +16,7 @@ export function projectAimDeltaToScreen(
   camera: THREE.Camera,
   delta: AimDelta,
 ): AimScreenPosition {
+  camera.updateMatrixWorld(true);
   applyAimDeltaToDirection(camera, delta.pitch, delta.yaw, direction);
 
   point.copy(camera.position).addScaledVector(direction, CROSSHAIR_DISTANCE);

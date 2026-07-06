@@ -20,12 +20,7 @@ export function initMouse(target: HTMLElement): void {
     const coalesced = event.getCoalescedEvents?.() ?? [event];
     recordPointerDelivery(coalesced.length);
 
-    let dx = 0;
-    let dy = 0;
-    for (const sample of coalesced) {
-      dx += sample.movementX;
-      dy += sample.movementY;
-    }
+    const { movementX: dx, movementY: dy } = event;
     if (dx !== 0 || dy !== 0) {
       accumulatePointerDelta(dx, dy);
     }

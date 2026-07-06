@@ -1,7 +1,10 @@
+import { MAX_POINTER_DELTA_PX } from "../config/physics.ts";
+
 let pendingDx = 0;
 let pendingDy = 0;
 
 export function accumulatePointerDelta(dx: number, dy: number): void {
+  if (Math.abs(dx) > MAX_POINTER_DELTA_PX || Math.abs(dy) > MAX_POINTER_DELTA_PX) return;
   pendingDx += dx;
   pendingDy += dy;
 }

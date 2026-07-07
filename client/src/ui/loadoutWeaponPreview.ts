@@ -4,6 +4,8 @@ import { getWeaponRecipe, WEAPON_IDS, type WeaponRecipe } from "../config/weapon
 import { orientWeaponForHeld } from "../render/weaponMesh.ts";
 
 const SPIN_RATE = 0.55;
+/** Lower values frame higher in the tile (camera look target vs centered mesh). */
+const PREVIEW_LOOK_Y_FACTOR = 0.12;
 const loader = new GLTFLoader();
 
 let sharedRenderer: THREE.WebGLRenderer | undefined;
@@ -46,7 +48,7 @@ async function computePreviewReferenceFrame(): Promise<PreviewReferenceFrame> {
   return {
     frameWidth: maxWidth * 1.2,
     frameHeight: maxHeight * 1.15,
-    lookY: maxHeight * 0.42,
+    lookY: maxHeight * PREVIEW_LOOK_Y_FACTOR,
   };
 }
 

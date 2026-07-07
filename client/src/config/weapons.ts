@@ -350,14 +350,14 @@ export function getWeaponClass(id: string): WeaponClass | undefined {
 }
 
 export function weaponAllowsSlot(weaponId: string, slot: "primary" | "secondary"): boolean {
-  if (slot === "primary") return weaponId in WEAPON_RECIPES;
   const weaponClass = getWeaponClass(weaponId);
-  return weaponClass !== undefined && SECONDARY_WEAPON_CLASSES.has(weaponClass);
+  if (weaponClass === undefined) return false;
+  const secondaryOnly = SECONDARY_WEAPON_CLASSES.has(weaponClass);
+  return slot === "secondary" ? secondaryOnly : !secondaryOnly;
 }
 
 export function weaponsForSlot(slot: "primary" | "secondary"): readonly (typeof WEAPON_IDS)[number][] {
-  if (slot === "primary") return WEAPON_IDS;
-  return WEAPON_IDS.filter((id) => weaponAllowsSlot(id, "secondary"));
+  return WEAPON_IDS.filter((id) => weaponAllowsSlot(id, slot));
 }
 
 export function sanitizeLoadout(loadout: { primary: string | null; secondary: string | null }): {
@@ -365,6 +365,7 @@ export function sanitizeLoadout(loadout: { primary: string | null; secondary: st
   secondary: string | null;
 } {
   let { primary, secondary } = loadout;
+  if (primary && !weaponAllowsSlot(primary, "primary")) primary = null;
   if (secondary && !weaponAllowsSlot(secondary, "secondary")) secondary = null;
   if (primary && secondary && primary === secondary) secondary = null;
   return { primary, secondary };

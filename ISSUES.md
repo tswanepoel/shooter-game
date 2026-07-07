@@ -57,13 +57,13 @@ Tracked tuning, polish, and feature gaps.
 ## Loadout & lobby
 
 - [x] **14. Spawn-only weapon picks** — one primary + one secondary chosen at spawn; mouse wheel swaps between those two in-game (no mid-match catalog cycling).
-- [ ] **59. Wheel to empty slot breaks avatar** — scrolling onto an unarmed/empty slot leaves the local character giant with vertical gaps between body parts (salami-cut); this is real world state, not a visual glitch — the player ends up viewing the map from far above.
-- [ ] **60. Wheel should skip empty slots** — mouse wheel must not select empty primary/secondary slots; only swap to the other slot when it has a weapon equipped.
+- [x] **59. Wheel to empty slot breaks avatar** — scrolling onto an unarmed/empty slot leaves the local character giant with vertical gaps between body parts (salami-cut); this is real world state, not a visual glitch — the player ends up viewing the map from far above.
+- [x] **60. Wheel should skip empty slots** — mouse wheel must not select empty primary/secondary slots; only swap to the other slot when it has a weapon equipped.
 - [ ] **61. Spectate not implemented** — loadout overlay exposes a Spectate action, but it only dismisses the menu; no spectator camera or match observation flow exists yet.
 - [ ] **15. Character picker visuals** — show character models/previews at join, not letter labels.
 - [ ] **26. Create and join lobbies** — rooms with shareable join flow; room code in URL for easy copy/share.
-- [ ] **48. Loadout picker pre-selects blanks** — after joining, the loadout overlay shows default empty primary/secondary slots; require explicit player choices with no pre-filled selection.
-- [ ] **49. Overlapping primary/secondary weapon pools** — primary slot can pick weapons that belong in secondary; each slot's catalog should be disjoint.
+- [x] **48. Loadout picker pre-selects blanks** — after joining, the loadout overlay shows default empty primary/secondary slots; require explicit player choices with no pre-filled selection.
+- [x] **49. Overlapping primary/secondary weapon pools** — primary slot can pick weapons that belong in secondary; each slot's catalog should be disjoint.
 
 ## Multiplayer sync
 

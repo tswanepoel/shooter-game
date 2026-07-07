@@ -41,8 +41,11 @@ export interface LoadoutOverlay {
   isOpen(): boolean;
 }
 
-const TILE_WIDTH = 112;
-const TILE_HEIGHT = 92;
+const GRID_COLUMNS = 6;
+const GRID_GAP = 10;
+const PANEL_PADDING_X = 48;
+const TILE_HEIGHT = 100;
+const PANEL_MAX_WIDTH = 1180;
 
 const FOOTER_BUTTON_WIDTH = "148px";
 
@@ -119,6 +122,17 @@ function loadoutsEqual(a: Loadout, b: Loadout): boolean {
   return a.primary === b.primary && a.secondary === b.secondary;
 }
 
+function initialSlotChosen(
+  footerMode: LoadoutOverlayFooterMode,
+  current: Loadout,
+): Record<ActiveSlot, boolean> {
+  if (footerMode === "alive") return { primary: true, secondary: true };
+  return {
+    primary: current.primary !== null,
+    secondary: current.secondary !== null,
+  };
+}
+
 function weaponTileCode(id: string): string {
   const suffix = id.replace("blaster-", "");
   return suffix.length === 1 ? suffix.toUpperCase() : suffix.toUpperCase().slice(0, 2);
@@ -159,7 +173,7 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     "display:flex",
     "flex-direction:column",
     "gap:16px",
-    "width:min(1040px,100%)",
+    `width:min(${PANEL_MAX_WIDTH}px,100%)`,
     "max-height:min(90vh,920px)",
     "padding:22px 24px 20px",
     "border-radius:14px",
@@ -184,9 +198,13 @@ export function createLoadoutOverlay(): LoadoutOverlay {
   loadingEl.style.cssText = "margin:0;font-size:0.9rem;color:#8a96a8;text-align:center;";
 
   const body = document.createElement("div");
-  body.style.cssText = "display:none;flex-direction:column;gap:16px;overflow:auto;min-height:0;";
+  body.style.cssText =
+    "display:none;flex-direction:column;gap:16px;overflow:auto;min-height:0;scrollbar-gutter:stable;";
 
-  function createSlotSection(label: string, hint: string): { grid: HTMLDivElement; section: HTMLElement } {
+  function createSlotSection(
+    label: string,
+    hint: string,
+  ): { section: HTMLElement; emptyRow: HTMLDivElement; grid: HTMLDivElement } {
     const section = document.createElement("section");
     section.style.cssText = "display:flex;flex-direction:column;gap:10px;";
 
@@ -199,15 +217,22 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     headingHint.style.cssText = "margin:4px 0 0;font-size:0.8rem;color:#6a7588;";
     heading.append(headingTitle, headingHint);
 
+    const emptyRow = document.createElement("div");
+    emptyRow.style.cssText = [
+      "width:100%",
+      `max-width:calc((100% - ${(GRID_COLUMNS - 1) * GRID_GAP}px) / ${GRID_COLUMNS})`,
+    ].join(";");
+
     const grid = document.createElement("div");
     grid.style.cssText = [
       "display:grid",
-      `grid-template-columns:repeat(auto-fill,${TILE_WIDTH}px)`,
-      "gap:10px",
+      "width:100%",
+      `grid-template-columns:repeat(${GRID_COLUMNS},minmax(0,1fr))`,
+      `gap:${GRID_GAP}px`,
     ].join(";");
 
-    section.append(heading, grid);
-    return { section, grid };
+    section.append(heading, emptyRow, grid);
+    return { section, emptyRow, grid };
   }
 
   const primarySection = createSlotSection("Primary", "Any weapon");
@@ -245,6 +270,7 @@ export function createLoadoutOverlay(): LoadoutOverlay {
 
   let visible = false;
   let loadout: Loadout = { primary: null, secondary: null };
+  let slotChosen: Record<ActiveSlot, boolean> = { primary: false, secondary: false };
   let footerMode: LoadoutOverlayFooterMode = "spawn";
   let spawnEnabled = true;
   let baselineLoadout: Loadout | null = null;
@@ -275,6 +301,7 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     }
     const current = loadout[slot];
     loadout = { ...loadout, [slot]: current === weaponId ? null : weaponId };
+    slotChosen = { ...slotChosen, [slot]: true };
     refresh();
     notify();
   }
@@ -287,9 +314,22 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     return loadout.primary === null && loadout.secondary === null;
   }
 
+  function bothSlotsChosen(): boolean {
+    return slotChosen.primary && slotChosen.secondary;
+  }
+
+  function canSpawn(): boolean {
+    return bothSlotsChosen() && !isLoadoutEmpty();
+  }
+
+  function canSpectate(): boolean {
+    return bothSlotsChosen() && isLoadoutEmpty();
+  }
+
   function refreshTile(tile: SlotWeaponTile): void {
     const selected = tile.weaponId !== null && loadout[tile.slot] === tile.weaponId;
-    const unarmedSelected = tile.weaponId === null && loadout[tile.slot] === null;
+    const unarmedSelected =
+      slotChosen[tile.slot] && tile.weaponId === null && loadout[tile.slot] === null;
     const takenInOther =
       tile.weaponId !== null && loadout[otherSlot(tile.slot)] === tile.weaponId;
     const disabled = takenInOther;
@@ -324,16 +364,17 @@ export function createLoadoutOverlay(): LoadoutOverlay {
   }
 
   function refreshSpectateButton(): void {
-    const enabled = isLoadoutEmpty();
+    const enabled = canSpectate();
     spectateButton.disabled = !enabled;
     spectateButton.style.opacity = enabled ? "1" : "0.45";
     spectateButton.style.cursor = enabled ? "pointer" : "not-allowed";
   }
 
   function refreshSpawnButton(): void {
-    spawnButton.disabled = !spawnEnabled;
-    spawnButton.style.opacity = spawnEnabled ? "1" : "0.45";
-    spawnButton.style.cursor = spawnEnabled ? "pointer" : "not-allowed";
+    const enabled = spawnEnabled && canSpawn();
+    spawnButton.disabled = !enabled;
+    spawnButton.style.opacity = enabled ? "1" : "0.45";
+    spawnButton.style.cursor = enabled ? "pointer" : "not-allowed";
   }
 
   function refreshAliveButton(): void {
@@ -364,7 +405,7 @@ export function createLoadoutOverlay(): LoadoutOverlay {
   }
 
   function trySpectate(): void {
-    if (!visible || (footerMode !== "spawn" && footerMode !== "alive") || !isLoadoutEmpty() || !onSpectate) {
+    if (!visible || (footerMode !== "spawn" && footerMode !== "alive") || !canSpectate() || !onSpectate) {
       return;
     }
     onSpectate();
@@ -372,7 +413,7 @@ export function createLoadoutOverlay(): LoadoutOverlay {
   }
 
   function trySpawn(): void {
-    if (!visible || footerMode !== "spawn" || !spawnEnabled || !onSpawn) return;
+    if (!visible || footerMode !== "spawn" || !spawnEnabled || !canSpawn() || !onSpawn) return;
     onSpawn({ ...loadout });
     requestPointerLockForGame();
   }
@@ -421,19 +462,30 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     return button;
   }
 
+  function tileWidthForPanel(): number {
+    const contentWidth = panel.clientWidth - PANEL_PADDING_X;
+    return Math.floor((contentWidth - (GRID_COLUMNS - 1) * GRID_GAP) / GRID_COLUMNS);
+  }
+
   async function buildGrids(): Promise<void> {
     if (gridsReady) return;
 
-    previewRenderer = beginLoadoutPreviews(TILE_WIDTH, TILE_HEIGHT);
+    const tileWidth = tileWidthForPanel();
+    previewRenderer = beginLoadoutPreviews(tileWidth, TILE_HEIGHT);
 
-    async function addTiles(slot: ActiveSlot, grid: HTMLDivElement, bucket: SlotWeaponTile[]): Promise<void> {
+    async function addTiles(
+      slot: ActiveSlot,
+      emptyRow: HTMLDivElement,
+      grid: HTMLDivElement,
+      bucket: SlotWeaponTile[],
+    ): Promise<void> {
       const unarmedButton = createTileButton(slot, null, "Empty");
-      grid.appendChild(unarmedButton);
+      emptyRow.appendChild(unarmedButton);
       bucket.push({ slot, weaponId: null, button: unarmedButton });
 
       const previews = await Promise.all(
         weaponsForSlot(slot).map((weaponId) =>
-          createLoadoutWeaponPreview(weaponId, TILE_WIDTH, TILE_HEIGHT),
+          createLoadoutWeaponPreview(weaponId, tileWidth, TILE_HEIGHT),
         ),
       );
 
@@ -449,8 +501,8 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     }
 
     await Promise.all([
-      addTiles("primary", primarySection.grid, primaryTiles),
-      addTiles("secondary", secondarySection.grid, secondaryTiles),
+      addTiles("primary", primarySection.emptyRow, primarySection.grid, primaryTiles),
+      addTiles("secondary", secondarySection.emptyRow, secondarySection.grid, secondaryTiles),
     ]);
 
     gridsReady = true;
@@ -511,11 +563,13 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     allowBackdropCancel = false;
     spawnEnabled = true;
     baselineLoadout = null;
+    slotChosen = { primary: false, secondary: false };
   }
 
   return {
     open(options: LoadoutOverlayOpenOptions): void {
       loadout = sanitizeLoadout(options.loadout);
+      slotChosen = initialSlotChosen(options.footerMode, loadout);
       footerMode = options.footerMode;
       spawnEnabled = options.spawnEnabled ?? true;
       baselineLoadout = options.footerMode === "alive" ? sanitizeLoadout(options.loadout) : null;
@@ -529,7 +583,7 @@ export function createLoadoutOverlay(): LoadoutOverlay {
 
       titleEl.textContent = options.title ?? "Choose your weapons";
       subtitleEl.textContent =
-        options.subtitle ?? "Pick primary and secondary. Scroll wheel swaps in-game.";
+        options.subtitle ?? "Choose both slots before spawning. Scroll wheel swaps in-game.";
 
       loadingEl.style.display = gridsReady ? "none" : "block";
       loadingEl.style.color = "#8a96a8";

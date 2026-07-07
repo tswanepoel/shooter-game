@@ -162,13 +162,10 @@ export async function loadPlayerAvatar(
   });
   const sprintClip = THREE.AnimationUtils.makeClipAdditive(findClip(clips, "sprint").clone(), 0, staticClip);
 
-  const staticAction = mixer.clipAction(staticClip);
   const holdingRightAction = mixer.clipAction(findClip(clips, "holding-right"));
-  if (armed) {
-    holdingRightAction.play();
-  } else {
-    staticAction.play();
-  }
+  // Locomotion always layers on holding-right, even when unarmed (eye offset and walk/sprint
+  // additive clips are authored against that pose — static base stretches the rig).
+  holdingRightAction.play();
 
   const dieAction = mixer.clipAction(findClip(clips, "die"));
   dieAction.setLoop(THREE.LoopOnce, 1);
@@ -267,11 +264,7 @@ export async function loadPlayerAvatar(
     dieAction.stop();
     dieAction.setEffectiveWeight(0);
     resetAimPivots();
-    if (armed) {
-      holdingRightAction.reset().setEffectiveWeight(1).play();
-    } else {
-      staticAction.reset().setEffectiveWeight(1).play();
-    }
+    holdingRightAction.reset().setEffectiveWeight(1).play();
     mixer.update(0);
   }
 

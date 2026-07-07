@@ -27,14 +27,14 @@ function character(id: string): CharacterRecipe {
   };
 }
 
-export const CHARACTER_RECIPES: Record<string, CharacterRecipe> = {
-  "character-a": character("character-a"),
-  "character-b": character("character-b"),
-  "character-c": character("character-c"),
-  "character-d": character("character-d"),
-  "character-e": character("character-e"),
-  "character-f": character("character-f"),
-};
+const CHARACTER_SUFFIXES = "abcdefghijklmnopqr";
+
+export const CHARACTER_RECIPES: Record<string, CharacterRecipe> = Object.fromEntries(
+  [...CHARACTER_SUFFIXES].map((suffix) => {
+    const id = `character-${suffix}`;
+    return [id, character(id)];
+  }),
+);
 
 export const CHARACTER_IDS = Object.keys(CHARACTER_RECIPES);
 

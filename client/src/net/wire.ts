@@ -120,8 +120,62 @@ export type ClientMessage =
   | HitMessage
   | RespawnRequestMessage;
 
+function readString(record: Record<string, unknown>, camel: string, pascal: string): string | undefined {
+  const camelValue = record[camel];
+  if (typeof camelValue === "string") return camelValue;
+  const pascalValue = record[pascal];
+  if (typeof pascalValue === "string") return pascalValue;
+  return undefined;
+}
+
+function normalizeSnapshot(raw: unknown): PlayerSnapshot | undefined {
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const record = raw as Record<string, unknown>;
+  const id = readString(record, "id", "Id");
+  const position = record.position ?? record.Position;
+  if (!id || typeof position !== "object" || position === null) return undefined;
+
+  const pos = position as Record<string, unknown>;
+  const x = pos.x ?? pos.X;
+  const y = pos.y ?? pos.Y;
+  const z = pos.z ?? pos.Z;
+  if (typeof x !== "number" || typeof y !== "number" || typeof z !== "number") return undefined;
+
+  const yaw = record.yaw ?? record.Yaw;
+  const pitch = record.pitch ?? record.Pitch;
+  const alive = record.alive ?? record.Alive;
+  const characterId = readString(record, "characterId", "CharacterId");
+  const weaponId = readString(record, "weaponId", "WeaponId");
+  if (typeof yaw !== "number" || typeof pitch !== "number" || typeof alive !== "boolean") {
+    return undefined;
+  }
+  if (!characterId || !weaponId) return undefined;
+
+  return { id, position: { x, y, z }, yaw, pitch, alive, characterId, weaponId };
+}
+
 export function decodeServerMessage(raw: string): ServerMessage | undefined {
   const parsed: unknown = JSON.parse(raw);
   if (typeof parsed !== "object" || parsed === null || !("type" in parsed)) return undefined;
+
+  const record = parsed as Record<string, unknown>;
+  const type = record.type;
+
+  if (type === "welcome" || type === "join") {
+    const characterId = readString(record, "characterId", "CharacterId");
+    if (characterId) record.characterId = characterId;
+    const weaponId = readString(record, "weaponId", "WeaponId");
+    if (weaponId) record.weaponId = weaponId;
+  }
+
+  if (type === "welcome") {
+    const rosterRaw = record.roster ?? record.Roster;
+    if (Array.isArray(rosterRaw)) {
+      record.roster = rosterRaw
+        .map((entry) => normalizeSnapshot(entry))
+        .filter((entry): entry is PlayerSnapshot => entry !== undefined);
+    }
+  }
+
   return parsed as ServerMessage;
 }

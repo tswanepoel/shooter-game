@@ -15,11 +15,14 @@ export function connect(characterId: string): void {
     `ws://${window.location.hostname}:${WS_PORT}${WS_PATH}?${params}`,
   );
 
-  socket.addEventListener("open", () => {
+  const sendSelect = (): void => {
     if (!pendingCharacterId) return;
     send({ type: "select", characterId: pendingCharacterId });
     pendingCharacterId = undefined;
-  });
+  };
+
+  socket.addEventListener("open", sendSelect);
+  if (socket.readyState === WebSocket.OPEN) sendSelect();
 
   socket.addEventListener("error", () => {
     console.error("websocket connection failed — is the server running?");

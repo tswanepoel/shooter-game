@@ -39,7 +39,7 @@ app.Map("/ws", async (HttpContext context) =>
 
     using var socket = await context.WebSockets.AcceptWebSocketAsync();
     var queryCharacterId = context.Request.Query["characterId"].FirstOrDefault();
-    var characterId = await ReadSelectCharacterIdAsync(socket, queryCharacterId);
+    var characterId = ResolveCharacterId(string.IsNullOrWhiteSpace(queryCharacterId) ? null : queryCharacterId);
 
     var id = Guid.NewGuid().ToString();
     var spawnPosition = RandomSpawnPosition();
@@ -94,48 +94,6 @@ string ResolveCharacterId(string? requested)
     return GameConfig.DefaultCharacterId;
 }
 
-async Task<string> ReadSelectCharacterIdAsync(WebSocket socket, string? queryFallback)
-{
-    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-
-    try
-    {
-        var payload = await ReadSingleTextMessageAsync(socket, timeout.Token);
-        if (payload is null) return ResolveCharacterId(queryFallback);
-
-        using var doc = JsonDocument.Parse(payload);
-        if (!doc.RootElement.TryGetProperty("type", out var typeProp)) return ResolveCharacterId(queryFallback);
-        if (typeProp.GetString() != "select") return ResolveCharacterId(queryFallback);
-        if (!doc.RootElement.TryGetProperty("characterId", out var characterProp)) return ResolveCharacterId(queryFallback);
-
-        return ResolveCharacterId(characterProp.GetString());
-    }
-    catch (OperationCanceledException)
-    {
-        return ResolveCharacterId(queryFallback);
-    }
-    catch (JsonException)
-    {
-        return ResolveCharacterId(queryFallback);
-    }
-}
-
-async Task<byte[]?> ReadSingleTextMessageAsync(WebSocket socket, CancellationToken cancellationToken)
-{
-    var buffer = new byte[4096];
-    using var stream = new MemoryStream();
-
-    WebSocketReceiveResult result;
-    do
-    {
-        result = await socket.ReceiveAsync(buffer, cancellationToken);
-        if (result.MessageType == WebSocketMessageType.Close) return null;
-        stream.Write(buffer, 0, result.Count);
-    } while (!result.EndOfMessage);
-
-    return result.MessageType == WebSocketMessageType.Text ? stream.ToArray() : null;
-}
-
 PlayerSnapshotDto ToSnapshot(PlayerState state) =>
     new(state.Id, state.Position, state.Yaw, state.Pitch, state.Alive, state.CharacterId, state.WeaponId);
 
@@ -164,6 +122,20 @@ async Task RelayRawAsync(string senderId, byte[] payload)
     {
         if (playerId == senderId || socket.State != WebSocketState.Open) continue;
         await socket.SendAsync(new ArraySegment<byte>(payload), WebSocketMessageType.Text, true, CancellationToken.None);
+    }
+}
+
+bool IsSelectMessage(byte[] payload)
+{
+    try
+    {
+        using var doc = JsonDocument.Parse(payload);
+        if (!doc.RootElement.TryGetProperty("type", out var typeProp)) return false;
+        return typeProp.GetString() == "select";
+    }
+    catch (JsonException)
+    {
+        return false;
     }
 }
 
@@ -208,6 +180,7 @@ async Task ReceiveLoopAsync(WebSocket socket, string senderId)
         if (result.MessageType == WebSocketMessageType.Text)
         {
             var payload = stream.ToArray();
+            if (IsSelectMessage(payload)) continue;
             if (combat.TryApplyHit(senderId, payload)) continue;
             if (combat.TryRequestRespawn(senderId, payload)) continue;
             TryApplyWeaponChange(senderId, payload);

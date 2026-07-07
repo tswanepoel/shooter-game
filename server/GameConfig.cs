@@ -14,6 +14,8 @@ public static class GameConfig
     public static readonly HashSet<string> ValidCharacterIds =
     [
         "character-a", "character-b", "character-c", "character-d", "character-e", "character-f",
+        "character-g", "character-h", "character-i", "character-j", "character-k", "character-l",
+        "character-m", "character-n", "character-o", "character-p", "character-q", "character-r",
     ];
 
     public static readonly HashSet<string> ValidWeaponIds =

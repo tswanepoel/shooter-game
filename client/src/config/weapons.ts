@@ -15,7 +15,7 @@ export interface WeaponRecipe {
   bulletModelUrl: string;
   bulletLength: number;
   bulletForwardAxis: Vec3;
-  muzzleFlashOffset: Vec3;
+  muzzlePoints: readonly Vec3[];
   muzzleFlashDuration: number;
 }
 
@@ -31,7 +31,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.41, z: 0.29 },
+    muzzlePoints: [{ x: 0, y: -1.7, z: 0.42 }],
     muzzleFlashDuration: 0.06,
   },
   "blaster-b": {
@@ -45,7 +45,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.41, z: 0.29 },
+    muzzlePoints: [{ x: 0, y: -1.39, z: 0.32 }],
     muzzleFlashDuration: 0.06,
   },
   "blaster-c": {
@@ -59,7 +59,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.77, z: -0.04 },
+    muzzlePoints: [{ x: 0, y: -1.47, z: 0.23 }],
     muzzleFlashDuration: 0.06,
   },
   "blaster-d": {
@@ -73,7 +73,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-thick.glb",
     bulletLength: 0.14,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.399, z: 0.16 },
+    muzzlePoints: [{ x: 0, y: -1.795, z: 0.265 }],
     muzzleFlashDuration: 0.06,
   },
   "blaster-e": {
@@ -87,7 +87,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: -0.02, y: -1.78, z: 0.56 },
+    muzzlePoints: [{ x: 0.07, y: -2.34, z: 0.26 }],
     muzzleFlashDuration: 0.08,
   },
   "blaster-f": {
@@ -101,7 +101,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [{ x: 0, y: -2.37, z: 0.26 }],
     muzzleFlashDuration: 0.06,
   },
   "blaster-g": {
@@ -115,7 +115,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [{ x: 0, y: -1.8, z: 0.34 }],
     muzzleFlashDuration: 0.06,
   },
   "blaster-h": {
@@ -129,7 +129,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.73, z: 0.05 },
+    muzzlePoints: [{ x: 0, y: -1.73, z: 0.28 }],
     muzzleFlashDuration: 0.06,
   },
   "blaster-i": {
@@ -143,7 +143,10 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [
+      { x: 0, y: -1.32, z: 0.26 },
+      { x: 0, y: -1.32, z: 0.15 }
+    ],
     muzzleFlashDuration: 0.06,
   },
   "blaster-j": {
@@ -157,7 +160,10 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [
+      { x: -0.045, y: -1.655, z: 0.29 },
+      { x: 0.045, y: -1.655, z: 0.29 }
+    ],
     muzzleFlashDuration: 0.06,
   },
   "blaster-k": {
@@ -171,7 +177,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [{ x: 0, y: -1.44, z: 0.18 }],
     muzzleFlashDuration: 0.06,
   },
   "blaster-l": {
@@ -185,7 +191,10 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [
+      { x: -0.1, y: -1.58, z: 0.26 },
+      { x: 0.1, y: -1.58, z: 0.26 }
+    ],
     muzzleFlashDuration: 0.06,
   },
   "blaster-m": {
@@ -199,7 +208,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [{ x: 0, y: -1.65, z: 0.37 }],
     muzzleFlashDuration: 0.06,
   },
   "blaster-n": {
@@ -213,7 +222,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [{ x: 0, y: -1.47, z: 0.32 }],
     muzzleFlashDuration: 0.06,
   },
   "blaster-o": {
@@ -227,7 +236,12 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [
+      { x: -0.05, y: -1.35, z: 0.25 },
+      { x: 0.05, y: -1.35, z: 0.25 },
+      { x: -0.05, y: -1.35, z: 0.15 },
+      { x: 0.05, y: -1.35, z: 0.15 }
+    ],
     muzzleFlashDuration: 0.06,
   },
   "blaster-p": {
@@ -241,7 +255,10 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [
+      { x: 0, y: -1.855, z: 0.235 },
+      { x: 0, y: -1.855, z: 0.14 }
+    ],
     muzzleFlashDuration: 0.06,
   },
   "blaster-q": {
@@ -255,7 +272,10 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [
+      { x: 0, y: -1.82, z: 0.28 },
+      { x: 0, y: -1.82, z: 0.06 }
+    ],
     muzzleFlashDuration: 0.06,
   },
   "blaster-r": {
@@ -269,7 +289,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
-    muzzleFlashOffset: { x: 0, y: -1.5, z: 0.2 },
+    muzzlePoints: [{ x: 0, y: -1.81, z: 0.23 }],
     muzzleFlashDuration: 0.06,
   },
 };

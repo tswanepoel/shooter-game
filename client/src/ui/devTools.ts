@@ -1,11 +1,14 @@
 import * as THREE from "three";
 import { CHARACTER_IDS, getCharacterRecipe } from "../config/characters.ts";
-import { getWeaponRecipe, WEAPON_IDS } from "../config/weapons.ts";
+import { getWeaponRecipe, WEAPON_IDS, type WeaponRecipe } from "../config/weapons.ts";
 import { loadPlayerAvatar, type PlayerAvatar } from "../render/playerAvatar.ts";
 
 const LINEUP_DISTANCE = 5;
 const LINEUP_SPACING = 2.5;
 const LABEL_HEIGHT = 1.85;
+const MUZZLE_MARKER_RADIUS = 0.025;
+const muzzleMarkerGeometry = new THREE.SphereGeometry(MUZZLE_MARKER_RADIUS, 8, 8);
+const muzzleMarkerMaterial = new THREE.MeshBasicMaterial({ color: 0xff44cc });
 
 export interface DevTools {
   tick(dt: number): void;
@@ -24,6 +27,7 @@ interface LineupEntry {
   avatar: PlayerAvatar;
   weaponId: string;
   label: HTMLDivElement;
+  muzzleMarkers: THREE.Mesh[];
 }
 
 function pickRandomCharacterId(): string {
@@ -33,6 +37,20 @@ function pickRandomCharacterId(): string {
 /** Queue along the row: each avatar faces the next one's back (a→r). */
 function lineupQueueYaw(rightX: number, rightZ: number): number {
   return Math.atan2(rightX, rightZ) + Math.PI;
+}
+
+function attachMuzzleMarkers(avatar: PlayerAvatar, weapon: WeaponRecipe): THREE.Mesh[] {
+  const parent = avatar.weaponMesh.parent;
+  if (!parent) return [];
+
+  const markers: THREE.Mesh[] = [];
+  for (const point of weapon.muzzlePoints) {
+    const marker = new THREE.Mesh(muzzleMarkerGeometry, muzzleMarkerMaterial);
+    marker.position.set(point.x, point.y, point.z);
+    parent.add(marker);
+    markers.push(marker);
+  }
+  return markers;
 }
 
 function projectLabel(
@@ -82,7 +100,7 @@ export function createDevTools(deps: DevToolsDeps): DevTools {
   panel.innerHTML = [
     '<div style="font-weight:700;margin-bottom:10px;letter-spacing:0.04em;text-transform:uppercase;font-size:0.72rem;color:#8ab4ff">Developer options</div>',
     '<button type="button" data-action="weapon-lineup" style="width:100%;text-align:left;padding:8px 10px;border:1px solid rgba(255,255,255,0.14);border-radius:4px;background:rgba(255,255,255,0.06);color:inherit;cursor:pointer;font:inherit">1. Spawn weapon lineup</button>',
-    '<div style="margin-top:8px;font-size:0.75rem;color:#9aa7b8;line-height:1.4">Random characters, one per weapon a–r, queued along the row (a→r left to right), facing into each other\'s backs.</div>',
+    '<div style="margin-top:8px;font-size:0.75rem;color:#9aa7b8;line-height:1.4">Random characters, one per weapon a–r, queued along the row (a→r left to right), facing into each other\'s backs. Magenta dots mark muzzlePoints for tuning.</div>',
     '<button type="button" data-action="clear-lineup" style="margin-top:8px;width:100%;text-align:left;padding:8px 10px;border:1px solid rgba(255,255,255,0.1);border-radius:4px;background:transparent;color:#9aa7b8;cursor:pointer;font:inherit">Clear lineup</button>',
   ].join("");
   document.body.appendChild(panel);
@@ -125,6 +143,7 @@ export function createDevTools(deps: DevToolsDeps): DevTools {
 
   function clearLineup(): void {
     for (const entry of lineup) {
+      for (const marker of entry.muzzleMarkers) marker.remove();
       deps.scene.remove(entry.avatar.root);
       entry.avatar.dispose();
       entry.label.remove();
@@ -167,6 +186,7 @@ export function createDevTools(deps: DevToolsDeps): DevTools {
         avatar,
         weaponId,
         label: createLabel(weaponId),
+        muzzleMarkers: attachMuzzleMarkers(avatar, weapon),
       };
     });
 

@@ -127,17 +127,16 @@ export async function loadPlayerAvatar(
   armRight.getWorldScale(gripWorldScale);
   weaponMesh.scale.divideScalar(gripWorldScale.x);
 
-  const muzzleFlash = new THREE.Mesh(
-    new THREE.SphereGeometry(0.06, 6, 6),
-    new THREE.MeshBasicMaterial({ color: 0xfff2a8 }),
-  );
-  muzzleFlash.position.set(
-    weapon.muzzleFlashOffset.x,
-    weapon.muzzleFlashOffset.y,
-    weapon.muzzleFlashOffset.z,
-  );
-  muzzleFlash.visible = false;
-  armRight.add(muzzleFlash);
+  const muzzleFlashes = weapon.muzzlePoints.map((point) => {
+    const flash = new THREE.Mesh(
+      new THREE.SphereGeometry(0.06, 6, 6),
+      new THREE.MeshBasicMaterial({ color: 0xfff2a8 }),
+    );
+    flash.position.set(point.x, point.y, point.z);
+    flash.visible = false;
+    armRight.add(flash);
+    return flash;
+  });
   let muzzleFlashTimer = 0;
 
   const mixer = new THREE.AnimationMixer(characterMesh);
@@ -172,7 +171,7 @@ export async function loadPlayerAvatar(
 
   function triggerMuzzleFlash(): void {
     muzzleFlashTimer = weapon.muzzleFlashDuration;
-    muzzleFlash.visible = true;
+    for (const flash of muzzleFlashes) flash.visible = true;
   }
 
   function resetAimPivots(): void {
@@ -224,12 +223,13 @@ export async function loadPlayerAvatar(
     armRight.updateMatrixWorld(true);
     weaponMesh.updateMatrixWorld(true);
     gripWorld.setFromMatrixPosition(weaponMesh.matrixWorld);
+    const primaryMuzzle = weapon.muzzlePoints[0];
+    if (!primaryMuzzle) {
+      out.set(0, 0, -1).transformDirection(characterMesh.matrixWorld);
+      return;
+    }
     muzzleWorld
-      .set(
-        weapon.muzzleFlashOffset.x,
-        weapon.muzzleFlashOffset.y,
-        weapon.muzzleFlashOffset.z,
-      )
+      .set(primaryMuzzle.x, primaryMuzzle.y, primaryMuzzle.z)
       .applyMatrix4(armRight.matrixWorld);
     out.copy(muzzleWorld).sub(gripWorld);
     if (out.lengthSq() < 1e-8) {
@@ -259,7 +259,9 @@ export async function loadPlayerAvatar(
 
     if (muzzleFlashTimer > 0) {
       muzzleFlashTimer -= dt;
-      if (muzzleFlashTimer <= 0) muzzleFlash.visible = false;
+      if (muzzleFlashTimer <= 0) {
+        for (const flash of muzzleFlashes) flash.visible = false;
+      }
     }
   }
 

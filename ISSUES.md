@@ -29,6 +29,7 @@ Tracked tuning, polish, and feature gaps.
 - [x] **7. Hit marker misaligned** — height off; not centered over crosshair.
 - [x] **8. Damage-hit cue weak** — vignette/indicator needs a more impactful being-hit cue.
 - [x] **24. Hit marker unimpressive** — alignment fixed but feedback still too subtle; needs stronger visual punch.
+- [ ] **63. Fire kick through body to camera** — shots need recoil that drives real motion through the aim cascade (arms/torso/head) and ultimately the head-mounted camera, not cosmetic weapon-mesh-only kick.
 
 ## Weapons
 
@@ -38,6 +39,7 @@ Tracked tuning, polish, and feature gaps.
 - [ ] **19. Grenades / extras** — middle mouse hold starts fuse or charges throwable; release or timeout throws/activates.
 - [ ] **20. Fire modes** — per-weapon single-fire, burst-fire, and fully-auto toggles where appropriate.
 - [ ] **23. Remote muzzle flash misaligned** — flash sphere not aligned to barrel on opponent held weapons.
+- [ ] **62. Weapon swap needs motion** — scrolling to the other slot is an instant swap; needs a visible transition (holster/draw, arm motion, or similar) when switching primary/secondary.
 
 ## Combat rules & tuning
 
@@ -55,6 +57,9 @@ Tracked tuning, polish, and feature gaps.
 ## Loadout & lobby
 
 - [x] **14. Spawn-only weapon picks** — one primary + one secondary chosen at spawn; mouse wheel swaps between those two in-game (no mid-match catalog cycling).
+- [ ] **59. Wheel to empty slot breaks avatar** — scrolling onto an unarmed/empty slot leaves the local character giant with vertical gaps between body parts (salami-cut); this is real world state, not a visual glitch — the player ends up viewing the map from far above.
+- [ ] **60. Wheel should skip empty slots** — mouse wheel must not select empty primary/secondary slots; only swap to the other slot when it has a weapon equipped.
+- [ ] **61. Spectate not implemented** — loadout overlay exposes a Spectate action, but it only dismisses the menu; no spectator camera or match observation flow exists yet.
 - [ ] **15. Character picker visuals** — show character models/previews at join, not letter labels.
 - [ ] **26. Create and join lobbies** — rooms with shareable join flow; room code in URL for easy copy/share.
 - [ ] **48. Loadout picker pre-selects blanks** — after joining, the loadout overlay shows default empty primary/secondary slots; require explicit player choices with no pre-filled selection.

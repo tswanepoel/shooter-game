@@ -1,3 +1,5 @@
+import type { ActiveSlot } from "../state/loadout.ts";
+
 export interface Vector3 {
   x: number;
   y: number;
@@ -36,6 +38,9 @@ export interface WelcomeMessage {
   position: Vector3;
   characterId: string;
   weaponId: string;
+  primaryWeaponId?: string | null;
+  secondaryWeaponId?: string | null;
+  activeSlot?: ActiveSlot;
   roster: PlayerSnapshot[];
 }
 
@@ -76,7 +81,8 @@ export interface FireMessage {
 export interface WeaponMessage {
   type: "weapon";
   id: string;
-  weaponId: string;
+  weaponId?: string;
+  activeSlot?: ActiveSlot;
 }
 
 export interface HitMessage {
@@ -88,6 +94,22 @@ export interface HitMessage {
 export interface RespawnRequestMessage {
   type: "respawn";
   id: string;
+  primaryWeaponId: string | null;
+  secondaryWeaponId: string | null;
+  activeSlot: ActiveSlot;
+}
+
+export interface SuicideRequestMessage {
+  type: "suicide";
+  id: string;
+}
+
+export interface LoadoutRequestMessage {
+  type: "loadout";
+  id: string;
+  primaryWeaponId: string | null;
+  secondaryWeaponId: string | null;
+  activeSlot: ActiveSlot;
 }
 
 export interface HealthMessage {
@@ -113,6 +135,8 @@ export interface RespawnMessage {
 export interface ClaimMessage {
   type: "claim";
   characterId: string;
+  primaryWeaponId?: string | null;
+  secondaryWeaponId?: string | null;
 }
 
 export type ServerMessage =
@@ -137,13 +161,33 @@ export type ClientMessage =
   | FireMessage
   | WeaponMessage
   | HitMessage
-  | RespawnRequestMessage;
+  | RespawnRequestMessage
+  | SuicideRequestMessage
+  | LoadoutRequestMessage;
 
 function readString(record: Record<string, unknown>, camel: string, pascal: string): string | undefined {
   const camelValue = record[camel];
   if (typeof camelValue === "string") return camelValue;
   const pascalValue = record[pascal];
   if (typeof pascalValue === "string") return pascalValue;
+  return undefined;
+}
+
+function readNullableString(
+  record: Record<string, unknown>,
+  camel: string,
+  pascal: string,
+): string | null | undefined {
+  if (camel in record) {
+    const value = record[camel];
+    if (value === null) return null;
+    if (typeof value === "string") return value;
+  }
+  if (pascal in record) {
+    const value = record[pascal];
+    if (value === null) return null;
+    if (typeof value === "string") return value;
+  }
   return undefined;
 }
 
@@ -168,7 +212,7 @@ function normalizeSnapshot(raw: unknown): PlayerSnapshot | undefined {
   if (typeof yaw !== "number" || typeof pitch !== "number" || typeof alive !== "boolean") {
     return undefined;
   }
-  if (!characterId || !weaponId) return undefined;
+  if (!characterId || weaponId === undefined) return undefined;
 
   return { id, position: { x, y, z }, yaw, pitch, alive, characterId, weaponId };
 }
@@ -192,10 +236,19 @@ export function decodeServerMessage(raw: string): ServerMessage | undefined {
     const characterId = readString(record, "characterId", "CharacterId");
     if (characterId) record.characterId = characterId;
     const weaponId = readString(record, "weaponId", "WeaponId");
-    if (weaponId) record.weaponId = weaponId;
+    if (weaponId !== undefined) record.weaponId = weaponId;
   }
 
   if (type === "welcome") {
+    const primaryWeaponId = readNullableString(record, "primaryWeaponId", "PrimaryWeaponId");
+    if (primaryWeaponId !== undefined) record.primaryWeaponId = primaryWeaponId;
+
+    const secondaryWeaponId = readNullableString(record, "secondaryWeaponId", "SecondaryWeaponId");
+    if (secondaryWeaponId !== undefined) record.secondaryWeaponId = secondaryWeaponId;
+
+    const activeSlot = readString(record, "activeSlot", "ActiveSlot");
+    if (activeSlot === "primary" || activeSlot === "secondary") record.activeSlot = activeSlot;
+
     const rosterRaw = record.roster ?? record.Roster;
     if (Array.isArray(rosterRaw)) {
       record.roster = rosterRaw

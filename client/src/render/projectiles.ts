@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { getCurrentWeapon, type WeaponRecipe } from "../config/weapons.ts";
+import type { WeaponRecipe } from "../config/weapons.ts";
 import { localPlayerId, projectiles } from "../state/world.ts";
 
 export interface ProjectileRenderer {
@@ -12,7 +12,7 @@ const loader = new GLTFLoader();
 
 export async function createProjectileRenderer(
   scene: THREE.Scene,
-  weapon: WeaponRecipe = getCurrentWeapon(),
+  weapon: WeaponRecipe,
 ): Promise<ProjectileRenderer> {
   const gltf = await loader.loadAsync(weapon.bulletModelUrl);
   const template = gltf.scene;

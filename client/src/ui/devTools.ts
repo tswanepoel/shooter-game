@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { releasePointerLockForUi } from "../input/pointerLock.ts";
 import { CHARACTER_IDS, getCharacterRecipe } from "../config/characters.ts";
 import { getWeaponRecipe, WEAPON_IDS, type WeaponRecipe } from "../config/weapons.ts";
 import { loadPlayerAvatar, type PlayerAvatar } from "../render/playerAvatar.ts";
@@ -118,9 +119,7 @@ export function createDevTools(deps: DevToolsDeps): DevTools {
   function setMenuOpen(open: boolean): void {
     menuOpen = open;
     panel.style.display = open ? "block" : "none";
-    if (open && document.pointerLockElement) {
-      document.exitPointerLock();
-    }
+    if (open) releasePointerLockForUi();
   }
 
   function createLabel(weaponId: string): HTMLDivElement {

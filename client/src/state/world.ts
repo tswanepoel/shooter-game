@@ -1,7 +1,8 @@
 import { bus } from "../bus.ts";
 import { HEALTH } from "../config/combat.ts";
 import { resolveCharacterId, setCurrentCharacterId } from "../config/characters.ts";
-import { resolveWeaponId, setCurrentWeaponId } from "../config/weapons.ts";
+import { resolveWeaponSlot } from "../config/weapons.ts";
+import { getLifeLoadout, pickDefaultActiveSlot, setLifeLoadout, type Loadout } from "./loadout.ts";
 import { STAMINA } from "../config/physics.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
 import { snapCascadeToTarget } from "../sim/aimCascade.ts";
@@ -73,11 +74,47 @@ export interface RemotePlayerState extends AimCascadeState {
 export const remotePlayers = new Map<string, RemotePlayerState>();
 export let localPlayerId: string | undefined;
 
+function loadoutFromWelcome(message: {
+  weaponId?: string;
+  primaryWeaponId?: string | null;
+  secondaryWeaponId?: string | null;
+  activeSlot?: "primary" | "secondary";
+}): { loadout: Loadout; activeSlot: "primary" | "secondary" } {
+  const hasLoadoutPayload =
+    message.primaryWeaponId !== undefined ||
+    message.secondaryWeaponId !== undefined ||
+    message.activeSlot !== undefined;
+
+  if (hasLoadoutPayload) {
+    const loadout: Loadout = {
+      primary: resolveWeaponSlot(message.primaryWeaponId ?? message.weaponId),
+      secondary: resolveWeaponSlot(message.secondaryWeaponId),
+    };
+    return {
+      loadout,
+      activeSlot: message.activeSlot ?? pickDefaultActiveSlot(loadout),
+    };
+  }
+
+  const staged = getLifeLoadout();
+  if (staged.primary !== null || staged.secondary !== null) {
+    return { loadout: { ...staged }, activeSlot: pickDefaultActiveSlot(staged) };
+  }
+
+  const legacy: Loadout = {
+    primary: resolveWeaponSlot(message.weaponId),
+    secondary: null,
+  };
+  return { loadout: legacy, activeSlot: pickDefaultActiveSlot(legacy) };
+}
+
 bus.on("welcomed", (message) => {
   localPlayerId = message.id;
   localPlayer.id = message.id;
   setCurrentCharacterId(resolveCharacterId(message.characterId));
-  setCurrentWeaponId(resolveWeaponId(message.weaponId));
+  const { loadout, activeSlot } = loadoutFromWelcome(message);
+  setLifeLoadout(loadout, activeSlot);
+  bus.emit("loadoutCommitted", loadout);
   localPlayer.position.x = message.position.x;
   localPlayer.position.y = message.position.y;
   localPlayer.position.z = message.position.z;
@@ -98,7 +135,7 @@ bus.on("playerLeft", (message) => {
 
 bus.on("weaponReceived", ({ id, weaponId }) => {
   const remote = remotePlayers.get(id);
-  if (remote) remote.weaponId = resolveWeaponId(weaponId);
+  if (remote) remote.weaponId = resolveWeaponSlot(weaponId) ?? "";
 });
 
 function createRemotePlayer(snapshot: {
@@ -135,7 +172,7 @@ function createRemotePlayer(snapshot: {
     alive: snapshot.alive,
     health: HEALTH.max,
     characterId: resolveCharacterId(snapshot.characterId),
-    weaponId: resolveWeaponId(snapshot.weaponId),
+    weaponId: resolveWeaponSlot(snapshot.weaponId) ?? "",
   };
   snapCascadeToTarget(remote);
   return remote;

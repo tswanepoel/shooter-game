@@ -1,6 +1,8 @@
 import { bus } from "../bus.ts";
 import { CHARACTER_IDS } from "../config/characters.ts";
 import { sendClaim } from "../net/connection.ts";
+import { getPendingLoadout, setLobbyLoadout } from "../state/loadout.ts";
+import { getLoadoutOverlay } from "./loadoutOverlay.ts";
 import {
   beginLobbyPreviews,
   createLobbyCharacterPreview,
@@ -8,11 +10,16 @@ import {
   type LobbyCharacterPreview,
 } from "./lobbyCharacterPreview.ts";
 
-const PREVIEW_WIDTH = 132;
-const PREVIEW_HEIGHT = 200;
+const PERSONA_SIZE = 132;
+const CELL_GAP = 12;
+const CELL_PITCH = PERSONA_SIZE + CELL_GAP;
+const COLUMN_STAGGER = CELL_PITCH / 2;
+const COLUMN_COUNT = 6;
+const CHARACTERS_PER_COLUMN = 3;
 
 interface LobbyCard {
   readonly id: string;
+  readonly cell: HTMLDivElement;
   readonly button: HTMLButtonElement;
   readonly preview: LobbyCharacterPreview;
 }
@@ -44,14 +51,28 @@ export function showLobby(onWelcomed: () => void): void {
   status.textContent = "Loading characters…";
   status.style.cssText = "margin:0;font-size:0.9rem;color:#8a96a8;min-height:1.25em;text-align:center;";
 
-  const grid = document.createElement("div");
-  grid.style.cssText = [
+  const honeycomb = document.createElement("div");
+  honeycomb.style.cssText = [
     "display:none",
-    "grid-template-columns:repeat(auto-fill,minmax(132px,1fr))",
-    "gap:14px",
-    "justify-content:center",
-    "width:min(960px,100%)",
+    "position:relative",
+    "margin:0 auto",
+    "padding:8px 0",
   ].join(";");
+
+  const graphBackdrop = document.createElement("div");
+  graphBackdrop.style.cssText = [
+    "position:absolute",
+    "inset:-48px -24px",
+    "pointer-events:none",
+    "z-index:0",
+    "opacity:0.4",
+    "background-image:",
+    "radial-gradient(circle at 50% 45%,rgba(68,136,255,0.14),transparent 58%),",
+    "repeating-linear-gradient(0deg,transparent,transparent 55px,rgba(58,74,96,0.28) 56px),",
+    "repeating-linear-gradient(60deg,transparent,transparent 55px,rgba(58,74,96,0.18) 56px),",
+    "repeating-linear-gradient(-60deg,transparent,transparent 55px,rgba(58,74,96,0.18) 56px)",
+  ].join("");
+  honeycomb.appendChild(graphBackdrop);
 
   const joinButton = document.createElement("button");
   joinButton.type = "button";
@@ -70,10 +91,12 @@ export function showLobby(onWelcomed: () => void): void {
   ].join(";");
 
   const hint = document.createElement("p");
-  hint.textContent = "Pick an available character. Taken avatars are locked. Press Q in-game to switch weapons.";
+  hint.textContent = "Pick a character, then choose your weapons.";
   hint.style.cssText = "margin:0;font-size:0.85rem;color:#6a7588;max-width:520px;text-align:center;line-height:1.45;";
 
-  overlay.append(title, status, grid, joinButton, hint);
+  const loadoutOverlay = getLoadoutOverlay();
+
+  overlay.append(title, status, honeycomb, joinButton, hint);
   document.body.appendChild(overlay);
 
   let selectedId: string | undefined;
@@ -125,7 +148,7 @@ export function showLobby(onWelcomed: () => void): void {
       card.preview.setIdleActive(false);
       if (!isTaken(card.id)) {
         card.button.style.borderColor = "#2a3344";
-        card.button.style.boxShadow = "none";
+        card.cell.style.filter = "none";
         card.button.setAttribute("aria-pressed", "false");
       }
     }
@@ -148,7 +171,7 @@ export function showLobby(onWelcomed: () => void): void {
       card.preview.setIdleActive(selected);
       if (isTaken(card.id)) continue;
       card.button.style.borderColor = selected ? "#6af" : "#2a3344";
-      card.button.style.boxShadow = selected ? "0 0 0 1px #6af,0 8px 24px rgba(68,136,255,0.2)" : "none";
+      card.cell.style.filter = selected ? "drop-shadow(0 0 10px rgba(68,136,255,0.55))" : "none";
       card.button.setAttribute("aria-pressed", selected ? "true" : "false");
     }
     updateJoinButton();
@@ -165,7 +188,7 @@ export function showLobby(onWelcomed: () => void): void {
       if (taken) {
         card.preview.setIdleActive(false);
         card.button.style.borderColor = "#1e2430";
-        card.button.style.boxShadow = "none";
+        card.cell.style.filter = "none";
         card.button.setAttribute("aria-pressed", "false");
       }
     }
@@ -173,7 +196,16 @@ export function showLobby(onWelcomed: () => void): void {
     updateJoinButton();
   }
 
-  function createCardButton(id: string): HTMLButtonElement {
+  function createCardButton(id: string): { cell: HTMLDivElement; button: HTMLButtonElement } {
+    const cell = document.createElement("div");
+    cell.style.cssText = [
+      `width:${PERSONA_SIZE}px`,
+      `height:${PERSONA_SIZE}px`,
+      "flex-shrink:0",
+      "z-index:1",
+      "transition:filter 0.15s",
+    ].join(";");
+
     const button = document.createElement("button");
     button.type = "button";
     button.dataset.characterId = id;
@@ -181,20 +213,31 @@ export function showLobby(onWelcomed: () => void): void {
     button.setAttribute("aria-pressed", "false");
     button.style.cssText = [
       "display:block",
+      "width:100%",
+      "aspect-ratio:1",
+      "box-sizing:border-box",
       "padding:0",
       "border:2px solid #2a3344",
-      "border-radius:10px",
+      "border-radius:50%",
       "background:#10141c",
       "overflow:hidden",
       "cursor:pointer",
-      "transition:border-color 0.15s,box-shadow 0.15s,opacity 0.15s",
+      "transition:border-color 0.15s,opacity 0.15s",
     ].join(";");
 
     const viewport = document.createElement("div");
-    viewport.style.cssText = `width:${PREVIEW_WIDTH}px;height:${PREVIEW_HEIGHT}px;max-width:100%;`;
+    viewport.style.cssText = [
+      "width:100%",
+      "height:100%",
+      "position:relative",
+      "display:block",
+      "overflow:hidden",
+      "border-radius:50%",
+    ].join(";");
 
     button.append(viewport);
-    return button;
+    cell.appendChild(button);
+    return { cell, button };
   }
 
   function disposeLobby(): void {
@@ -209,6 +252,7 @@ export function showLobby(onWelcomed: () => void): void {
     cards = [];
     endLobbyPreviews();
     sharedRenderer = undefined;
+    loadoutOverlay.close();
     overlay.remove();
   }
 
@@ -223,7 +267,7 @@ export function showLobby(onWelcomed: () => void): void {
   void (async () => {
     try {
       const previews = await Promise.all(
-        CHARACTER_IDS.map((id) => createLobbyCharacterPreview(id, PREVIEW_WIDTH, PREVIEW_HEIGHT)),
+        CHARACTER_IDS.map((id) => createLobbyCharacterPreview(id, PERSONA_SIZE, PERSONA_SIZE)),
       );
 
       if (disposed) {
@@ -231,22 +275,47 @@ export function showLobby(onWelcomed: () => void): void {
         return;
       }
 
-      sharedRenderer = beginLobbyPreviews(PREVIEW_WIDTH, PREVIEW_HEIGHT);
+      sharedRenderer = beginLobbyPreviews(PERSONA_SIZE, PERSONA_SIZE);
 
-      cards = CHARACTER_IDS.map((id, index) => {
-        const preview = previews[index]!;
-        const button = createCardButton(id);
-        const viewport = button.firstElementChild as HTMLDivElement;
-        viewport.appendChild(preview.canvas);
+      if (CHARACTER_IDS.length !== COLUMN_COUNT * CHARACTERS_PER_COLUMN) {
+        throw new Error(
+          `expected ${COLUMN_COUNT * CHARACTERS_PER_COLUMN} characters for honeycomb layout`,
+        );
+      }
 
-        button.addEventListener("click", () => setSelected(id));
+      const clusterWidth = COLUMN_COUNT * CELL_PITCH - CELL_GAP;
+      const clusterHeight =
+        (CHARACTERS_PER_COLUMN - 1) * CELL_PITCH + PERSONA_SIZE + COLUMN_STAGGER;
 
-        grid.appendChild(button);
-        return { id, button, preview };
-      });
+      honeycomb.style.width = `${Math.ceil(clusterWidth)}px`;
+      honeycomb.style.height = `${Math.ceil(clusterHeight)}px`;
+
+      cards = [];
+
+      for (let column = 0; column < COLUMN_COUNT; column++) {
+        const columnLeft = column * CELL_PITCH;
+        const columnTopOffset = column % 2 === 1 ? COLUMN_STAGGER : 0;
+
+        for (let row = 0; row < CHARACTERS_PER_COLUMN; row++) {
+          const cardIndex = column * CHARACTERS_PER_COLUMN + row;
+          const id = CHARACTER_IDS[cardIndex]!;
+          const preview = previews[cardIndex]!;
+          const { cell, button } = createCardButton(id);
+          const viewport = button.firstElementChild as HTMLDivElement;
+          viewport.appendChild(preview.canvas);
+
+          cell.style.position = "absolute";
+          cell.style.left = `${columnLeft}px`;
+          cell.style.top = `${columnTopOffset + row * CELL_PITCH}px`;
+
+          button.addEventListener("click", () => setSelected(id));
+          honeycomb.appendChild(cell);
+          cards.push({ id, cell, button, preview });
+        }
+      }
 
       status.textContent = "";
-      grid.style.display = "grid";
+      honeycomb.style.display = "block";
       applyTaken();
       frameId = requestAnimationFrame(tick);
     } catch (error) {
@@ -258,14 +327,34 @@ export function showLobby(onWelcomed: () => void): void {
 
   joinButton.addEventListener("click", () => {
     if (joinButton.disabled || !selectedId || claiming) return;
-    claiming = true;
-    joinButton.disabled = true;
-    joinButton.style.opacity = "0.45";
-    joinButton.style.cursor = "not-allowed";
-    joinButton.textContent = "Joining…";
-    status.textContent = "";
-    status.style.color = "#8a96a8";
-    applyTaken();
-    sendClaim(selectedId);
+
+    loadoutOverlay.open({
+      footerMode: "spawn",
+      loadout: getPendingLoadout(),
+      allowBackdropCancel: true,
+      onCancel: () => {
+        claiming = false;
+        updateJoinButton();
+      },
+      onSpectate: () => {
+        loadoutOverlay.close();
+        claiming = false;
+        updateJoinButton();
+      },
+      onSpawn: (loadout) => {
+        loadoutOverlay.close();
+        claiming = true;
+        joinButton.disabled = true;
+        joinButton.style.opacity = "0.45";
+        joinButton.style.cursor = "not-allowed";
+        joinButton.textContent = "Joining…";
+        status.textContent = "";
+        status.style.color = "#8a96a8";
+        applyTaken();
+        setLobbyLoadout(loadout);
+        bus.emit("joinSpawnClicked", undefined);
+        sendClaim(selectedId!, loadout.primary, loadout.secondary);
+      },
+    });
   });
 }

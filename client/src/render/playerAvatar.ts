@@ -80,6 +80,7 @@ function approach(current: number, target: number, dt: number): number {
 export interface PlayerAvatar {
   readonly root: THREE.Object3D;
   readonly weaponMesh: THREE.Object3D;
+  readonly armed: boolean;
   setLocomotion(state: LocomotionState): void;
   triggerMuzzleFlash(): void;
   update(dt: number, aim?: AimCascadeState): void;
@@ -92,21 +93,22 @@ export interface PlayerAvatar {
 
 export async function loadPlayerAvatar(
   character: CharacterRecipe,
-  weapon: WeaponRecipe,
+  weapon: WeaponRecipe | null,
 ): Promise<PlayerAvatar> {
-  const [characterGltf, weaponGltf] = await Promise.all([
-    loader.loadAsync(character.modelUrl),
-    loader.loadAsync(weapon.modelUrl),
-  ]);
+  const armed = weapon !== null;
+  const characterGltf = await loader.loadAsync(character.modelUrl);
+  const weaponGltf = armed ? await loader.loadAsync(weapon.modelUrl) : null;
 
   const characterMesh = characterGltf.scene;
   disableFrustumCulling(characterMesh);
   scaleToHeight(characterMesh, character.height);
 
-  const weaponMesh = weaponGltf.scene;
-  disableFrustumCulling(weaponMesh);
-  orientWeaponForHeld(weaponMesh, weapon);
-  weaponMesh.position.set(weapon.gripOffset.x, weapon.gripOffset.y, weapon.gripOffset.z);
+  const weaponMesh = weaponGltf ? weaponGltf.scene : new THREE.Object3D();
+  if (armed && weapon) {
+    disableFrustumCulling(weaponMesh);
+    orientWeaponForHeld(weaponMesh, weapon);
+    weaponMesh.position.set(weapon.gripOffset.x, weapon.gripOffset.y, weapon.gripOffset.z);
+  }
 
   const torsoNode = characterMesh.getObjectByName("torso");
   const headLookup = characterMesh.getObjectByName("head");
@@ -133,11 +135,13 @@ export async function loadPlayerAvatar(
   armRight.add(weaponMesh);
 
   const gripWorldScale = new THREE.Vector3();
-  armRight.updateMatrixWorld(true);
-  armRight.getWorldScale(gripWorldScale);
-  weaponMesh.scale.divideScalar(gripWorldScale.x);
+  if (armed) {
+    armRight.updateMatrixWorld(true);
+    armRight.getWorldScale(gripWorldScale);
+    weaponMesh.scale.divideScalar(gripWorldScale.x);
+  }
 
-  const muzzleFlashes = weapon.muzzlePoints.map((point) => {
+  const muzzleFlashes = armed && weapon ? weapon.muzzlePoints.map((point) => {
     const flash = new THREE.Mesh(
       new THREE.SphereGeometry(0.06, 6, 6),
       new THREE.MeshBasicMaterial({ color: 0xfff2a8 }),
@@ -146,7 +150,7 @@ export async function loadPlayerAvatar(
     flash.visible = false;
     armRight.add(flash);
     return flash;
-  });
+  }) : [];
   let muzzleFlashTimer = 0;
 
   const mixer = new THREE.AnimationMixer(characterMesh);
@@ -158,8 +162,13 @@ export async function loadPlayerAvatar(
   });
   const sprintClip = THREE.AnimationUtils.makeClipAdditive(findClip(clips, "sprint").clone(), 0, staticClip);
 
+  const staticAction = mixer.clipAction(staticClip);
   const holdingRightAction = mixer.clipAction(findClip(clips, "holding-right"));
-  holdingRightAction.play();
+  if (armed) {
+    holdingRightAction.play();
+  } else {
+    staticAction.play();
+  }
 
   const dieAction = mixer.clipAction(findClip(clips, "die"));
   dieAction.setLoop(THREE.LoopOnce, 1);
@@ -180,7 +189,7 @@ export async function loadPlayerAvatar(
   weaponMesh.updateMatrixWorld(true);
 
   const primaryMuzzleLocal = new THREE.Vector3();
-  const primaryMuzzle = weapon.muzzlePoints[0];
+  const primaryMuzzle = armed && weapon ? weapon.muzzlePoints[0] : undefined;
   if (primaryMuzzle) {
     bakeMuzzleOffsetInWeaponLocal(primaryMuzzle, weaponMesh, primaryMuzzleLocal);
   }
@@ -194,6 +203,7 @@ export async function loadPlayerAvatar(
   }
 
   function triggerMuzzleFlash(): void {
+    if (!armed || !weapon) return;
     muzzleFlashTimer = weapon.muzzleFlashDuration;
     for (const flash of muzzleFlashes) flash.visible = true;
   }
@@ -240,6 +250,7 @@ export async function loadPlayerAvatar(
   }
 
   function sampleWeaponMuzzleLine(outOrigin: THREE.Vector3, outDirection: THREE.Vector3): void {
+    if (!armed || !weapon) return;
     characterMesh.updateMatrixWorld(true);
 
     if (primaryMuzzle) {
@@ -256,7 +267,11 @@ export async function loadPlayerAvatar(
     dieAction.stop();
     dieAction.setEffectiveWeight(0);
     resetAimPivots();
-    holdingRightAction.reset().setEffectiveWeight(1).play();
+    if (armed) {
+      holdingRightAction.reset().setEffectiveWeight(1).play();
+    } else {
+      staticAction.reset().setEffectiveWeight(1).play();
+    }
     mixer.update(0);
   }
 
@@ -292,6 +307,7 @@ export async function loadPlayerAvatar(
   return {
     root: characterMesh,
     weaponMesh,
+    armed,
     setLocomotion,
     triggerMuzzleFlash,
     update,

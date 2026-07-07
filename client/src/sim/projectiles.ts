@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { bus } from "../bus.ts";
-import { getCurrentWeapon } from "../config/weapons.ts";
+import { getCurrentWeapon } from "./activeWeapon.ts";
 import { sendHit } from "../net/connection.ts";
 import { localPlayer, localPlayerId, projectiles, remotePlayers } from "../state/world.ts";
 import { computeAimRay } from "./aimDirection.ts";
@@ -54,6 +54,8 @@ bus.on("fireReceived", ({ id }) => {
 
 export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
   const weapon = getCurrentWeapon();
+  if (!weapon) return;
+
   const fireInterval = 1 / weapon.fireRate;
 
   cooldown = Math.max(0, cooldown - dt);
@@ -75,6 +77,8 @@ export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
 
 export function advanceProjectiles(dt: number, hitRoots: THREE.Object3D[]): void {
   const weapon = getCurrentWeapon();
+  if (!weapon) return;
+
   const step = weapon.projectileSpeed * dt;
 
   for (let i = projectiles.length - 1; i >= 0; i--) {

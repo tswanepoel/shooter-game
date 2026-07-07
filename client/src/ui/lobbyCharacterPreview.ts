@@ -3,6 +3,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { getCharacterRecipe } from "../config/characters.ts";
 
 const BLEND_RATE = 8;
+const MUGSHOT_CAMERA_PADDING = 1.4;
 const loader = new GLTFLoader();
 
 let sharedRenderer: THREE.WebGLRenderer | undefined;
@@ -83,10 +84,7 @@ function frameMugshotCamera(
   const frameWidth = headSize.x * 1.9;
   const frameHeight = headSize.y * 1.55;
 
-  // Pan the look target left so the mugshot sits slightly right in the tile.
-  const lookTarget = frameCenter.clone();
-  lookTarget.x -= frameWidth * 0.055;
-  frameCameraToBox(camera, frameCenter, lookTarget, frameWidth, frameHeight, aspect, padding);
+  frameCameraToBox(camera, frameCenter, frameCenter, frameWidth, frameHeight, aspect, padding);
 }
 
 export function beginLobbyPreviews(width: number, height: number): THREE.WebGLRenderer {
@@ -129,7 +127,7 @@ export async function createLobbyCharacterPreview(
   const canvas = document.createElement("canvas");
   canvas.width = pixelWidth;
   canvas.height = pixelHeight;
-  canvas.style.cssText = `display:block;width:${width}px;height:${height}px;pointer-events:none;`;
+  canvas.style.cssText = "display:block;width:100%;height:100%;pointer-events:none;";
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x141820);
@@ -151,7 +149,7 @@ export async function createLobbyCharacterPreview(
   mesh.rotation.y = 0;
   scene.add(mesh);
 
-  frameMugshotCamera(camera, mesh, width / height, 1.2);
+  frameMugshotCamera(camera, mesh, width / height, MUGSHOT_CAMERA_PADDING);
 
   const mixer = new THREE.AnimationMixer(mesh);
   const staticAction = mixer.clipAction(findClip(gltf.animations, "static"));

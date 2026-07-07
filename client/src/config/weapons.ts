@@ -315,13 +315,65 @@ export const WEAPON_IDS = [
   "blaster-r",
 ] as const;
 
-export const DEFAULT_WEAPON_ID = "blaster-g";
+export type WeaponClass =
+  | "launcher"
+  | "pistol"
+  | "smg"
+  | "assaultRifle"
+  | "sniperRifle"
+  | "shotgun";
 
-let currentWeaponId = DEFAULT_WEAPON_ID;
+/** Per-letter weapon category used for slot restrictions and picker layout. */
+export const WEAPON_CLASS: Record<(typeof WEAPON_IDS)[number], WeaponClass> = {
+  "blaster-a": "launcher",
+  "blaster-b": "pistol",
+  "blaster-c": "smg",
+  "blaster-d": "assaultRifle",
+  "blaster-e": "sniperRifle",
+  "blaster-f": "sniperRifle",
+  "blaster-g": "smg",
+  "blaster-h": "smg",
+  "blaster-i": "pistol",
+  "blaster-j": "shotgun",
+  "blaster-k": "shotgun",
+  "blaster-l": "smg",
+  "blaster-m": "smg",
+  "blaster-n": "assaultRifle",
+  "blaster-o": "shotgun",
+  "blaster-p": "smg",
+  "blaster-q": "assaultRifle",
+  "blaster-r": "assaultRifle",
+};
 
-export function getCurrentWeaponId(): string {
-  return currentWeaponId;
+const SECONDARY_WEAPON_CLASSES = new Set<WeaponClass>(["launcher", "pistol", "shotgun"]);
+
+export function getWeaponClass(id: string): WeaponClass | undefined {
+  return WEAPON_CLASS[id as (typeof WEAPON_IDS)[number]];
 }
+
+export function weaponAllowsSlot(weaponId: string, slot: "primary" | "secondary"): boolean {
+  if (slot === "primary") return weaponId in WEAPON_RECIPES;
+  const weaponClass = getWeaponClass(weaponId);
+  return weaponClass !== undefined && SECONDARY_WEAPON_CLASSES.has(weaponClass);
+}
+
+export function weaponsForSlot(slot: "primary" | "secondary"): readonly (typeof WEAPON_IDS)[number][] {
+  if (slot === "primary") return WEAPON_IDS;
+  return WEAPON_IDS.filter((id) => weaponAllowsSlot(id, "secondary"));
+}
+
+export function sanitizeLoadout(loadout: { primary: string | null; secondary: string | null }): {
+  primary: string | null;
+  secondary: string | null;
+} {
+  let { primary, secondary } = loadout;
+  if (secondary && !weaponAllowsSlot(secondary, "secondary")) secondary = null;
+  if (primary && secondary && primary === secondary) secondary = null;
+  return { primary, secondary };
+}
+
+export const DEFAULT_WEAPON_ID = "blaster-g";
+export const UNARMED_WEAPON_ID = "";
 
 export function getWeaponRecipe(id: string): WeaponRecipe {
   const recipe = WEAPON_RECIPES[id];
@@ -329,22 +381,26 @@ export function getWeaponRecipe(id: string): WeaponRecipe {
   return recipe;
 }
 
-export function getCurrentWeapon(): WeaponRecipe {
-  return getWeaponRecipe(currentWeaponId);
+export function tryGetWeaponRecipe(id: string | null | undefined): WeaponRecipe | undefined {
+  if (!id || !(id in WEAPON_RECIPES)) return undefined;
+  return WEAPON_RECIPES[id];
+}
+
+export function resolveWeaponSlot(id: string | null | undefined): string | null {
+  if (!id || id === UNARMED_WEAPON_ID || !(id in WEAPON_RECIPES)) return null;
+  return id;
+}
+
+/** Active weapon id for snapshots; empty string means unarmed. */
+export function toNetworkWeaponId(id: string | null | undefined): string {
+  return id ?? UNARMED_WEAPON_ID;
 }
 
 export function resolveWeaponId(id: string | undefined): string {
-  if (id && id in WEAPON_RECIPES) return id;
-  return DEFAULT_WEAPON_ID;
+  return resolveWeaponSlot(id) ?? UNARMED_WEAPON_ID;
 }
 
-export function setCurrentWeaponId(id: string): void {
-  currentWeaponId = resolveWeaponId(id);
-}
-
-export function cycleWeaponId(): string {
-  const index = WEAPON_IDS.indexOf(currentWeaponId as (typeof WEAPON_IDS)[number]);
-  const next = WEAPON_IDS[(index + 1) % WEAPON_IDS.length];
-  setCurrentWeaponId(next);
-  return next;
+export function formatWeaponLabel(id: string | null | undefined): string {
+  if (!id) return "Unarmed";
+  return id.replace("blaster-", "Weapon ");
 }

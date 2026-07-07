@@ -7,7 +7,6 @@ namespace Server;
 public sealed class CombatService
 {
     private readonly ConcurrentDictionary<string, (WebSocket Socket, PlayerState State)> _players;
-    private readonly ConcurrentDictionary<string, CancellationTokenSource> _respawnTimers = new();
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly Func<Vector3Dto> _randomSpawnPosition;
     private readonly Func<byte[], Task> _broadcastToAllAsync;
@@ -50,14 +49,39 @@ public sealed class CombatService
         var target = targetEntry.State;
         if (!target.Alive) return true;
 
+        if (shooterEntry.State.WeaponId is null) return true;
+
         var damage = GameConfig.DamageForWeapon(shooterEntry.State.WeaponId);
         ApplyDamage(target, damage, shooterId);
         return true;
     }
 
+    public bool TryRequestSuicide(string senderId, byte[] payload)
+    {
+        if (!TryParseSuicideRequest(payload, out var playerId)) return false;
+        if (playerId != senderId) return true;
+
+        if (!_players.TryGetValue(playerId, out var entry)) return true;
+        if (!entry.State.Alive) return true;
+
+        var now = DateTime.UtcNow;
+        if (now - entry.State.LastSuicideUtc < TimeSpan.FromSeconds(GameConfig.SuicideCooldownSeconds)) return true;
+        if (entry.State.LastDamageUtc != DateTime.MinValue &&
+            now - entry.State.LastDamageUtc < TimeSpan.FromSeconds(GameConfig.SuicideRecentDamageBlockSeconds))
+        {
+            return true;
+        }
+
+        entry.State.LastSuicideUtc = now;
+        ApplyDeath(entry.State, playerId);
+        return true;
+    }
+
     public bool TryRequestRespawn(string senderId, byte[] payload)
     {
-        if (!TryParseRespawnRequest(payload, out var playerId)) return false;
+        if (!TryParseRespawnRequest(payload, out var playerId, out var primary, out var secondary, out var activeSlot)) {
+            return false;
+        }
         if (playerId != senderId) return true;
 
         if (!_players.TryGetValue(playerId, out var entry)) return true;
@@ -66,7 +90,9 @@ public sealed class CombatService
         var elapsed = DateTime.UtcNow - entry.State.DeathUtc;
         if (elapsed < TimeSpan.FromSeconds(GameConfig.RespawnMinDelaySeconds)) return true;
 
+        LoadoutRules.Apply(entry.State, primary, secondary, activeSlot);
         TryRespawnPlayer(playerId);
+        _ = BroadcastWeaponAsync(playerId);
         return true;
     }
 
@@ -78,12 +104,16 @@ public sealed class CombatService
 
         if (target.Health <= 0 && target.Alive)
         {
-            target.Alive = false;
-            target.DeathUtc = DateTime.UtcNow;
-            var deathAt = new DateTimeOffset(target.DeathUtc).ToUnixTimeMilliseconds();
-            _ = BroadcastDeathAsync(target.Id, attackerId, deathAt);
-            ScheduleForcedRespawn(target.Id);
+            ApplyDeath(target, attackerId);
         }
+    }
+
+    private void ApplyDeath(PlayerState target, string killerId)
+    {
+        target.Alive = false;
+        target.DeathUtc = DateTime.UtcNow;
+        var deathAt = new DateTimeOffset(target.DeathUtc).ToUnixTimeMilliseconds();
+        _ = BroadcastDeathAsync(target.Id, killerId, deathAt);
     }
 
     private void ProcessRegenTick()
@@ -102,49 +132,10 @@ public sealed class CombatService
         }
     }
 
-    private void ScheduleForcedRespawn(string playerId)
-    {
-        if (_respawnTimers.TryRemove(playerId, out var existing))
-        {
-            existing.Cancel();
-            existing.Dispose();
-        }
-
-        var cts = new CancellationTokenSource();
-        _respawnTimers[playerId] = cts;
-        _ = ForcedRespawnAfterMaxDelayAsync(playerId, cts);
-    }
-
-    private async Task ForcedRespawnAfterMaxDelayAsync(string playerId, CancellationTokenSource cts)
-    {
-        try
-        {
-            await Task.Delay(TimeSpan.FromSeconds(GameConfig.RespawnMaxDelaySeconds), cts.Token);
-            TryRespawnPlayer(playerId);
-        }
-        catch (OperationCanceledException)
-        {
-            // Manual respawn or disconnect cancelled the timer.
-        }
-        finally
-        {
-            if (_respawnTimers.TryRemove(playerId, out var current) && ReferenceEquals(current, cts))
-            {
-                current.Dispose();
-            }
-        }
-    }
-
     private void TryRespawnPlayer(string playerId)
     {
         if (!_players.TryGetValue(playerId, out var entry)) return;
         if (entry.State.Alive) return;
-
-        if (_respawnTimers.TryRemove(playerId, out var cts))
-        {
-            cts.Cancel();
-            cts.Dispose();
-        }
 
         var spawn = _randomSpawnPosition();
         entry.State.Position = spawn;
@@ -172,6 +163,18 @@ public sealed class CombatService
         await _broadcastToAllAsync(Serialize(new RespawnMessage("respawn", playerId, position)));
     }
 
+    private async Task BroadcastWeaponAsync(string playerId)
+    {
+        if (!_players.TryGetValue(playerId, out var entry)) return;
+        await _broadcastToAllAsync(Serialize(new
+        {
+            type = "weapon",
+            id = playerId,
+            weaponId = entry.State.WeaponId ?? string.Empty,
+            activeSlot = entry.State.ActiveSlot,
+        }));
+    }
+
     private byte[] Serialize<T>(T message) => JsonSerializer.SerializeToUtf8Bytes(message, _jsonOptions);
 
     private static bool TryParseHit(byte[] payload, out string shooterId, out string targetId)
@@ -197,7 +200,52 @@ public sealed class CombatService
         }
     }
 
-    private static bool TryParseRespawnRequest(byte[] payload, out string playerId)
+    private static bool TryParseRespawnRequest(
+        byte[] payload,
+        out string playerId,
+        out string? primaryWeaponId,
+        out string? secondaryWeaponId,
+        out string? activeSlot)
+    {
+        playerId = string.Empty;
+        primaryWeaponId = null;
+        secondaryWeaponId = null;
+        activeSlot = null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(payload);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("type", out var typeProp) || typeProp.GetString() != "respawn") return false;
+            if (!root.TryGetProperty("id", out var idProp)) return false;
+
+            playerId = idProp.GetString() ?? string.Empty;
+            if (playerId.Length == 0) return false;
+
+            if (root.TryGetProperty("primaryWeaponId", out var primaryProp))
+            {
+                primaryWeaponId = primaryProp.ValueKind == JsonValueKind.Null ? null : primaryProp.GetString();
+            }
+
+            if (root.TryGetProperty("secondaryWeaponId", out var secondaryProp))
+            {
+                secondaryWeaponId = secondaryProp.ValueKind == JsonValueKind.Null ? null : secondaryProp.GetString();
+            }
+
+            if (root.TryGetProperty("activeSlot", out var slotProp))
+            {
+                activeSlot = slotProp.GetString();
+            }
+
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryParseSuicideRequest(byte[] payload, out string playerId)
     {
         playerId = string.Empty;
 
@@ -205,7 +253,7 @@ public sealed class CombatService
         {
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
-            if (!root.TryGetProperty("type", out var typeProp) || typeProp.GetString() != "respawn") return false;
+            if (!root.TryGetProperty("type", out var typeProp) || typeProp.GetString() != "suicide") return false;
             if (!root.TryGetProperty("id", out var idProp)) return false;
 
             playerId = idProp.GetString() ?? string.Empty;

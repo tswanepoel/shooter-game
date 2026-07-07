@@ -1,5 +1,8 @@
+import { formatWeaponLabel } from "../config/weapons.ts";
+import type { ActiveSlot } from "../state/loadout.ts";
+
 export interface WeaponHud {
-  update(weaponId: string): void;
+  update(activeSlot: ActiveSlot, weaponId: string | null): void;
 }
 
 export function createWeaponHud(): WeaponHud {
@@ -18,8 +21,9 @@ export function createWeaponHud(): WeaponHud {
   document.body.appendChild(element);
 
   return {
-    update(weaponId: string): void {
-      element.textContent = weaponId.replace("blaster-", "Weapon ");
+    update(activeSlot: ActiveSlot, weaponId: string | null): void {
+      const slot = activeSlot === "primary" ? "P" : "S";
+      element.textContent = `${slot}: ${formatWeaponLabel(weaponId)}`;
     },
   };
 }

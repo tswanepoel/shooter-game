@@ -1,4 +1,5 @@
 import { bus } from "../bus.ts";
+import { getLoadoutOverlay } from "../ui/loadoutOverlay.ts";
 import { clearPointerDelta, drainPointerDelta } from "../input/pointerInput.ts";
 import {
   GRAVITY,
@@ -69,6 +70,7 @@ function applyBufferedPointerTurn(): void {
 
 bus.on("jumped", () => {
   if (!localPlayer.alive) {
+    if (getLoadoutOverlay().isOpen()) return;
     bus.emit("respawnRequested", undefined);
     return;
   }

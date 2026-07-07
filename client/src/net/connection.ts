@@ -1,6 +1,13 @@
 import { bus } from "../bus.ts";
 import { RESPAWN } from "../config/combat.ts";
 import { WS_PATH, WS_PORT } from "../config/network.ts";
+import {
+  commitPendingToLife,
+  getActiveSlot,
+  getPendingLoadout,
+  stagePendingFromLife,
+} from "../state/loadout.ts";
+import { getLoadoutOverlay } from "../ui/loadoutOverlay.ts";
 import { decodeServerMessage, type ClientMessage, type Vector3 } from "./wire.ts";
 
 let socket: WebSocket | undefined;
@@ -14,15 +21,37 @@ function bindGameHandlers(): void {
 
   bus.on("jumpLaunched", () => sendIdOnly("jump"));
   bus.on("fired", () => sendIdOnly("fire"));
+
+  bus.on("deathReceived", ({ victimId, deathAt }) => {
+    if (victimId !== localId) return;
+    deathAtMs = deathAt ?? Date.now();
+    stagePendingFromLife();
+  });
+
   bus.on("respawnRequested", () => {
     if (!localId || deathAtMs === undefined) return;
+    if (getLoadoutOverlay().isOpen()) return;
     const elapsed = Date.now() - deathAtMs;
     if (elapsed < RESPAWN.minDelay * 1000) return;
-    send({ type: "respawn", id: localId });
+
+    const pending = getPendingLoadout();
+    send({
+      type: "respawn",
+      id: localId,
+      primaryWeaponId: pending.primary,
+      secondaryWeaponId: pending.secondary,
+      activeSlot: getActiveSlot(),
+    });
   });
-  bus.on("weaponSwitched", ({ weaponId }) => {
+
+  bus.on("forfeitRequested", () => {
     if (!localId) return;
-    send({ type: "weapon", id: localId, weaponId });
+    send({ type: "suicide", id: localId });
+  });
+
+  bus.on("weaponSwitched", ({ activeSlot }) => {
+    if (!localId) return;
+    send({ type: "weapon", id: localId, activeSlot });
   });
 }
 
@@ -91,7 +120,11 @@ function handleMessage(raw: string): void {
     case "respawn":
       if (!localId) return;
       console.log("respawn", message);
-      if (message.id === localId) deathAtMs = undefined;
+      if (message.id === localId) {
+        deathAtMs = undefined;
+        const loadout = commitPendingToLife();
+        bus.emit("loadoutCommitted", loadout);
+      }
       bus.emit("respawnReceived", message);
       break;
   }
@@ -112,8 +145,12 @@ export function connectSpectator(): void {
   });
 }
 
-export function sendClaim(characterId: string): void {
-  send({ type: "claim", characterId });
+export function sendClaim(
+  characterId: string,
+  primaryWeaponId: string | null,
+  secondaryWeaponId: string | null,
+): void {
+  send({ type: "claim", characterId, primaryWeaponId, secondaryWeaponId });
 }
 
 export function sendPosition(position: Vector3, yaw: number, pitch: number): void {

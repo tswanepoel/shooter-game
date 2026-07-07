@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import { getCurrentWeapon } from "../config/weapons.ts";
 import { CROSSHAIR_DISTANCE } from "../config/physics.ts";
+import { getCurrentWeapon } from "../sim/activeWeapon.ts";
 import { localPlayerId } from "../state/world.ts";
 
 const point = new THREE.Vector3();
@@ -46,7 +46,7 @@ export function resolveWeaponAimDistance(
   rayOrigin.copy(origin);
   rayDirection.copy(direction);
   raycaster.set(rayOrigin, rayDirection);
-  raycaster.far = getCurrentWeapon().projectileMaxRange;
+  raycaster.far = getCurrentWeapon()?.projectileMaxRange ?? CROSSHAIR_DISTANCE;
 
   const hits = raycaster.intersectObjects(occlusionRoots as THREE.Object3D[], true);
   for (const hit of hits) {

@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { bus } from "../bus.ts";
 import { getCharacterRecipe } from "../config/characters.ts";
 import type { CharacterRecipe } from "../config/characters.ts";
-import { getWeaponRecipe, type WeaponRecipe } from "../config/weapons.ts";
+import { getWeaponRecipe, resolveWeaponSlot, type WeaponRecipe } from "../config/weapons.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
 import { localPlayer, localPlayerId, remotePlayers } from "../state/world.ts";
 import {
@@ -17,7 +17,7 @@ export type { LocomotionState } from "./playerAvatar.ts";
 export { classifyLocomotionFromSpeed } from "./playerAvatar.ts";
 
 export interface PlayerSceneManager {
-  loadLocal(character: CharacterRecipe, weapon: WeaponRecipe): Promise<void>;
+  loadLocal(character: CharacterRecipe, weapon: WeaponRecipe | null): Promise<void>;
   update(dt: number): void;
   applyCamera(camera: THREE.PerspectiveCamera): void;
   sampleEyeWorldPosition(playerId: string, out: THREE.Vector3): boolean;
@@ -101,7 +101,7 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
     outOrigin: THREE.Vector3,
     outDirection: THREE.Vector3,
   ): boolean {
-    if (!localAvatar) return false;
+    if (!localAvatar?.armed) return false;
     localAvatar.sampleWeaponMuzzleLine(outOrigin, outDirection);
     return true;
   }
@@ -135,23 +135,25 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
 
     pending.add(id);
     const character = getCharacterRecipe(remote.characterId);
-    const weapon = getWeaponRecipe(remote.weaponId);
-    pendingRecipe.set(id, { characterId: character.id, weaponId: weapon.id });
+    const weaponSlot = resolveWeaponSlot(remote.weaponId);
+    const weapon = weaponSlot ? getWeaponRecipe(weaponSlot) : null;
+    const weaponKey = weaponSlot ?? "";
+    pendingRecipe.set(id, { characterId: character.id, weaponId: weaponKey });
     loadPlayerAvatar(character, weapon).then((avatar) => {
       pending.delete(id);
       pendingRecipe.delete(id);
       const current = remotePlayers.get(id);
       if (!current) return;
-      if (current.characterId !== character.id || current.weaponId !== weapon.id) return;
+      if (current.characterId !== character.id || current.weaponId !== weaponKey) return;
 
       avatar.root.userData.playerId = id;
       scene.add(avatar.root);
       hitRoots.set(id, avatar.root);
-      remotes.set(id, { avatar, characterId: character.id, weaponId: weapon.id });
+      remotes.set(id, { avatar, characterId: character.id, weaponId: weaponKey });
     });
   }
 
-  async function loadLocal(character: CharacterRecipe, weapon: WeaponRecipe): Promise<void> {
+  async function loadLocal(character: CharacterRecipe, weapon: WeaponRecipe | null): Promise<void> {
     const generation = ++localLoadGeneration;
     const avatar = await loadPlayerAvatar(character, weapon);
     if (generation !== localLoadGeneration) {
@@ -174,7 +176,7 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
   function updateLocal(dt: number): void {
     if (!localAvatar) return;
 
-    localAvatar.weaponMesh.visible = localPlayer.alive;
+    localAvatar.weaponMesh.visible = localPlayer.alive && localAvatar.armed;
     syncAvatar(
       localAvatar,
       localPlayer.position,
@@ -217,7 +219,7 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
         continue;
       }
 
-      entry.avatar.weaponMesh.visible = remote.alive;
+      entry.avatar.weaponMesh.visible = remote.alive && entry.avatar.armed;
       syncAvatar(
         entry.avatar,
         remote.position,

@@ -40,7 +40,10 @@ export function createKillFeed(): KillFeed {
       "opacity:1",
       "pointer-events:none",
     ].join(";");
-    line.textContent = `${labelForPlayer(killerId)} × ${labelForPlayer(victimId)}`;
+    line.textContent =
+      killerId === victimId
+        ? `${labelForPlayer(victimId)} forfeited`
+        : `${labelForPlayer(killerId)} × ${labelForPlayer(victimId)}`;
 
     container.prepend(line);
     entries.unshift({ element: line, remaining: KILL_FEED.entryLifetime });

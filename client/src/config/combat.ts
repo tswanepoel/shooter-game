@@ -7,6 +7,12 @@ export const HEALTH = {
 } as const;
 
 export const RESPAWN = {
-  minDelay: 1,
-  maxDelay: 8,
+  minDelay: 1.5,
+} as const;
+
+/** Death / forfeit pacing — respawn min must match server/GameConfig.cs. */
+export const DEATH_SCREEN = {
+  suicideHoldSeconds: 0.5,
+  suicideCooldownSeconds: 4,
+  recentDamageBlockSeconds: 2,
 } as const;

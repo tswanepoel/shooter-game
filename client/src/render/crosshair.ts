@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CROSSHAIR } from "../config/feedback.ts";
+import { getCurrentWeapon } from "../sim/activeWeapon.ts";
 import { localPlayer } from "../state/world.ts";
 import { computeAimRay } from "../sim/aimDirection.ts";
 import { computeWeaponAimWorldPoint } from "../ui/aimScreen.ts";
@@ -72,7 +73,7 @@ export function createCrosshair(scene: THREE.Scene): Crosshair {
   const aimPoint = new THREE.Vector3();
 
   function update(camera: THREE.Camera, occlusionRoots: readonly THREE.Object3D[]): void {
-    if (!localPlayer.alive) {
+    if (!localPlayer.alive || !getCurrentWeapon()) {
       sprite.visible = false;
       return;
     }

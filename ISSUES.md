@@ -45,12 +45,12 @@ Tracked tuning, polish, and feature gaps.
 ## Death & respawn
 
 - [x] **11. Own weapon visible when dead** — local view-model should hide on death.
-- [x] **13. Respawn timer too simple** — allow manual respawn sooner (shorter minimum delay); still force respawn after a longer cap.
+- [x] **13. Respawn timer too simple** — manual respawn after short min delay; no server forced respawn (player chooses when).
 - [x] **47. Death camera stuck** — when the player dies, the camera does not move to the death-pose vantage point.
 
 ## Loadout & lobby
 
-- [ ] **14. Spawn-only weapon picks** — one primary + one secondary chosen at spawn; mouse wheel swaps between those two in-game (no mid-match catalog cycling).
+- [x] **14. Spawn-only weapon picks** — one primary + one secondary chosen at spawn; mouse wheel swaps between those two in-game (no mid-match catalog cycling).
 - [ ] **15. Character picker visuals** — show character models/previews at join, not letter labels.
 - [ ] **26. Create and join lobbies** — rooms with shareable join flow; room code in URL for easy copy/share.
 

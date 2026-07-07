@@ -1,9 +1,12 @@
 import { bus } from "./bus.ts";
 import { getCurrentCharacter } from "./config/characters.ts";
-import { cycleWeaponId, getCurrentWeapon, getCurrentWeaponId } from "./config/weapons.ts";
 import { POS_BROADCAST_INTERVAL } from "./config/network.ts";
+import { initForfeit, tickForfeit } from "./input/forfeit.ts";
+import { initLoadoutMenu } from "./input/loadoutMenu.ts";
+
 import { initKeyboard } from "./input/keyboard.ts";
 import { initMouse } from "./input/mouse.ts";
+import { bindPointerLockTarget } from "./input/pointerLock.ts";
 import { connectSpectator, sendPosition } from "./net/connection.ts";
 import { createCrosshair } from "./render/crosshair.ts";
 import {
@@ -13,14 +16,19 @@ import {
 } from "./render/players.ts";
 import { createProjectileRenderer, type ProjectileRenderer } from "./render/projectiles.ts";
 import { createScene } from "./render/scene.ts";
+import { getCurrentWeapon } from "./sim/activeWeapon.ts";
 import { bindLocalWeaponMuzzleLineSampler } from "./sim/aimDirection.ts";
 import { tickAimCascade } from "./sim/aimCascade.ts";
-
 import { initCombatFeedback, tickCombatFeedback } from "./sim/combatFeedback.ts";
 import { initHealth } from "./sim/health.ts";
 import { tickMovement } from "./sim/movement.ts";
 import { advanceProjectiles, bindProjectileEyeSampler, tickProjectileFire } from "./sim/projectiles.ts";
 import { tickRemoteSync } from "./sim/remoteSync.ts";
+import {
+  getActiveSlot,
+  getActiveWeaponId,
+  toggleActiveSlot,
+} from "./state/loadout.ts";
 import { localPlayer, localPlayerId } from "./state/world.ts";
 import { createDamageOverlay } from "./ui/damageOverlay.ts";
 import { createDeathOverlay } from "./ui/deathOverlay.ts";
@@ -33,6 +41,7 @@ import { createWeaponHud } from "./ui/weaponHud.ts";
 const MAX_DT = 0.1;
 
 const { scene, camera, renderer, aimOcclusionRoots: worldAimOcclusionRoots } = createScene();
+bindPointerLockTarget(renderer.domElement);
 
 let projectileRenderer: ProjectileRenderer | undefined;
 let currentBulletModelUrl: string | undefined;
@@ -61,38 +70,59 @@ bindLocalWeaponMuzzleLineSampler(playerScene.sampleLocalWeaponMuzzleLine);
 
 initHealth();
 initCombatFeedback(hitMarker, damageOverlay);
+initForfeit();
+initLoadoutMenu();
 
 let lastTime = performance.now();
 let posBroadcastElapsed = 0;
 let assetLoadGeneration = 0;
+
+function refreshWeaponHud(): void {
+  weaponHud.update(getActiveSlot(), getActiveWeaponId());
+}
 
 async function loadLocalPlayerAssets(): Promise<void> {
   const generation = ++assetLoadGeneration;
   const character = getCurrentCharacter();
   const weapon = getCurrentWeapon();
 
-  await playerScene.loadLocal(character, weapon);
+  await playerScene.loadLocal(character, weapon ?? null);
   if (generation !== assetLoadGeneration) return;
 
-  weaponHud.update(weapon.id);
+  refreshWeaponHud();
 
-  if (weapon.bulletModelUrl !== currentBulletModelUrl) {
+  const bulletModelUrl = weapon?.bulletModelUrl;
+  if (bulletModelUrl && bulletModelUrl !== currentBulletModelUrl) {
     projectileRenderer?.dispose();
     projectileRenderer = await createProjectileRenderer(scene, weapon);
-    currentBulletModelUrl = weapon.bulletModelUrl;
+    currentBulletModelUrl = bulletModelUrl;
+  } else if (!bulletModelUrl) {
+    projectileRenderer?.dispose();
+    projectileRenderer = undefined;
+    currentBulletModelUrl = undefined;
   }
 }
 
-bus.on("weaponCycleRequested", () => {
-  if (!gameStarted) return;
-  const weaponId = cycleWeaponId();
-  bus.emit("weaponSwitched", { weaponId });
+bus.on("weaponSlotToggled", () => {
+  if (!gameStarted || !localPlayer.alive) return;
+  toggleActiveSlot();
+  refreshWeaponHud();
+  bus.emit("weaponSwitched", { activeSlot: getActiveSlot() });
   void loadLocalPlayerAssets().catch((error) => {
-    console.error("weapon swap failed", error);
+    console.error("weapon slot swap failed", error);
+  });
+});
+
+bus.on("loadoutCommitted", () => {
+  if (!gameStarted) return;
+  refreshWeaponHud();
+  void loadLocalPlayerAssets().catch((error) => {
+    console.error("loadout apply failed", error);
   });
 });
 
 function tick(dt: number): void {
+  tickForfeit();
   tickMovement(dt);
   tickAimCascade(dt);
   playerScene.update(dt);
@@ -131,13 +161,17 @@ function loop(now: number): void {
   requestAnimationFrame(loop);
 }
 
+bus.on("joinSpawnClicked", () => {
+  renderer.domElement.style.display = "block";
+});
+
 function enterGame(): void {
   initKeyboard();
   initMouse(renderer.domElement);
   playerScene.applyCamera(camera);
   renderer.domElement.style.display = "block";
   gameStarted = true;
-  weaponHud.update(getCurrentWeaponId());
+  refreshWeaponHud();
   void loadLocalPlayerAssets().catch((error) => {
     console.error("failed to load player assets", error);
   });

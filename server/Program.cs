@@ -84,7 +84,7 @@ IReadOnlyList<string> GetTakenCharacterIds() =>
         .ToList();
 
 PlayerSnapshotDto ToSnapshot(PlayerState state) =>
-    new(state.Id, state.Position, state.Yaw, state.Pitch, state.Alive, state.CharacterId, state.WeaponId);
+    new(state.Id, state.Position, state.Yaw, state.Pitch, state.Alive, state.CharacterId, state.WeaponId ?? string.Empty);
 
 async Task SendAsync<T>(WebSocket socket, T message)
 {
@@ -134,27 +134,84 @@ async Task RelayRawAsync(string senderId, byte[] payload)
     }
 }
 
-void TryApplyWeaponChange(string senderId, byte[] payload)
+bool TryApplyLoadoutChange(string senderId, byte[] payload)
 {
-    if (!players.TryGetValue(senderId, out var entry)) return;
+    if (!players.TryGetValue(senderId, out var entry)) return false;
+    if (!entry.State.Alive) return false;
 
     try
     {
         using var doc = JsonDocument.Parse(payload);
-        if (!doc.RootElement.TryGetProperty("type", out var typeProp)) return;
-        if (typeProp.GetString() != "weapon") return;
-        if (!doc.RootElement.TryGetProperty("weaponId", out var weaponProp)) return;
+        var root = doc.RootElement;
+        if (!root.TryGetProperty("type", out var typeProp)) return false;
+        if (typeProp.GetString() != "loadout") return false;
 
-        var weaponId = weaponProp.GetString();
-        if (weaponId is not null && GameConfig.ValidWeaponIds.Contains(weaponId))
+        string? primaryWeaponId = null;
+        string? secondaryWeaponId = null;
+        string? activeSlot = null;
+
+        if (root.TryGetProperty("primaryWeaponId", out var primaryProp))
         {
-            entry.State.WeaponId = weaponId;
+            primaryWeaponId = primaryProp.ValueKind == JsonValueKind.Null ? null : primaryProp.GetString();
         }
+
+        if (root.TryGetProperty("secondaryWeaponId", out var secondaryProp))
+        {
+            secondaryWeaponId = secondaryProp.ValueKind == JsonValueKind.Null ? null : secondaryProp.GetString();
+        }
+
+        if (root.TryGetProperty("activeSlot", out var slotProp))
+        {
+            activeSlot = slotProp.GetString();
+        }
+
+        LoadoutRules.Apply(entry.State, primaryWeaponId, secondaryWeaponId, activeSlot);
+        return true;
     }
     catch (JsonException)
     {
-        // Relay-only garbage; ignore.
+        return false;
     }
+}
+
+bool TryApplyWeaponChange(string senderId, byte[] payload)
+{
+    if (!players.TryGetValue(senderId, out var entry)) return false;
+    if (!entry.State.Alive) return false;
+
+    try
+    {
+        using var doc = JsonDocument.Parse(payload);
+        var root = doc.RootElement;
+        if (!root.TryGetProperty("type", out var typeProp)) return false;
+        if (typeProp.GetString() != "weapon") return false;
+        if (!root.TryGetProperty("activeSlot", out var slotProp)) return false;
+
+        var activeSlot = LoadoutRules.NormalizeActiveSlot(slotProp.GetString());
+        entry.State.ActiveSlot = activeSlot;
+        entry.State.WeaponId = LoadoutRules.ActiveWeaponId(
+            entry.State.PrimaryWeaponId,
+            entry.State.SecondaryWeaponId,
+            entry.State.ActiveSlot);
+        return true;
+    }
+    catch (JsonException)
+    {
+        return false;
+    }
+}
+
+async Task BroadcastWeaponAsync(string playerId)
+{
+    if (!players.TryGetValue(playerId, out var entry)) return;
+    var payload = JsonSerializer.SerializeToUtf8Bytes(new
+    {
+        type = "weapon",
+        id = playerId,
+        weaponId = entry.State.WeaponId ?? string.Empty,
+        activeSlot = entry.State.ActiveSlot,
+    }, jsonOptions);
+    await BroadcastToAllAsync(payload);
 }
 
 async Task<string?> SessionLoopAsync(WebSocket socket, string spectatorId)
@@ -178,8 +235,18 @@ async Task<string?> SessionLoopAsync(WebSocket socket, string spectatorId)
         }
 
         if (combat.TryApplyHit(playerId, payload)) continue;
+        if (combat.TryRequestSuicide(playerId, payload)) continue;
         if (combat.TryRequestRespawn(playerId, payload)) continue;
-        TryApplyWeaponChange(playerId, payload);
+        if (TryApplyLoadoutChange(playerId, payload))
+        {
+            await BroadcastWeaponAsync(playerId);
+            continue;
+        }
+        if (TryApplyWeaponChange(playerId, payload))
+        {
+            await BroadcastWeaponAsync(playerId);
+            continue;
+        }
         await RelayRawAsync(playerId, payload);
     }
 
@@ -189,13 +256,26 @@ async Task<string?> SessionLoopAsync(WebSocket socket, string spectatorId)
 async Task<string?> TryPromoteSpectatorAsync(WebSocket socket, string spectatorId, byte[] payload)
 {
     string? characterId;
+    string? primaryWeaponId = null;
+    string? secondaryWeaponId = null;
     try
     {
         using var doc = JsonDocument.Parse(payload);
-        if (!doc.RootElement.TryGetProperty("type", out var typeProp)) return null;
+        var root = doc.RootElement;
+        if (!root.TryGetProperty("type", out var typeProp)) return null;
         if (typeProp.GetString() != "claim") return null;
-        if (!doc.RootElement.TryGetProperty("characterId", out var characterProp)) return null;
+        if (!root.TryGetProperty("characterId", out var characterProp)) return null;
         characterId = characterProp.GetString();
+
+        if (root.TryGetProperty("primaryWeaponId", out var primaryProp))
+        {
+            primaryWeaponId = primaryProp.ValueKind == JsonValueKind.Null ? null : primaryProp.GetString();
+        }
+
+        if (root.TryGetProperty("secondaryWeaponId", out var secondaryProp))
+        {
+            secondaryWeaponId = secondaryProp.ValueKind == JsonValueKind.Null ? null : secondaryProp.GetString();
+        }
     }
     catch (JsonException)
     {
@@ -223,8 +303,8 @@ async Task<string?> TryPromoteSpectatorAsync(WebSocket socket, string spectatorI
         Id = playerId,
         Position = spawnPosition,
         CharacterId = characterId,
-        WeaponId = GameConfig.DefaultWeaponId,
     };
+    LoadoutRules.Apply(state, primaryWeaponId, secondaryWeaponId, "primary");
 
     var roster = players.Values
         .Select(p => ToSnapshot(p.State))
@@ -232,8 +312,25 @@ async Task<string?> TryPromoteSpectatorAsync(WebSocket socket, string spectatorI
 
     players[playerId] = (socket, state);
 
-    await SendAsync(socket, new WelcomeMessage("welcome", playerId, spawnPosition, state.CharacterId, state.WeaponId, roster));
-    await BroadcastAsync(playerId, new JoinMessage("join", playerId, spawnPosition, state.Yaw, state.Pitch, state.Alive, state.CharacterId, state.WeaponId));
+    await SendAsync(socket, new WelcomeMessage(
+        "welcome",
+        playerId,
+        spawnPosition,
+        state.CharacterId,
+        state.WeaponId,
+        state.PrimaryWeaponId,
+        state.SecondaryWeaponId,
+        state.ActiveSlot,
+        roster));
+    await BroadcastAsync(playerId, new JoinMessage(
+        "join",
+        playerId,
+        spawnPosition,
+        state.Yaw,
+        state.Pitch,
+        state.Alive,
+        state.CharacterId,
+        state.WeaponId ?? string.Empty));
     await BroadcastTakenAsync();
 
     return playerId;

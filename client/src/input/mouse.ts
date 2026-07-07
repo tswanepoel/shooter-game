@@ -29,4 +29,14 @@ export function initMouse(target: HTMLElement): void {
   document.addEventListener("mouseup", (event) => {
     if (event.button === 0) bus.emit("fireStopped", undefined);
   });
+
+  document.addEventListener(
+    "wheel",
+    (event) => {
+      if (document.pointerLockElement !== target) return;
+      event.preventDefault();
+      bus.emit("weaponSlotToggled", undefined);
+    },
+    { passive: false },
+  );
 }

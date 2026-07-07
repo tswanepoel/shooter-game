@@ -13,6 +13,7 @@ function clearAll(): void {
 
 export function initKeyboard(): void {
   window.addEventListener("keydown", (event) => {
+    if (event.repeat) return;
     const binding = KEYBINDS[event.code];
     if (!binding || pressedCodes.has(event.code)) return;
     pressedCodes.add(event.code);

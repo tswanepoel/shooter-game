@@ -13,7 +13,11 @@ public sealed class PlayerState
     public DateTime LastDamageUtc { get; set; } = DateTime.MinValue;
     public DateTime DeathUtc { get; set; } = DateTime.MinValue;
     public string CharacterId { get; set; } = GameConfig.DefaultCharacterId;
-    public string WeaponId { get; set; } = GameConfig.DefaultWeaponId;
+    public string? PrimaryWeaponId { get; set; }
+    public string? SecondaryWeaponId { get; set; }
+    public string ActiveSlot { get; set; } = "primary";
+    public string? WeaponId { get; set; }
+    public DateTime LastSuicideUtc { get; set; } = DateTime.MinValue;
 }
 
 public sealed record PlayerSnapshotDto(
@@ -39,7 +43,10 @@ public sealed record WelcomeMessage(
     string Id,
     Vector3Dto Position,
     string CharacterId,
-    string WeaponId,
+    string? WeaponId,
+    string? PrimaryWeaponId,
+    string? SecondaryWeaponId,
+    string ActiveSlot,
     IReadOnlyList<PlayerSnapshotDto> Roster);
 
 public sealed record JoinMessage(
@@ -62,4 +69,11 @@ public sealed record DeathMessage(string Type, string VictimId, string KillerId,
 
 public sealed record RespawnMessage(string Type, string Id, Vector3Dto Position);
 
-public sealed record RespawnRequestMessage(string Type, string Id);
+public sealed record RespawnRequestMessage(
+    string Type,
+    string Id,
+    string? PrimaryWeaponId,
+    string? SecondaryWeaponId,
+    string ActiveSlot);
+
+public sealed record SuicideRequestMessage(string Type, string Id);

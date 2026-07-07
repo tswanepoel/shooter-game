@@ -58,8 +58,12 @@ export interface BusEvents {
   fireStarted: undefined;
   fireStopped: undefined;
   fired: undefined;
-  weaponCycleRequested: undefined;
-  weaponSwitched: { weaponId: string };
+  weaponSlotToggled: undefined;
+  weaponSwitched: { activeSlot: "primary" | "secondary" };
+  forfeitRequested: undefined;
+  loadoutPendingChanged: undefined;
+  joinSpawnClicked: undefined;
+  loadoutCommitted: { primary: string | null; secondary: string | null };
   controlEngaged: undefined;
   controlReleased: undefined;
   lobbyReady: LobbyMessage;

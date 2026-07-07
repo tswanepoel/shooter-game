@@ -8,6 +8,10 @@ Tracked tuning, polish, and feature gaps.
 - [x] **2. Jump too high** — reduce launch height slightly.
 - [x] **3. Stamina re-entry too soon** — wait longer after exhaustion before sprint can re-enter.
 - [ ] **37. Fall damage** — damage or death from significant falls.
+- [ ] **51. Baseline walk speed too fast** — default movement/sprint pacing feels quicker than intended.
+- [ ] **56. Walk up any box corner** — player can scale box corners, including very tall crates/containers.
+- [ ] **57. Momentum lost stepping off boxes** — walking or sprinting off an edge drops horizontal carry; only jumping off preserves momentum.
+- [ ] **58. Blocked at some box edges** — certain box ledges won't let the player walk off cleanly, as if an invisible wall blocks the drop.
 
 ## Aim & camera
 
@@ -53,6 +57,8 @@ Tracked tuning, polish, and feature gaps.
 - [x] **14. Spawn-only weapon picks** — one primary + one secondary chosen at spawn; mouse wheel swaps between those two in-game (no mid-match catalog cycling).
 - [ ] **15. Character picker visuals** — show character models/previews at join, not letter labels.
 - [ ] **26. Create and join lobbies** — rooms with shareable join flow; room code in URL for easy copy/share.
+- [ ] **48. Loadout picker pre-selects blanks** — after joining, the loadout overlay shows default empty primary/secondary slots; require explicit player choices with no pre-filled selection.
+- [ ] **49. Overlapping primary/secondary weapon pools** — primary slot can pick weapons that belong in secondary; each slot's catalog should be disjoint.
 
 ## Multiplayer sync
 
@@ -64,6 +70,10 @@ Tracked tuning, polish, and feature gaps.
 
 - [ ] **30. Scene dressing** — add props, cover, and vertical elements to the playspace.
 - [ ] **35. Map pickups** — placed ammo and grenade replenishment; dead players drop ammo.
+- [ ] **52. Lighting too low** — overall scene brightness needs a bump.
+- [ ] **53. Shadows too dark** — shadow intensity/fill is heavier than intended.
+- [ ] **54. Walls too dark** — perimeter wall materials read too dim.
+- [ ] **55. Boxes too dark** — crate/container/platform surfaces need more lift.
 
 ## Game modes
 
@@ -79,6 +89,7 @@ Tracked tuning, polish, and feature gaps.
 - [x] **41. Remove aim debug overlay** — lose the on-screen angle debug HUD.
 - [ ] **42. Weapon HUD visuals** — weapon indicator is text-only; needs a proper visual (icon, silhouette, or view-model hint).
 - [ ] **43. FPS and ping overlay** — show frame rate and network latency (debug/readout HUD).
+- [ ] **50. Spawn flash before scene ready** — brief blank or unlit frame right after join/spawn; something renders before the proper scene/assets are in place.
 
 ## Audio
 

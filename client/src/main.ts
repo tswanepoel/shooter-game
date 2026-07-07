@@ -17,7 +17,6 @@ import { bindLocalWeaponMuzzleLineSampler } from "./sim/aimDirection.ts";
 import { tickAimCascade } from "./sim/aimCascade.ts";
 
 import { initCombatFeedback, tickCombatFeedback } from "./sim/combatFeedback.ts";
-import { tickCameraEffects } from "./sim/cameraEffects.ts";
 import { initHealth } from "./sim/health.ts";
 import { tickMovement } from "./sim/movement.ts";
 import { advanceProjectiles, bindProjectileEyeSampler, tickProjectileFire } from "./sim/projectiles.ts";
@@ -97,7 +96,7 @@ function tick(dt: number): void {
   tickMovement(dt);
   tickAimCascade(dt);
   playerScene.update(dt);
-  playerScene.applyCamera(camera, tickCameraEffects(dt));
+  playerScene.applyCamera(camera);
   tickProjectileFire(dt, camera);
   tickRemoteSync(dt);
   tickPosBroadcast(dt);
@@ -135,7 +134,7 @@ function loop(now: number): void {
 function enterGame(): void {
   initKeyboard();
   initMouse(renderer.domElement);
-  playerScene.applyCamera(camera, { pitch: 0, yaw: 0, bobY: 0 });
+  playerScene.applyCamera(camera);
   renderer.domElement.style.display = "block";
   gameStarted = true;
   weaponHud.update(getCurrentWeaponId());

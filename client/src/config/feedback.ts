@@ -1,25 +1,3 @@
-export const CAMERA_FEEDBACK = {
-  sway: {
-    yawAmplitude: 0.0025,
-    pitchAmplitude: 0.0018,
-    freqA: 0.45,
-    freqB: 0.27,
-  },
-  bob: {
-    moveThreshold: 0.5,
-    heightAmplitude: 0.016,
-    pitchAmplitude: 0.0045,
-    phasePerMeter: 1.15,
-    sprintMultiplier: 1.35,
-  },
-  flinch: {
-    decayRate: 14,
-    kickIntensity: 0.042,
-    stackPerHit: 0.42,
-    maxIntensity: 0.75,
-  },
-} as const;
-
 export const CROSSHAIR = {
   sizePx: 7,
   outlinePx: 4,

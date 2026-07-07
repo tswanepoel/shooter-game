@@ -1,9 +1,14 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import type { CharacterRecipe } from "../config/characters.ts";
+import {
+  WALK_LOCOMOTION_DAMPENED_ARM_SWING,
+  WALK_LOCOMOTION_DAMPENED_HEAD_SWING,
+  type CharacterRecipe,
+} from "../config/characters.ts";
 import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
 import type { WeaponRecipe } from "../config/weapons.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
+import { makeDampedWalkLocomotionClip } from "./locomotionClips.ts";
 import {
   bakeMuzzleOffsetInWeaponLocal,
   orientWeaponForHeld,
@@ -147,7 +152,10 @@ export async function loadPlayerAvatar(
   const mixer = new THREE.AnimationMixer(characterMesh);
   const clips = characterGltf.animations;
   const staticClip = findClip(clips, "static");
-  const walkClip = THREE.AnimationUtils.makeClipAdditive(findClip(clips, "walk").clone(), 0, staticClip);
+  const walkClip = makeDampedWalkLocomotionClip(findClip(clips, "walk"), staticClip, {
+    armRightSwing: WALK_LOCOMOTION_DAMPENED_ARM_SWING,
+    headSwing: WALK_LOCOMOTION_DAMPENED_HEAD_SWING,
+  });
   const sprintClip = THREE.AnimationUtils.makeClipAdditive(findClip(clips, "sprint").clone(), 0, staticClip);
 
   const holdingRightAction = mixer.clipAction(findClip(clips, "holding-right"));

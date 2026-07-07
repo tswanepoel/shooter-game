@@ -19,6 +19,10 @@ const CHARACTER_BODY = {
   eyeOffset: { x: 0, y: 3.575, z: 3.36 },
 } as const;
 
+/** Walk-only locomotion swing retained after dampening (0–1; lower = calmer). Sprint undamped. */
+export const WALK_LOCOMOTION_DAMPENED_ARM_SWING = 0.005;
+export const WALK_LOCOMOTION_DAMPENED_HEAD_SWING = 0.1;
+
 function character(id: string): CharacterRecipe {
   return {
     id,

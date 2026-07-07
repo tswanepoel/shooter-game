@@ -3,7 +3,6 @@ import { bus } from "../bus.ts";
 import { getCharacterRecipe } from "../config/characters.ts";
 import type { CharacterRecipe } from "../config/characters.ts";
 import { getWeaponRecipe, type WeaponRecipe } from "../config/weapons.ts";
-import type { CameraEffectOffsets } from "../sim/cameraEffects.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
 import { localPlayer, localPlayerId, remotePlayers } from "../state/world.ts";
 import {
@@ -20,7 +19,7 @@ export { classifyLocomotionFromSpeed } from "./playerAvatar.ts";
 export interface PlayerSceneManager {
   loadLocal(character: CharacterRecipe, weapon: WeaponRecipe): Promise<void>;
   update(dt: number): void;
-  applyCamera(camera: THREE.PerspectiveCamera, effects: CameraEffectOffsets): void;
+  applyCamera(camera: THREE.PerspectiveCamera): void;
   sampleEyeWorldPosition(playerId: string, out: THREE.Vector3): boolean;
   sampleLocalWeaponMuzzleLine(outOrigin: THREE.Vector3, outDirection: THREE.Vector3): boolean;
 }
@@ -187,15 +186,14 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
     );
   }
 
-  function applyCamera(camera: THREE.PerspectiveCamera, effects: CameraEffectOffsets): void {
+  function applyCamera(camera: THREE.PerspectiveCamera): void {
     if (!localAvatar) return;
 
     if (localPlayer.alive) {
       localAvatar.sampleEyeWorldPosition(eyeWorld);
       camera.position.copy(eyeWorld);
-      camera.position.y += effects.bobY;
-      camera.rotation.y = localPlayer.targetYaw + effects.yaw;
-      camera.rotation.x = localPlayer.targetPitch + effects.pitch;
+      camera.rotation.y = localPlayer.targetYaw;
+      camera.rotation.x = localPlayer.targetPitch;
       return;
     }
 

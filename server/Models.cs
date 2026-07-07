@@ -25,6 +25,15 @@ public sealed record PlayerSnapshotDto(
     string CharacterId,
     string WeaponId);
 
+public sealed record LobbyMessage(
+    string Type,
+    string SpectatorId,
+    IReadOnlyList<string> TakenCharacterIds);
+
+public sealed record TakenMessage(string Type, IReadOnlyList<string> CharacterIds);
+
+public sealed record ClaimRejectedMessage(string Type, string Reason);
+
 public sealed record WelcomeMessage(
     string Type,
     string Id,

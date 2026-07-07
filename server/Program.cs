@@ -9,6 +9,7 @@ var app = builder.Build();
 app.UseWebSockets();
 
 var players = new ConcurrentDictionary<string, (WebSocket Socket, PlayerState State)>();
+var spectators = new ConcurrentDictionary<string, WebSocket>();
 var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 var combatCts = new CancellationTokenSource();
 
@@ -38,31 +39,15 @@ app.Map("/ws", async (HttpContext context) =>
     }
 
     using var socket = await context.WebSockets.AcceptWebSocketAsync();
-    var queryCharacterId = context.Request.Query["characterId"].FirstOrDefault();
-    var characterId = ResolveCharacterId(string.IsNullOrWhiteSpace(queryCharacterId) ? null : queryCharacterId);
+    var spectatorId = Guid.NewGuid().ToString();
+    spectators[spectatorId] = socket;
 
-    var id = Guid.NewGuid().ToString();
-    var spawnPosition = RandomSpawnPosition();
-    var state = new PlayerState
-    {
-        Id = id,
-        Position = spawnPosition,
-        CharacterId = characterId,
-        WeaponId = GameConfig.DefaultWeaponId,
-    };
+    await SendAsync(socket, new LobbyMessage("lobby", spectatorId, GetTakenCharacterIds()));
 
-    var roster = players.Values
-        .Select(p => ToSnapshot(p.State))
-        .ToList();
-
-    players[id] = (socket, state);
-
-    await SendAsync(socket, new WelcomeMessage("welcome", id, spawnPosition, state.CharacterId, state.WeaponId, roster));
-    await BroadcastAsync(id, new JoinMessage("join", id, spawnPosition, state.Yaw, state.Pitch, state.Alive, state.CharacterId, state.WeaponId));
-
+    string? playerId = null;
     try
     {
-        await ReceiveLoopAsync(socket, id);
+        playerId = await SessionLoopAsync(socket, spectatorId);
     }
     catch (WebSocketException)
     {
@@ -70,8 +55,16 @@ app.Map("/ws", async (HttpContext context) =>
     }
     finally
     {
-        players.TryRemove(id, out _);
-        await BroadcastAsync(id, new LeaveMessage("leave", id));
+        if (playerId is not null)
+        {
+            players.TryRemove(playerId, out _);
+            await BroadcastAsync(playerId, new LeaveMessage("leave", playerId));
+            await BroadcastTakenAsync();
+        }
+        else
+        {
+            spectators.TryRemove(spectatorId, out _);
+        }
     }
 });
 
@@ -84,15 +77,11 @@ Vector3Dto RandomSpawnPosition()
     return new Vector3Dto(x, 0, z);
 }
 
-string ResolveCharacterId(string? requested)
-{
-    if (requested is not null && GameConfig.ValidCharacterIds.Contains(requested))
-    {
-        return requested;
-    }
-
-    return GameConfig.DefaultCharacterId;
-}
+IReadOnlyList<string> GetTakenCharacterIds() =>
+    players.Values
+        .Select(p => p.State.CharacterId)
+        .Distinct()
+        .ToList();
 
 PlayerSnapshotDto ToSnapshot(PlayerState state) =>
     new(state.Id, state.Position, state.Yaw, state.Pitch, state.Alive, state.CharacterId, state.WeaponId);
@@ -116,26 +105,32 @@ async Task BroadcastAsync<T>(string excludeId, T message)
     }
 }
 
+async Task BroadcastTakenAsync()
+{
+    var json = JsonSerializer.SerializeToUtf8Bytes(new TakenMessage("taken", GetTakenCharacterIds()), jsonOptions);
+    foreach (var (_, socket) in spectators)
+    {
+        if (socket.State == WebSocketState.Open)
+        {
+            await socket.SendAsync(new ArraySegment<byte>(json), WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+    }
+
+    foreach (var (_, (socket, _)) in players)
+    {
+        if (socket.State == WebSocketState.Open)
+        {
+            await socket.SendAsync(new ArraySegment<byte>(json), WebSocketMessageType.Text, true, CancellationToken.None);
+        }
+    }
+}
+
 async Task RelayRawAsync(string senderId, byte[] payload)
 {
     foreach (var (playerId, (socket, _)) in players)
     {
         if (playerId == senderId || socket.State != WebSocketState.Open) continue;
         await socket.SendAsync(new ArraySegment<byte>(payload), WebSocketMessageType.Text, true, CancellationToken.None);
-    }
-}
-
-bool IsSelectMessage(byte[] payload)
-{
-    try
-    {
-        using var doc = JsonDocument.Parse(payload);
-        if (!doc.RootElement.TryGetProperty("type", out var typeProp)) return false;
-        return typeProp.GetString() == "select";
-    }
-    catch (JsonException)
-    {
-        return false;
     }
 }
 
@@ -162,29 +157,98 @@ void TryApplyWeaponChange(string senderId, byte[] payload)
     }
 }
 
-async Task ReceiveLoopAsync(WebSocket socket, string senderId)
+async Task<string?> SessionLoopAsync(WebSocket socket, string spectatorId)
 {
     var buffer = new byte[8192];
+    string? playerId = null;
 
     while (socket.State == WebSocketState.Open)
     {
-        using var stream = new MemoryStream();
-        WebSocketReceiveResult result;
-        do
-        {
-            result = await socket.ReceiveAsync(buffer, CancellationToken.None);
-            if (result.MessageType == WebSocketMessageType.Close) return;
-            stream.Write(buffer, 0, result.Count);
-        } while (!result.EndOfMessage);
+        var payload = await ReadTextMessageAsync(socket, buffer);
+        if (payload is null) return playerId;
 
-        if (result.MessageType == WebSocketMessageType.Text)
+        if (playerId is null)
         {
-            var payload = stream.ToArray();
-            if (IsSelectMessage(payload)) continue;
-            if (combat.TryApplyHit(senderId, payload)) continue;
-            if (combat.TryRequestRespawn(senderId, payload)) continue;
-            TryApplyWeaponChange(senderId, payload);
-            await RelayRawAsync(senderId, payload);
+            if (await TryPromoteSpectatorAsync(socket, spectatorId, payload) is string claimedId)
+            {
+                playerId = claimedId;
+            }
+
+            continue;
         }
+
+        if (combat.TryApplyHit(playerId, payload)) continue;
+        if (combat.TryRequestRespawn(playerId, payload)) continue;
+        TryApplyWeaponChange(playerId, payload);
+        await RelayRawAsync(playerId, payload);
     }
+
+    return playerId;
+}
+
+async Task<string?> TryPromoteSpectatorAsync(WebSocket socket, string spectatorId, byte[] payload)
+{
+    string? characterId;
+    try
+    {
+        using var doc = JsonDocument.Parse(payload);
+        if (!doc.RootElement.TryGetProperty("type", out var typeProp)) return null;
+        if (typeProp.GetString() != "claim") return null;
+        if (!doc.RootElement.TryGetProperty("characterId", out var characterProp)) return null;
+        characterId = characterProp.GetString();
+    }
+    catch (JsonException)
+    {
+        return null;
+    }
+
+    if (characterId is null || !GameConfig.ValidCharacterIds.Contains(characterId))
+    {
+        await SendAsync(socket, new ClaimRejectedMessage("claimRejected", "invalidCharacter"));
+        return null;
+    }
+
+    if (players.Values.Any(p => p.State.CharacterId == characterId))
+    {
+        await SendAsync(socket, new ClaimRejectedMessage("claimRejected", "characterTaken"));
+        return null;
+    }
+
+    spectators.TryRemove(spectatorId, out _);
+
+    var playerId = Guid.NewGuid().ToString();
+    var spawnPosition = RandomSpawnPosition();
+    var state = new PlayerState
+    {
+        Id = playerId,
+        Position = spawnPosition,
+        CharacterId = characterId,
+        WeaponId = GameConfig.DefaultWeaponId,
+    };
+
+    var roster = players.Values
+        .Select(p => ToSnapshot(p.State))
+        .ToList();
+
+    players[playerId] = (socket, state);
+
+    await SendAsync(socket, new WelcomeMessage("welcome", playerId, spawnPosition, state.CharacterId, state.WeaponId, roster));
+    await BroadcastAsync(playerId, new JoinMessage("join", playerId, spawnPosition, state.Yaw, state.Pitch, state.Alive, state.CharacterId, state.WeaponId));
+    await BroadcastTakenAsync();
+
+    return playerId;
+}
+
+async Task<byte[]?> ReadTextMessageAsync(WebSocket socket, byte[] buffer)
+{
+    using var stream = new MemoryStream();
+    WebSocketReceiveResult result;
+    do
+    {
+        result = await socket.ReceiveAsync(buffer, CancellationToken.None);
+        if (result.MessageType == WebSocketMessageType.Close) return null;
+        stream.Write(buffer, 0, result.Count);
+    } while (!result.EndOfMessage);
+
+    return result.MessageType == WebSocketMessageType.Text ? stream.ToArray() : null;
 }

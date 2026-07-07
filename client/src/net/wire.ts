@@ -14,6 +14,22 @@ export interface PlayerSnapshot {
   weaponId: string;
 }
 
+export interface LobbyMessage {
+  type: "lobby";
+  spectatorId: string;
+  takenCharacterIds: string[];
+}
+
+export interface TakenMessage {
+  type: "taken";
+  characterIds: string[];
+}
+
+export interface ClaimRejectedMessage {
+  type: "claimRejected";
+  reason: "characterTaken" | "invalidCharacter";
+}
+
 export interface WelcomeMessage {
   type: "welcome";
   id: string;
@@ -94,12 +110,15 @@ export interface RespawnMessage {
   position: Vector3;
 }
 
-export interface SelectMessage {
-  type: "select";
+export interface ClaimMessage {
+  type: "claim";
   characterId: string;
 }
 
 export type ServerMessage =
+  | LobbyMessage
+  | TakenMessage
+  | ClaimRejectedMessage
   | WelcomeMessage
   | JoinMessage
   | LeaveMessage
@@ -112,7 +131,7 @@ export type ServerMessage =
   | RespawnMessage;
 
 export type ClientMessage =
-  | SelectMessage
+  | ClaimMessage
   | PosMessage
   | JumpMessage
   | FireMessage
@@ -160,6 +179,14 @@ export function decodeServerMessage(raw: string): ServerMessage | undefined {
 
   const record = parsed as Record<string, unknown>;
   const type = record.type;
+
+  if (type === "lobby" || type === "taken") {
+    const takenRaw = record.takenCharacterIds ?? record.TakenCharacterIds ?? record.characterIds ?? record.CharacterIds;
+    if (Array.isArray(takenRaw)) {
+      record.takenCharacterIds = takenRaw.filter((id): id is string => typeof id === "string");
+      record.characterIds = record.takenCharacterIds;
+    }
+  }
 
   if (type === "welcome" || type === "join") {
     const characterId = readString(record, "characterId", "CharacterId");

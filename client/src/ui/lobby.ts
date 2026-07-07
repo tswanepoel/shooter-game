@@ -1,4 +1,6 @@
+import { bus } from "../bus.ts";
 import { CHARACTER_IDS } from "../config/characters.ts";
+import { sendClaim } from "../net/connection.ts";
 import {
   beginLobbyPreviews,
   createLobbyCharacterPreview,
@@ -15,7 +17,7 @@ interface LobbyCard {
   readonly preview: LobbyCharacterPreview;
 }
 
-export function showLobby(onJoin: (characterId: string) => void): void {
+export function showLobby(onWelcomed: () => void): void {
   const overlay = document.createElement("div");
   overlay.style.cssText = [
     "position:fixed",
@@ -40,7 +42,7 @@ export function showLobby(onJoin: (characterId: string) => void): void {
 
   const status = document.createElement("p");
   status.textContent = "Loading characters…";
-  status.style.cssText = "margin:0;font-size:0.9rem;color:#8a96a8;";
+  status.style.cssText = "margin:0;font-size:0.9rem;color:#8a96a8;min-height:1.25em;text-align:center;";
 
   const grid = document.createElement("div");
   grid.style.cssText = [
@@ -68,31 +70,107 @@ export function showLobby(onJoin: (characterId: string) => void): void {
   ].join(";");
 
   const hint = document.createElement("p");
-  hint.textContent = "Pick a character to join. Selected plays idle. Press Q in-game to switch weapons.";
+  hint.textContent = "Pick an available character. Taken avatars are locked. Press Q in-game to switch weapons.";
   hint.style.cssText = "margin:0;font-size:0.85rem;color:#6a7588;max-width:520px;text-align:center;line-height:1.45;";
 
   overlay.append(title, status, grid, joinButton, hint);
   document.body.appendChild(overlay);
 
   let selectedId: string | undefined;
+  let takenIds = new Set<string>();
   let cards: LobbyCard[] = [];
   let sharedRenderer: ReturnType<typeof beginLobbyPreviews> | undefined;
   let frameId = 0;
   let lastTime = performance.now();
   let disposed = false;
+  let claiming = false;
+
+  const offLobbyReady = bus.on("lobbyReady", () => {
+    if (disposed) return;
+    status.textContent = "";
+  });
+
+  const offTakenUpdated = bus.on("takenUpdated", ({ characterIds }) => {
+    if (disposed) return;
+    takenIds = new Set(characterIds);
+    applyTaken();
+  });
+
+  const offClaimRejected = bus.on("claimRejected", ({ reason }) => {
+    if (disposed) return;
+    claiming = false;
+    joinButton.textContent = "Join";
+    status.textContent =
+      reason === "characterTaken"
+        ? "That character was just taken — pick another."
+        : "Invalid character — pick another.";
+    status.style.color = "#f88";
+    applyTaken();
+    updateJoinButton();
+  });
+
+  const offWelcomed = bus.on("welcomed", () => {
+    if (disposed) return;
+    disposeLobby();
+    onWelcomed();
+  });
+
+  function isTaken(id: string): boolean {
+    return takenIds.has(id);
+  }
+
+  function clearSelection(): void {
+    selectedId = undefined;
+    for (const card of cards) {
+      card.preview.setIdleActive(false);
+      if (!isTaken(card.id)) {
+        card.button.style.borderColor = "#2a3344";
+        card.button.style.boxShadow = "none";
+        card.button.setAttribute("aria-pressed", "false");
+      }
+    }
+  }
+
+  function updateJoinButton(): void {
+    const canJoin = Boolean(selectedId) && !claiming && !isTaken(selectedId!);
+    joinButton.disabled = !canJoin;
+    joinButton.style.opacity = canJoin ? "1" : "0.45";
+    joinButton.style.cursor = canJoin ? "pointer" : "not-allowed";
+  }
 
   function setSelected(id: string): void {
+    if (isTaken(id) || claiming) return;
     selectedId = id;
+    status.textContent = "";
+    status.style.color = "#8a96a8";
     for (const card of cards) {
       const selected = card.id === id;
       card.preview.setIdleActive(selected);
+      if (isTaken(card.id)) continue;
       card.button.style.borderColor = selected ? "#6af" : "#2a3344";
       card.button.style.boxShadow = selected ? "0 0 0 1px #6af,0 8px 24px rgba(68,136,255,0.2)" : "none";
       card.button.setAttribute("aria-pressed", selected ? "true" : "false");
     }
-    joinButton.disabled = false;
-    joinButton.style.opacity = "1";
-    joinButton.style.cursor = "pointer";
+    updateJoinButton();
+  }
+
+  function applyTaken(): void {
+    if (selectedId && isTaken(selectedId)) clearSelection();
+
+    for (const card of cards) {
+      const taken = isTaken(card.id);
+      card.button.disabled = taken || claiming;
+      card.button.style.opacity = taken ? "0.35" : "1";
+      card.button.style.cursor = taken || claiming ? "not-allowed" : "pointer";
+      if (taken) {
+        card.preview.setIdleActive(false);
+        card.button.style.borderColor = "#1e2430";
+        card.button.style.boxShadow = "none";
+        card.button.setAttribute("aria-pressed", "false");
+      }
+    }
+
+    updateJoinButton();
   }
 
   function createCardButton(id: string): HTMLButtonElement {
@@ -109,7 +187,7 @@ export function showLobby(onJoin: (characterId: string) => void): void {
       "background:#10141c",
       "overflow:hidden",
       "cursor:pointer",
-      "transition:border-color 0.15s,box-shadow 0.15s",
+      "transition:border-color 0.15s,box-shadow 0.15s,opacity 0.15s",
     ].join(";");
 
     const viewport = document.createElement("div");
@@ -122,6 +200,10 @@ export function showLobby(onJoin: (characterId: string) => void): void {
   function disposeLobby(): void {
     if (disposed) return;
     disposed = true;
+    offLobbyReady();
+    offTakenUpdated();
+    offClaimRejected();
+    offWelcomed();
     cancelAnimationFrame(frameId);
     for (const card of cards) card.preview.dispose();
     cards = [];
@@ -163,8 +245,9 @@ export function showLobby(onJoin: (characterId: string) => void): void {
         return { id, button, preview };
       });
 
-      status.remove();
+      status.textContent = "";
       grid.style.display = "grid";
+      applyTaken();
       frameId = requestAnimationFrame(tick);
     } catch (error) {
       console.error("lobby character previews failed", error);
@@ -174,8 +257,15 @@ export function showLobby(onJoin: (characterId: string) => void): void {
   })();
 
   joinButton.addEventListener("click", () => {
-    if (joinButton.disabled || !selectedId) return;
-    disposeLobby();
-    onJoin(selectedId);
+    if (joinButton.disabled || !selectedId || claiming) return;
+    claiming = true;
+    joinButton.disabled = true;
+    joinButton.style.opacity = "0.45";
+    joinButton.style.cursor = "not-allowed";
+    joinButton.textContent = "Joining…";
+    status.textContent = "";
+    status.style.color = "#8a96a8";
+    applyTaken();
+    sendClaim(selectedId);
   });
 }

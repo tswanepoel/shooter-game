@@ -1,10 +1,10 @@
 import { bus } from "./bus.ts";
-import { getCurrentCharacter, setCurrentCharacterId } from "./config/characters.ts";
+import { getCurrentCharacter } from "./config/characters.ts";
 import { cycleWeaponId, getCurrentWeapon, getCurrentWeaponId } from "./config/weapons.ts";
 import { POS_BROADCAST_INTERVAL } from "./config/network.ts";
 import { initKeyboard } from "./input/keyboard.ts";
 import { initMouse } from "./input/mouse.ts";
-import { connect, sendPosition } from "./net/connection.ts";
+import { connectSpectator, sendPosition } from "./net/connection.ts";
 import { createCrosshair } from "./render/crosshair.ts";
 import { createPlayerSceneManager, getCharacterHitRoots } from "./render/players.ts";
 import { createProjectileRenderer, type ProjectileRenderer } from "./render/projectiles.ts";
@@ -127,49 +127,22 @@ function loop(now: number): void {
   requestAnimationFrame(loop);
 }
 
-function showConnectingOverlay(): () => void {
-  const overlay = document.createElement("div");
-  overlay.style.cssText = [
-    "position:fixed",
-    "inset:0",
-    "display:flex",
-    "align-items:center",
-    "justify-content:center",
-    "background:#000",
-    "color:#888",
-    "font-family:system-ui,sans-serif",
-    "font-size:0.95rem",
-    "z-index:100",
-  ].join(";");
-  overlay.textContent = "Connecting…";
-  document.body.appendChild(overlay);
-  return () => overlay.remove();
-}
-
-function startGame(characterId: string): void {
-  setCurrentCharacterId(characterId);
-  const dismissConnecting = showConnectingOverlay();
-
-  bus.on("welcomed", (message) => {
-    console.log("joined as", message.characterId);
-    dismissConnecting();
-    playerScene.applyCamera(camera, { pitch: 0, yaw: 0, bobY: 0 });
-    renderer.domElement.style.display = "block";
-    gameStarted = true;
-    void loadLocalPlayerAssets().catch((error) => {
-      console.error("failed to load player assets", error);
-    });
-  });
-
+function enterGame(): void {
   initKeyboard();
   initMouse(renderer.domElement);
-  connect(characterId);
-
+  playerScene.applyCamera(camera, { pitch: 0, yaw: 0, bobY: 0 });
+  renderer.domElement.style.display = "block";
+  gameStarted = true;
   weaponHud.update(getCurrentWeaponId());
+  void loadLocalPlayerAssets().catch((error) => {
+    console.error("failed to load player assets", error);
+  });
 }
 
-showLobby((characterId) => {
-  startGame(characterId);
+connectSpectator();
+
+showLobby(() => {
+  enterGame();
 });
 
 requestAnimationFrame(loop);

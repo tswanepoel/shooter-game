@@ -1,12 +1,15 @@
 import type {
+  ClaimRejectedMessage,
   DeathMessage,
   FireMessage,
   HealthMessage,
   JoinMessage,
   JumpMessage,
   LeaveMessage,
+  LobbyMessage,
   PosMessage,
   RespawnMessage,
+  TakenMessage,
   WeaponMessage,
   WelcomeMessage,
 } from "./net/wire.ts";
@@ -59,6 +62,9 @@ export interface BusEvents {
   weaponSwitched: { weaponId: string };
   controlEngaged: undefined;
   controlReleased: undefined;
+  lobbyReady: LobbyMessage;
+  takenUpdated: TakenMessage;
+  claimRejected: ClaimRejectedMessage;
   welcomed: WelcomeMessage;
   playerJoined: JoinMessage;
   playerLeft: LeaveMessage;

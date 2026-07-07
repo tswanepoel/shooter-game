@@ -5,85 +5,12 @@ import { decodeServerMessage, type ClientMessage, type Vector3 } from "./wire.ts
 
 let socket: WebSocket | undefined;
 let localId: string | undefined;
-let pendingCharacterId: string | undefined;
 let deathAtMs: number | undefined;
+let handlersBound = false;
 
-export function connect(characterId: string): void {
-  pendingCharacterId = characterId;
-  const params = new URLSearchParams({ characterId });
-  socket = new WebSocket(
-    `ws://${window.location.hostname}:${WS_PORT}${WS_PATH}?${params}`,
-  );
-
-  const sendSelect = (): void => {
-    if (!pendingCharacterId) return;
-    send({ type: "select", characterId: pendingCharacterId });
-    pendingCharacterId = undefined;
-  };
-
-  socket.addEventListener("open", sendSelect);
-  if (socket.readyState === WebSocket.OPEN) sendSelect();
-
-  socket.addEventListener("error", () => {
-    console.error("websocket connection failed — is the server running?");
-  });
-
-  socket.addEventListener("message", (event) => {
-    const message = decodeServerMessage(event.data);
-    if (!message) return;
-
-    switch (message.type) {
-      case "welcome":
-        localId = message.id;
-        console.log("welcome", message);
-        if (!("characterId" in message) || !("weaponId" in message)) {
-          console.warn(
-            "welcome is missing characterId/weaponId — restart the server (dotnet run in server/)",
-          );
-        }
-        bus.emit("welcomed", message);
-        break;
-      case "join":
-        console.log("join", message);
-        if (!("characterId" in message) || !("weaponId" in message)) {
-          console.warn(
-            "join is missing characterId/weaponId — restart the server (dotnet run in server/)",
-          );
-        }
-        bus.emit("playerJoined", message);
-        break;
-      case "leave":
-        console.log("leave", message);
-        bus.emit("playerLeft", message);
-        break;
-      case "pos":
-        bus.emit("positionReceived", message);
-        break;
-      case "jump":
-        bus.emit("jumpReceived", message);
-        break;
-      case "fire":
-        bus.emit("fireReceived", message);
-        break;
-      case "weapon":
-        bus.emit("weaponReceived", message);
-        break;
-      case "health":
-        console.log("health", message);
-        bus.emit("healthReceived", message);
-        break;
-      case "death":
-        console.log("death", message);
-        if (message.victimId === localId) deathAtMs = message.deathAt ?? Date.now();
-        bus.emit("deathReceived", message);
-        break;
-      case "respawn":
-        console.log("respawn", message);
-        if (message.id === localId) deathAtMs = undefined;
-        bus.emit("respawnReceived", message);
-        break;
-    }
-  });
+function bindGameHandlers(): void {
+  if (handlersBound) return;
+  handlersBound = true;
 
   bus.on("jumpLaunched", () => sendIdOnly("jump"));
   bus.on("fired", () => sendIdOnly("fire"));
@@ -97,6 +24,96 @@ export function connect(characterId: string): void {
     if (!localId) return;
     send({ type: "weapon", id: localId, weaponId });
   });
+}
+
+function handleMessage(raw: string): void {
+  const message = decodeServerMessage(raw);
+  if (!message) return;
+
+  switch (message.type) {
+    case "lobby":
+      console.log("lobby", message);
+      bus.emit("lobbyReady", message);
+      bus.emit("takenUpdated", {
+        type: "taken",
+        characterIds: message.takenCharacterIds,
+      });
+      break;
+    case "taken":
+      bus.emit("takenUpdated", message);
+      break;
+    case "claimRejected":
+      console.log("claimRejected", message);
+      bus.emit("claimRejected", message);
+      break;
+    case "welcome":
+      localId = message.id;
+      console.log("welcome", message);
+      bus.emit("welcomed", message);
+      break;
+    case "join":
+      if (!localId) return;
+      console.log("join", message);
+      bus.emit("playerJoined", message);
+      break;
+    case "leave":
+      if (!localId) return;
+      console.log("leave", message);
+      bus.emit("playerLeft", message);
+      break;
+    case "pos":
+      if (!localId) return;
+      bus.emit("positionReceived", message);
+      break;
+    case "jump":
+      if (!localId) return;
+      bus.emit("jumpReceived", message);
+      break;
+    case "fire":
+      if (!localId) return;
+      bus.emit("fireReceived", message);
+      break;
+    case "weapon":
+      if (!localId) return;
+      bus.emit("weaponReceived", message);
+      break;
+    case "health":
+      if (!localId) return;
+      console.log("health", message);
+      bus.emit("healthReceived", message);
+      break;
+    case "death":
+      if (!localId) return;
+      console.log("death", message);
+      if (message.victimId === localId) deathAtMs = message.deathAt ?? Date.now();
+      bus.emit("deathReceived", message);
+      break;
+    case "respawn":
+      if (!localId) return;
+      console.log("respawn", message);
+      if (message.id === localId) deathAtMs = undefined;
+      bus.emit("respawnReceived", message);
+      break;
+  }
+}
+
+export function connectSpectator(): void {
+  if (socket) return;
+
+  bindGameHandlers();
+  socket = new WebSocket(`ws://${window.location.hostname}:${WS_PORT}${WS_PATH}`);
+
+  socket.addEventListener("error", () => {
+    console.error("websocket connection failed — is the server running?");
+  });
+
+  socket.addEventListener("message", (event) => {
+    handleMessage(String(event.data));
+  });
+}
+
+export function sendClaim(characterId: string): void {
+  send({ type: "claim", characterId });
 }
 
 export function sendPosition(position: Vector3, yaw: number, pitch: number): void {

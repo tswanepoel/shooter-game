@@ -5,6 +5,8 @@ export interface SceneContext {
   scene: THREE.Scene;
   camera: THREE.PerspectiveCamera;
   renderer: THREE.WebGLRenderer;
+  /** Static meshes the weapon-line screen projection can snap onto. */
+  aimOcclusionRoots: THREE.Object3D[];
 }
 
 export function createScene(): SceneContext {
@@ -54,5 +56,5 @@ export function createScene(): SceneContext {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  return { scene, camera, renderer };
+  return { scene, camera, renderer, aimOcclusionRoots: [ground] };
 }

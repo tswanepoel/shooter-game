@@ -6,10 +6,14 @@ import { initKeyboard } from "./input/keyboard.ts";
 import { initMouse } from "./input/mouse.ts";
 import { connectSpectator, sendPosition } from "./net/connection.ts";
 import { createCrosshair } from "./render/crosshair.ts";
-import { createPlayerSceneManager, getCharacterHitRoots } from "./render/players.ts";
+import {
+  createPlayerSceneManager,
+  getAimOcclusionRoots,
+  getCharacterHitRoots,
+} from "./render/players.ts";
 import { createProjectileRenderer, type ProjectileRenderer } from "./render/projectiles.ts";
 import { createScene } from "./render/scene.ts";
-import { bindLocalWeaponAimSampler } from "./sim/aimDirection.ts";
+import { bindLocalWeaponMuzzleLineSampler } from "./sim/aimDirection.ts";
 import { tickAimCascade } from "./sim/aimCascade.ts";
 
 import { initCombatFeedback, tickCombatFeedback } from "./sim/combatFeedback.ts";
@@ -29,12 +33,12 @@ import { createWeaponHud } from "./ui/weaponHud.ts";
 
 const MAX_DT = 0.1;
 
-const { scene, camera, renderer } = createScene();
+const { scene, camera, renderer, aimOcclusionRoots: worldAimOcclusionRoots } = createScene();
 
 let projectileRenderer: ProjectileRenderer | undefined;
 let currentBulletModelUrl: string | undefined;
 
-const crosshair = createCrosshair();
+const crosshair = createCrosshair(scene);
 const hitMarker = createHitMarker();
 const damageOverlay = createDamageOverlay();
 const weaponHud = createWeaponHud();
@@ -54,7 +58,7 @@ const devTools = createDevTools({
   isActive: () => gameStarted,
 });
 bindProjectileEyeSampler(playerScene.sampleEyeWorldPosition);
-bindLocalWeaponAimSampler(playerScene.sampleLocalWeaponAimDirection);
+bindLocalWeaponMuzzleLineSampler(playerScene.sampleLocalWeaponMuzzleLine);
 
 initHealth();
 initCombatFeedback(hitMarker, damageOverlay);
@@ -113,8 +117,9 @@ function loop(now: number): void {
   if (gameStarted) {
     tick(dt);
     devTools.tick(dt);
-    crosshair.update(camera);
-    tickCombatFeedback(dt, camera, hitMarker, damageOverlay);
+    const aimOcclusionRoots = getAimOcclusionRoots(worldAimOcclusionRoots);
+    crosshair.update(camera, aimOcclusionRoots);
+    tickCombatFeedback(dt, camera, hitMarker, damageOverlay, aimOcclusionRoots);
     deathOverlay.update();
     killFeed.tick(dt);
     projectileRenderer?.update();

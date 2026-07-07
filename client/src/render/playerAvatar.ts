@@ -4,7 +4,12 @@ import type { CharacterRecipe } from "../config/characters.ts";
 import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
 import type { WeaponRecipe } from "../config/weapons.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
-import { orientWeaponForHeld } from "./weaponMesh.ts";
+import {
+  bakeMuzzleOffsetInWeaponLocal,
+  orientWeaponForHeld,
+  sampleBakedMuzzleWorldPosition,
+  sampleWeaponBoreWorldDirection,
+} from "./weaponMesh.ts";
 
 export type LocomotionState = "idle" | "walk" | "sprint";
 
@@ -76,7 +81,7 @@ export interface PlayerAvatar {
   updateDeath(dt: number): void;
   sampleEyeWorldPosition(out: THREE.Vector3): void;
   applyDeathCamera(camera: THREE.PerspectiveCamera): void;
-  sampleWeaponAimDirection(out: THREE.Vector3): void;
+  sampleWeaponMuzzleLine(outOrigin: THREE.Vector3, outDirection: THREE.Vector3): void;
   dispose(): void;
 }
 
@@ -161,6 +166,17 @@ export async function loadPlayerAvatar(
   walkAction.setEffectiveWeight(0);
   sprintAction.setEffectiveWeight(0);
 
+  mixer.update(0);
+  characterMesh.updateMatrixWorld(true);
+  armRight.updateMatrixWorld(true);
+  weaponMesh.updateMatrixWorld(true);
+
+  const primaryMuzzleLocal = new THREE.Vector3();
+  const primaryMuzzle = weapon.muzzlePoints[0];
+  if (primaryMuzzle) {
+    bakeMuzzleOffsetInWeaponLocal(primaryMuzzle, weaponMesh, primaryMuzzleLocal);
+  }
+
   const targetWeight = { walk: 0, sprint: 0 };
   let deathActive = false;
 
@@ -216,27 +232,19 @@ export async function loadPlayerAvatar(
   }
 
   const gripWorld = new THREE.Vector3();
-  const muzzleWorld = new THREE.Vector3();
 
-  function sampleWeaponAimDirection(out: THREE.Vector3): void {
+  function sampleWeaponMuzzleLine(outOrigin: THREE.Vector3, outDirection: THREE.Vector3): void {
     characterMesh.updateMatrixWorld(true);
-    armRight.updateMatrixWorld(true);
     weaponMesh.updateMatrixWorld(true);
     gripWorld.setFromMatrixPosition(weaponMesh.matrixWorld);
-    const primaryMuzzle = weapon.muzzlePoints[0];
-    if (!primaryMuzzle) {
-      out.set(0, 0, -1).transformDirection(characterMesh.matrixWorld);
-      return;
-    }
-    muzzleWorld
-      .set(primaryMuzzle.x, primaryMuzzle.y, primaryMuzzle.z)
-      .applyMatrix4(armRight.matrixWorld);
-    out.copy(muzzleWorld).sub(gripWorld);
-    if (out.lengthSq() < 1e-8) {
-      out.set(0, 0, -1).transformDirection(characterMesh.matrixWorld);
+
+    if (primaryMuzzle) {
+      sampleBakedMuzzleWorldPosition(primaryMuzzleLocal, weaponMesh, outOrigin);
     } else {
-      out.normalize();
+      outOrigin.copy(gripWorld);
     }
+
+    sampleWeaponBoreWorldDirection(weapon, weaponMesh, outDirection, outOrigin, gripWorld);
   }
 
   function restoreAlivePose(): void {
@@ -285,7 +293,7 @@ export async function loadPlayerAvatar(
     updateDeath,
     sampleEyeWorldPosition,
     applyDeathCamera,
-    sampleWeaponAimDirection,
+    sampleWeaponMuzzleLine,
     dispose,
   };
 }

@@ -3,7 +3,7 @@ import { bus } from "../bus.ts";
 import { getCurrentWeapon } from "../config/weapons.ts";
 import { sendHit } from "../net/connection.ts";
 import { localPlayer, localPlayerId, projectiles, remotePlayers } from "../state/world.ts";
-import { computeAimDirection } from "./aimDirection.ts";
+import { computeAimRay } from "./aimDirection.ts";
 
 let fireHeld = false;
 let controlEngaged = false;
@@ -14,6 +14,7 @@ const raycaster = new THREE.Raycaster();
 const rayDirection = new THREE.Vector3();
 const rayOrigin = new THREE.Vector3();
 const fireOrigin = new THREE.Vector3();
+const fireDirection = new THREE.Vector3();
 
 let samplePlayerEyeWorldPosition:
   | ((playerId: string, out: THREE.Vector3) => boolean)
@@ -58,14 +59,14 @@ export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
   cooldown = Math.max(0, cooldown - dt);
 
   if (fireHeld && controlEngaged && localPlayer.alive && !localPlayer.sprinting && cooldown <= 0) {
-    const direction = computeAimDirection(camera);
+    computeAimRay(fireOrigin, fireDirection, camera);
     spawnProjectile(
       {
-        x: camera.position.x,
-        y: camera.position.y,
-        z: camera.position.z,
+        x: fireOrigin.x,
+        y: fireOrigin.y,
+        z: fireOrigin.z,
       },
-      direction,
+      fireDirection,
     );
     cooldown += fireInterval;
     bus.emit("fired", undefined);

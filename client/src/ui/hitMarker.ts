@@ -1,11 +1,11 @@
 import * as THREE from "three";
 import { HIT_MARKER } from "../config/feedback.ts";
-import { computeAimDirection } from "../sim/aimDirection.ts";
+import { computeAimRay } from "../sim/aimDirection.ts";
 import { applyAimScreenPosition, projectWeaponLineToScreen } from "./aimScreen.ts";
 
 export interface HitMarker {
   flash(): void;
-  tick(dt: number, camera: THREE.Camera): void;
+  tick(dt: number, camera: THREE.Camera, occlusionRoots: readonly THREE.Object3D[]): void;
 }
 
 function easeOut(t: number): number {
@@ -69,18 +69,19 @@ export function createHitMarker(): HitMarker {
     applyOpacity(1);
   }
 
-  const eyeOrigin = new THREE.Vector3();
+  const muzzleOrigin = new THREE.Vector3();
+  const weaponDirection = new THREE.Vector3();
 
-  function tick(dt: number, camera: THREE.Camera): void {
+  function tick(dt: number, camera: THREE.Camera, occlusionRoots: readonly THREE.Object3D[]): void {
     if (elapsed >= totalDuration) {
       root.style.display = "none";
       return;
     }
 
-    eyeOrigin.copy(camera.position);
+    computeAimRay(muzzleOrigin, weaponDirection, camera);
     applyAimScreenPosition(
       root,
-      projectWeaponLineToScreen(camera, eyeOrigin, computeAimDirection(camera)),
+      projectWeaponLineToScreen(camera, muzzleOrigin, weaponDirection, occlusionRoots),
     );
     root.style.display = "block";
 

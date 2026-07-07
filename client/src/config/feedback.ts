@@ -21,7 +21,8 @@ export const CAMERA_FEEDBACK = {
 } as const;
 
 export const CROSSHAIR = {
-  sizePx: 4,
+  sizePx: 7,
+  outlinePx: 4,
 } as const;
 
 export const HIT_MARKER = {

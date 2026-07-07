@@ -30,3 +30,48 @@ export function orientWeaponForHeld(mesh: THREE.Object3D, weapon: WeaponRecipe):
   orientToForward(mesh, authoredForward, HELD_ARM_FORWARD);
   mesh.rotateOnAxis(authoredForward, Math.PI);
 }
+
+const boreHint = new THREE.Vector3();
+
+/**
+ * Convert a muzzle recipe point (arm-attachment frame, same space as gripOffset)
+ * into a fixed offset in weapon-mesh local space.
+ */
+export function bakeMuzzleOffsetInWeaponLocal(
+  muzzleInArmSpace: { x: number; y: number; z: number },
+  weaponMesh: THREE.Object3D,
+  out: THREE.Vector3,
+): void {
+  out.set(muzzleInArmSpace.x, muzzleInArmSpace.y, muzzleInArmSpace.z)
+    .sub(weaponMesh.position)
+    .applyQuaternion(weaponMesh.quaternion.clone().invert());
+}
+
+/** Muzzle world position from a baked weapon-local offset. */
+export function sampleBakedMuzzleWorldPosition(
+  muzzleInWeaponLocal: THREE.Vector3,
+  weaponMesh: THREE.Object3D,
+  out: THREE.Vector3,
+): void {
+  out.copy(muzzleInWeaponLocal).applyMatrix4(weaponMesh.matrixWorld);
+}
+
+/**
+ * Bore direction from the oriented forwardAxis, including live animation.
+ * When muzzle and grip are known, flip so the ray exits the muzzle end.
+ */
+export function sampleWeaponBoreWorldDirection(
+  weapon: WeaponRecipe,
+  weaponMesh: THREE.Object3D,
+  out: THREE.Vector3,
+  muzzleWorld?: THREE.Vector3,
+  gripWorld?: THREE.Vector3,
+): void {
+  out.copy(weaponAuthoredForward(weapon)).transformDirection(weaponMesh.matrixWorld).normalize();
+  if (!muzzleWorld || !gripWorld) return;
+
+  boreHint.subVectors(muzzleWorld, gripWorld);
+  if (boreHint.lengthSq() < 1e-8) return;
+  boreHint.normalize();
+  if (out.dot(boreHint) < 0) out.negate();
+}

@@ -30,7 +30,8 @@ export function tickCombatFeedback(
   camera: THREE.Camera,
   hitMarker: HitMarker,
   damageOverlay: DamageOverlay,
+  occlusionRoots: readonly THREE.Object3D[],
 ): void {
-  hitMarker.tick(dt, camera);
+  hitMarker.tick(dt, camera, occlusionRoots);
   damageOverlay.tick(dt);
 }

@@ -22,7 +22,7 @@ export interface PlayerSceneManager {
   update(dt: number): void;
   applyCamera(camera: THREE.PerspectiveCamera, effects: CameraEffectOffsets): void;
   sampleEyeWorldPosition(playerId: string, out: THREE.Vector3): boolean;
-  sampleLocalWeaponAimDirection(out: THREE.Vector3): boolean;
+  sampleLocalWeaponMuzzleLine(outOrigin: THREE.Vector3, outDirection: THREE.Vector3): boolean;
 }
 
 interface LoadedPlayer {
@@ -36,6 +36,10 @@ const eyeWorld = new THREE.Vector3();
 
 export function getCharacterHitRoots(): THREE.Object3D[] {
   return Array.from(hitRoots.values());
+}
+
+export function getAimOcclusionRoots(worldRoots: readonly THREE.Object3D[]): THREE.Object3D[] {
+  return [...worldRoots, ...getCharacterHitRoots()];
 }
 
 function syncAvatar(
@@ -94,9 +98,12 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
     return true;
   }
 
-  function sampleLocalWeaponAimDirection(out: THREE.Vector3): boolean {
+  function sampleLocalWeaponMuzzleLine(
+    outOrigin: THREE.Vector3,
+    outDirection: THREE.Vector3,
+  ): boolean {
     if (!localAvatar) return false;
-    localAvatar.sampleWeaponAimDirection(out);
+    localAvatar.sampleWeaponMuzzleLine(outOrigin, outDirection);
     return true;
   }
 
@@ -232,6 +239,6 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
     update,
     applyCamera,
     sampleEyeWorldPosition,
-    sampleLocalWeaponAimDirection,
+    sampleLocalWeaponMuzzleLine,
   };
 }

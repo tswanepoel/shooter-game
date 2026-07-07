@@ -58,7 +58,7 @@ export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
 
   cooldown = Math.max(0, cooldown - dt);
 
-  if (fireHeld && controlEngaged && localPlayer.alive && !localPlayer.sprinting && cooldown <= 0) {
+  if (fireHeld && controlEngaged && localPlayer.alive && cooldown <= 0) {
     computeAimRay(fireOrigin, fireDirection, camera);
     spawnProjectile(
       {

@@ -43,7 +43,7 @@ function noiseFill(
 
 export function createAsphaltTexture(): THREE.CanvasTexture {
   return makeCanvasTexture(256, 256, (ctx, width, height) => {
-    noiseFill(ctx, width, height, 58, 61, 64, 28);
+    noiseFill(ctx, width, height, 72, 75, 78, 24);
     ctx.strokeStyle = "rgba(28, 30, 32, 0.35)";
     ctx.lineWidth = 1;
     for (let i = 0; i < 18; i++) {
@@ -64,15 +64,15 @@ export function createAsphaltTexture(): THREE.CanvasTexture {
 
 export function createCorrugatedTexture(): THREE.CanvasTexture {
   return makeCanvasTexture(128, 64, (ctx, width, height) => {
-    ctx.fillStyle = "#808890";
+    ctx.fillStyle = "#969ca4";
     ctx.fillRect(0, 0, width, height);
     const ridge = 6;
     for (let y = 0; y < height; y += ridge) {
       const lit = (y / ridge) % 2 === 0;
-      ctx.fillStyle = lit ? "rgba(255, 255, 255, 0.14)" : "rgba(0, 0, 0, 0.18)";
+      ctx.fillStyle = lit ? "rgba(255, 255, 255, 0.18)" : "rgba(0, 0, 0, 0.12)";
       ctx.fillRect(0, y, width, ridge);
     }
-    noiseFill(ctx, width, height, 128, 132, 138, 12);
+    noiseFill(ctx, width, height, 148, 152, 158, 10);
   });
 }
 
@@ -80,7 +80,7 @@ export function createPlankTexture(): THREE.CanvasTexture {
   return makeCanvasTexture(64, 128, (ctx, width, height) => {
     const plank = 10;
     for (let x = 0; x < width; x += plank) {
-      const shade = 96 + Math.floor(Math.random() * 22);
+      const shade = 118 + Math.floor(Math.random() * 20);
       ctx.fillStyle = `rgb(${shade}, ${shade - 8}, ${shade - 18})`;
       ctx.fillRect(x, 0, plank - 1, height);
       ctx.fillStyle = "rgba(30, 24, 18, 0.55)";
@@ -95,7 +95,7 @@ export function createPlankTexture(): THREE.CanvasTexture {
 
 export function createPlatformTexture(): THREE.CanvasTexture {
   return makeCanvasTexture(128, 128, (ctx, width, height) => {
-    ctx.fillStyle = "#6a7078";
+    ctx.fillStyle = "#828890";
     ctx.fillRect(0, 0, width, height);
     const cell = 16;
     ctx.strokeStyle = "rgba(18, 20, 22, 0.55)";
@@ -111,13 +111,13 @@ export function createPlatformTexture(): THREE.CanvasTexture {
         ctx.stroke();
       }
     }
-    noiseFill(ctx, width, height, 104, 108, 114, 10);
+    noiseFill(ctx, width, height, 124, 128, 134, 8);
   });
 }
 
 export function createConcreteTexture(): THREE.CanvasTexture {
   return makeCanvasTexture(128, 128, (ctx, width, height) => {
-    noiseFill(ctx, width, height, 56, 60, 64, 18);
+    noiseFill(ctx, width, height, 78, 82, 86, 14);
     ctx.strokeStyle = "rgba(24, 26, 28, 0.45)";
     ctx.lineWidth = 2;
     const block = 32;

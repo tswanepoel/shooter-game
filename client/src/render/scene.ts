@@ -11,12 +11,12 @@ export interface SceneContext {
 }
 
 const GROUND_SIZE = 200;
-const FOG_COLOR = 0x8a9bab;
+const FOG_COLOR = 0x9eb0c0;
 
 export function createScene(): SceneContext {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(FOG_COLOR);
-  scene.fog = new THREE.Fog(FOG_COLOR, 32, 68);
+  scene.fog = new THREE.Fog(FOG_COLOR, 36, 78);
 
   const camera = new THREE.PerspectiveCamera(
     CAMERA_FOV,
@@ -42,7 +42,7 @@ export function createScene(): SceneContext {
       0xffffff,
       GROUND_SIZE,
       GROUND_SIZE,
-      0.96,
+      0.88,
       0,
     ),
   );
@@ -50,10 +50,13 @@ export function createScene(): SceneContext {
   ground.receiveShadow = true;
   scene.add(ground);
 
-  const ambient = new THREE.AmbientLight(0xffffff, 0.38);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.52);
   scene.add(ambient);
 
-  const sun = new THREE.DirectionalLight(0xfff4e8, 1.05);
+  const fill = new THREE.HemisphereLight(0xb8cce8, 0x7a6f62, 0.38);
+  scene.add(fill);
+
+  const sun = new THREE.DirectionalLight(0xfff4e8, 1.22);
   sun.position.set(28, 52, 18);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);

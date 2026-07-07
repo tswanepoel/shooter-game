@@ -29,11 +29,12 @@ export interface BoxSpec {
   yaw?: 0 | 1 | 2 | 3;
 }
 
-const CONTAINER = 0x5c6b7a;
-const CONTAINER_RUST = 0x7a5a42;
-const CRATE = 0x6a5d4a;
-const PLATFORM = 0x4a5058;
-const PLATFORM_LIGHT = 0x5a626c;
+const CONTAINER = 0x748898;
+const CONTAINER_RUST = 0x967055;
+const CRATE = 0x857660;
+const PLATFORM = 0x626a74;
+const PLATFORM_LIGHT = 0x727a86;
+const WALL = 0x525860;
 
 function elevated(
   x: number,
@@ -132,10 +133,10 @@ export function buildShipmentBoxes(): BoxSpec[] {
   const h = WALL_HEIGHT;
 
   const walls: BoxSpec[] = [
-    { x: 0, y: h / 2, z: -hz, width: hx * 2 + t * 2, height: h, depth: t, color: 0x3a3f44, surface: "wall", walkable: false },
-    { x: 0, y: h / 2, z: hz, width: hx * 2 + t * 2, height: h, depth: t, color: 0x3a3f44, surface: "wall", walkable: false },
-    { x: -hx, y: h / 2, z: 0, width: t, height: h, depth: hz * 2, color: 0x3a3f44, surface: "wall", walkable: false },
-    { x: hx, y: h / 2, z: 0, width: t, height: h, depth: hz * 2, color: 0x3a3f44, surface: "wall", walkable: false },
+    { x: 0, y: h / 2, z: -hz, width: hx * 2 + t * 2, height: h, depth: t, color: WALL, surface: "wall", walkable: false },
+    { x: 0, y: h / 2, z: hz, width: hx * 2 + t * 2, height: h, depth: t, color: WALL, surface: "wall", walkable: false },
+    { x: -hx, y: h / 2, z: 0, width: t, height: h, depth: hz * 2, color: WALL, surface: "wall", walkable: false },
+    { x: hx, y: h / 2, z: 0, width: t, height: h, depth: hz * 2, color: WALL, surface: "wall", walkable: false },
   ];
 
   const northDeckElev = 1.2;

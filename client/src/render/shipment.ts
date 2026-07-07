@@ -32,7 +32,7 @@ function createBoxMaterials(spec: BoxSpec, textures: SurfaceTextures): THREE.Mes
     metalness,
   );
   const top = side.clone();
-  top.color = top.color.clone().multiplyScalar(1.14);
+  top.color = top.color.clone().multiplyScalar(1.18);
   return [side, side, top, side, side, side];
 }
 

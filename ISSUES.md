@@ -8,7 +8,7 @@ Tracked tuning, polish, and feature gaps.
 - [x] **2. Jump too high** — reduce launch height slightly.
 - [x] **3. Stamina re-entry too soon** — wait longer after exhaustion before sprint can re-enter.
 - [ ] **37. Fall damage** — damage or death from significant falls.
-- [ ] **51. Baseline walk speed too fast** — default movement/sprint pacing feels quicker than intended.
+- [x] **51. Baseline walk speed too fast** — default movement/sprint pacing feels quicker than intended.
 - [ ] **56. Walk up any box corner** — player can scale box corners, including very tall crates/containers.
 - [ ] **57. Momentum lost stepping off boxes** — walking or sprinting off an edge drops horizontal carry; only jumping off preserves momentum.
 - [ ] **58. Blocked at some box edges** — certain box ledges won't let the player walk off cleanly, as if an invisible wall blocks the drop.
@@ -75,10 +75,10 @@ Tracked tuning, polish, and feature gaps.
 
 - [ ] **30. Scene dressing** — add props, cover, and vertical elements to the playspace.
 - [ ] **35. Map pickups** — placed ammo and grenade replenishment; dead players drop ammo.
-- [ ] **52. Lighting too low** — overall scene brightness needs a bump.
-- [ ] **53. Shadows too dark** — shadow intensity/fill is heavier than intended.
-- [ ] **54. Walls too dark** — perimeter wall materials read too dim.
-- [ ] **55. Boxes too dark** — crate/container/platform surfaces need more lift.
+- [x] **52. Lighting too low** — overall scene brightness needs a bump.
+- [x] **53. Shadows too dark** — shadow intensity/fill is heavier than intended.
+- [x] **54. Walls too dark** — perimeter wall materials read too dim.
+- [x] **55. Boxes too dark** — crate/container/platform surfaces need more lift.
 
 ## Game modes
 

@@ -1,10 +1,10 @@
 // World/spawn bounds live in config/shipment.ts (yard footprint). Must match server/GameConfig.cs.
 
 export const MOVE_SPEED = {
-  forward: 6,
-  backward: 4,
-  lateral: 5,
-  sprint: 9,
+  forward: 4.5,
+  backward: 3,
+  lateral: 4,
+  sprint: 6.5,
 } as const;
 
 export const STAMINA = {
@@ -32,7 +32,7 @@ export const CROSSHAIR_DISTANCE = 20;
 // reaching sprint speed.
 export const LOCOMOTION_SPEED_THRESHOLD = {
   walk: 0.5,
-  sprint: 7,
+  sprint: 5.5,
 } as const;
 
 export const REMOTE_POSITION_LERP_RATE = 12;

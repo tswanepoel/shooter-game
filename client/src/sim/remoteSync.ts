@@ -1,6 +1,7 @@
 import { bus } from "../bus.ts";
 
 import { GRAVITY, JUMP_SPEED, REMOTE_POSITION_LERP_RATE } from "../config/physics.ts";
+import { getShipmentGroundHeight } from "./shipmentCollision.ts";
 import { remotePlayers } from "../state/world.ts";
 import { snapCascadeToTarget, tickCascade } from "./aimCascade.ts";
 
@@ -46,15 +47,19 @@ export function tickRemoteSync(dt: number): void {
     remote.position.z += (remote.targetPosition.z - remote.position.z) * lerpFactor;
 
     if (remote.grounded) {
-      // pos is horizontal-authoritative; only lerp Y here while grounded, so
-      // a mid-jump pos update can never drag the simulated arc down.
-      remote.position.y += (remote.targetPosition.y - remote.position.y) * lerpFactor;
+      const ground = getShipmentGroundHeight(remote.position.x, remote.position.z);
+      remote.position.y += (ground - remote.position.y) * lerpFactor;
     } else {
       remote.velocityY += GRAVITY * dt;
       remote.position.y += remote.velocityY * dt;
 
-      if (remote.position.y <= 0) {
-        remote.position.y = 0;
+      const ground = getShipmentGroundHeight(
+        remote.position.x,
+        remote.position.z,
+        remote.position.y,
+      );
+      if (remote.position.y <= ground) {
+        remote.position.y = ground;
         remote.velocityY = 0;
         remote.grounded = true;
       }

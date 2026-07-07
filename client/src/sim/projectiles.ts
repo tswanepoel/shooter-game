@@ -90,11 +90,13 @@ export function advanceProjectiles(dt: number, hitRoots: THREE.Object3D[]): void
     projectile.position.z += projectile.direction.z * step;
     projectile.distanceTraveled += step;
 
-    if (projectile.ownerId === localPlayerId && hitRoots.length > 0) {
-      const hitPlayerId = sweepHit(previous, projectile.position, hitRoots);
-      if (hitPlayerId) {
-        sendHit(hitPlayerId);
-        bus.emit("hitConfirmed", undefined);
+    if (hitRoots.length > 0) {
+      const hit = sweepHit(previous, projectile.position, hitRoots);
+      if (hit) {
+        if (hit.kind === "player" && projectile.ownerId === localPlayerId) {
+          sendHit(hit.playerId);
+          bus.emit("hitConfirmed", undefined);
+        }
         projectiles.splice(i, 1);
         continue;
       }
@@ -137,11 +139,13 @@ function spawnProjectile(
   });
 }
 
+type SweepHit = { kind: "player"; playerId: string } | { kind: "world" };
+
 function sweepHit(
   from: { x: number; y: number; z: number },
   to: { x: number; y: number; z: number },
   hitRoots: THREE.Object3D[],
-): string | undefined {
+): SweepHit | undefined {
   rayDirection.set(to.x - from.x, to.y - from.y, to.z - from.z);
   const distance = rayDirection.length();
   if (distance <= 0) return undefined;
@@ -151,13 +155,14 @@ function sweepHit(
   raycaster.set(rayOrigin, rayDirection);
   raycaster.far = distance;
 
-  const hits = raycaster.intersectObjects(hitRoots, true);
+  const hits = raycaster.intersectObjects(hitRoots, true).sort((a, b) => a.distance - b.distance);
   for (const hit of hits) {
     const playerId = findPlayerId(hit.object);
     if (playerId && playerId !== localPlayerId) {
       const remote = remotePlayers.get(playerId);
-      if (remote?.alive) return playerId;
+      if (remote?.alive) return { kind: "player", playerId };
     }
+    if (isWorldCollider(hit.object)) return { kind: "world" };
   }
   return undefined;
 }
@@ -170,4 +175,13 @@ function findPlayerId(object: THREE.Object3D): string | undefined {
     node = node.parent;
   }
   return undefined;
+}
+
+function isWorldCollider(object: THREE.Object3D): boolean {
+  let node: THREE.Object3D | null = object;
+  while (node) {
+    if (node.userData.isWorldCollider === true) return true;
+    node = node.parent;
+  }
+  return false;
 }

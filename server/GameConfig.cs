@@ -2,11 +2,11 @@ namespace Server;
 
 public static class GameConfig
 {
-    // Must match client/src/config/physics.ts's WORLD_BOUNDARY exactly.
-    public const double WorldBoundary = 45;
-
-    // Spawn region sits well inside the world boundary.
-    public const double SpawnAreaHalfExtent = 20;
+    // Must match client/src/config/shipment.ts yard bounds exactly.
+    public const double WorldBoundaryX = 21.2;
+    public const double WorldBoundaryZ = 15.2;
+    public const double SpawnHalfExtentX = 16;
+    public const double SpawnHalfExtentZ = 12;
 
     public const string DefaultCharacterId = "character-a";
     public const string DefaultWeaponId = "blaster-g";

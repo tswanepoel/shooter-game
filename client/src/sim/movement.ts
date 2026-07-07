@@ -8,8 +8,8 @@ import {
   MOUSE_SENSITIVITY,
   MOVE_SPEED,
   STAMINA,
-  WORLD_BOUNDARY,
 } from "../config/physics.ts";
+import { getShipmentGroundHeight, resolveShipmentMovement } from "./shipmentCollision.ts";
 import { localPlayer } from "../state/world.ts";
 
 let forwardHeld = false;
@@ -104,15 +104,36 @@ export function tickMovement(dt: number): void {
     localPlayer.velocityY += GRAVITY * dt;
     localPlayer.position.y += localPlayer.velocityY * dt;
 
-    if (localPlayer.position.y <= 0) {
-      localPlayer.position.y = 0;
+    const ground = getShipmentGroundHeight(
+      localPlayer.position.x,
+      localPlayer.position.z,
+      localPlayer.position.y,
+    );
+    if (localPlayer.position.y <= ground) {
+      localPlayer.position.y = ground;
       localPlayer.velocityY = 0;
       localPlayer.grounded = true;
     }
   }
 
-  localPlayer.position.x = clamp(localPlayer.position.x, -WORLD_BOUNDARY, WORLD_BOUNDARY);
-  localPlayer.position.z = clamp(localPlayer.position.z, -WORLD_BOUNDARY, WORLD_BOUNDARY);
+  const resolved = resolveShipmentMovement(
+    localPlayer.position.x,
+    localPlayer.position.z,
+    localPlayer.position.y,
+  );
+  localPlayer.position.x = resolved.x;
+  localPlayer.position.z = resolved.z;
+  localPlayer.position.y = resolved.y;
+
+  if (localPlayer.grounded) {
+    const ground = getShipmentGroundHeight(localPlayer.position.x, localPlayer.position.z);
+    if (ground < localPlayer.position.y - 0.05) {
+      localPlayer.grounded = false;
+      localPlayer.velocityY = 0;
+    } else {
+      localPlayer.position.y = ground;
+    }
+  }
 
   if (localPlayer.grounded) {
     const velocity = computeHorizontalVelocity();

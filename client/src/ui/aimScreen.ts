@@ -1,18 +1,27 @@
+/**
+ * Weapon-line aim → screen projection.
+ *
+ * 1. Bore ray (muzzle + direction): where the reticle sits in world space.
+ * 2. Screen-space ray (camera through that pixel): hide if closer geometry blocks
+ *    the view. Do not use eye→aim world rays — they graze unrelated colliders.
+ */
 import * as THREE from "three";
 import { CROSSHAIR_DISTANCE } from "../config/physics.ts";
 import { getCurrentWeapon } from "../sim/activeWeapon.ts";
 import { localPlayerId } from "../state/world.ts";
 
 const point = new THREE.Vector3();
-const cameraRayOrigin = new THREE.Vector3();
-const cameraRayDirection = new THREE.Vector3();
+const aimWorld = new THREE.Vector3();
 const towardCamera = new THREE.Vector3();
+const screenNdc = new THREE.Vector2();
 const rayOrigin = new THREE.Vector3();
 const rayDirection = new THREE.Vector3();
 const raycaster = new THREE.Raycaster();
 
 const AIM_SURFACE_BIAS = 0.03;
-const CAMERA_OCCLUSION_EPSILON = 0.04;
+const MUZZLE_SELF_HIT_EPSILON = 0.02;
+/** Hits this close to the aim point in world space are the target surface, not occlusion. */
+const AIM_SURFACE_POINT_EPSILON = 0.1;
 
 export interface AimScreenPosition {
   x: number;
@@ -35,27 +44,39 @@ function isLocalPlayerHit(object: THREE.Object3D): boolean {
   return playerId === localPlayerId;
 }
 
-/** Distance along the weapon bore to the first valid occluder, else fallback range. */
-export function resolveWeaponAimDistance(
+function isWorldCollider(object: THREE.Object3D): boolean {
+  let node: THREE.Object3D | null = object;
+  while (node) {
+    if (node.userData.isWorldCollider === true) return true;
+    node = node.parent;
+  }
+  return false;
+}
+
+function resolveWeaponAimHit(
   origin: THREE.Vector3,
   direction: THREE.Vector3,
   occlusionRoots: readonly THREE.Object3D[],
-): number {
-  if (occlusionRoots.length === 0) return CROSSHAIR_DISTANCE;
+): { distance: number; fallback: boolean } {
+  if (occlusionRoots.length === 0) {
+    return { distance: CROSSHAIR_DISTANCE, fallback: true };
+  }
 
   rayOrigin.copy(origin);
   rayDirection.copy(direction);
   raycaster.set(rayOrigin, rayDirection);
   raycaster.far = getCurrentWeapon()?.projectileMaxRange ?? CROSSHAIR_DISTANCE;
 
-  const hits = raycaster.intersectObjects(occlusionRoots as THREE.Object3D[], true);
+  const hits = raycaster
+    .intersectObjects(occlusionRoots as THREE.Object3D[], true)
+    .sort((a, b) => a.distance - b.distance);
   for (const hit of hits) {
-    if (hit.distance < 0.05) continue;
     if (isLocalPlayerHit(hit.object)) continue;
-    return hit.distance;
+    if (hit.distance < MUZZLE_SELF_HIT_EPSILON && !isWorldCollider(hit.object)) continue;
+    return { distance: hit.distance, fallback: false };
   }
 
-  return CROSSHAIR_DISTANCE;
+  return { distance: CROSSHAIR_DISTANCE, fallback: true };
 }
 
 function isAimPointVisibleFromCamera(
@@ -66,20 +87,25 @@ function isAimPointVisibleFromCamera(
   if (occlusionRoots.length === 0) return true;
 
   camera.updateMatrixWorld(true);
-  towardCamera.subVectors(camera.position, aimPoint);
-  const distanceToAim = towardCamera.length();
-  if (distanceToAim <= CAMERA_OCCLUSION_EPSILON) return false;
+  const distanceToAim = camera.position.distanceTo(aimPoint);
+  if (distanceToAim <= 0.01) return false;
 
-  cameraRayOrigin.copy(camera.position);
-  cameraRayDirection.copy(towardCamera).divideScalar(distanceToAim);
-  raycaster.set(cameraRayOrigin, cameraRayDirection);
-  raycaster.far = distanceToAim - CAMERA_OCCLUSION_EPSILON;
+  point.copy(aimPoint).project(camera);
+  if (point.z < -1 || point.z > 1) return false;
 
-  const hits = raycaster.intersectObjects(occlusionRoots as THREE.Object3D[], true);
+  screenNdc.set(point.x, point.y);
+  raycaster.setFromCamera(screenNdc, camera as THREE.PerspectiveCamera);
+  raycaster.far = distanceToAim + 0.25;
+
+  const hits = raycaster
+    .intersectObjects(occlusionRoots as THREE.Object3D[], true)
+    .sort((a, b) => a.distance - b.distance);
   for (const hit of hits) {
     if (hit.distance < 0.05) continue;
     if (isLocalPlayerHit(hit.object)) continue;
-    return false;
+    const pointDelta = hit.point.distanceTo(aimPoint);
+    if (pointDelta <= AIM_SURFACE_POINT_EPSILON) continue;
+    if (hit.distance < distanceToAim - 0.05) return false;
   }
 
   return true;
@@ -93,15 +119,17 @@ export function computeWeaponAimWorldPoint(
   occlusionRoots: readonly THREE.Object3D[],
   out: THREE.Vector3,
 ): boolean {
-  const distance = resolveWeaponAimDistance(muzzleOrigin, weaponDirection, occlusionRoots);
+  const { distance } = resolveWeaponAimHit(muzzleOrigin, weaponDirection, occlusionRoots);
   out.copy(muzzleOrigin).addScaledVector(weaponDirection, distance);
+
+  if (!isAimPointVisibleFromCamera(camera, out, occlusionRoots)) return false;
 
   towardCamera.subVectors(camera.position, out);
   if (towardCamera.lengthSq() > 1e-8) {
     out.addScaledVector(towardCamera.normalize(), AIM_SURFACE_BIAS);
   }
 
-  return isAimPointVisibleFromCamera(camera, out, occlusionRoots);
+  return true;
 }
 
 export function projectWorldPointToScreen(
@@ -123,6 +151,24 @@ export function projectWorldPointToScreen(
   return { x, y, visible: true };
 }
 
+/** Screen position of the weapon-line aim point (same world target as the crosshair). */
+export function resolveWeaponAimScreenPosition(
+  camera: THREE.Camera,
+  muzzleOrigin: THREE.Vector3,
+  weaponDirection: THREE.Vector3,
+  occlusionRoots: readonly THREE.Object3D[],
+): AimScreenPosition {
+  const visible = computeWeaponAimWorldPoint(
+    muzzleOrigin,
+    weaponDirection,
+    camera,
+    occlusionRoots,
+    aimWorld,
+  );
+  const projected = projectWorldPointToScreen(camera, aimWorld);
+  return { ...projected, visible: visible && projected.visible };
+}
+
 /**
  * Map a weapon-line aim point to screen pixels.
  * World aim = origin + direction * distance; camera is only the projection viewport.
@@ -138,15 +184,7 @@ export function projectWeaponLineToScreen(
     return projectWorldPointToScreen(camera, point);
   }
 
-  const visible = computeWeaponAimWorldPoint(
-    origin,
-    worldDirection,
-    camera,
-    occlusionRoots,
-    point,
-  );
-  const projected = projectWorldPointToScreen(camera, point);
-  return { ...projected, visible: visible && projected.visible };
+  return resolveWeaponAimScreenPosition(camera, origin, worldDirection, occlusionRoots);
 }
 
 export function applyAimScreenPosition(

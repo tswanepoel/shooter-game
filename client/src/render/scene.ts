@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { CAMERA_FOV } from "../config/physics.ts";
+import { createAsphaltTexture, createTiledStandardMaterial } from "./proceduralTextures.ts";
 
 export interface SceneContext {
   scene: THREE.Scene;
@@ -9,9 +10,13 @@ export interface SceneContext {
   aimOcclusionRoots: THREE.Object3D[];
 }
 
+const GROUND_SIZE = 200;
+const FOG_COLOR = 0x8a9bab;
+
 export function createScene(): SceneContext {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x87ceeb);
+  scene.background = new THREE.Color(FOG_COLOR);
+  scene.fog = new THREE.Fog(FOG_COLOR, 32, 68);
 
   const camera = new THREE.PerspectiveCamera(
     CAMERA_FOV,
@@ -25,29 +30,42 @@ export function createScene(): SceneContext {
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.domElement.style.display = "none";
   document.body.appendChild(renderer.domElement);
 
   const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(200, 200),
-    new THREE.MeshStandardMaterial({ color: 0x3a5f3a }),
+    new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE),
+    createTiledStandardMaterial(
+      createAsphaltTexture(),
+      0xffffff,
+      GROUND_SIZE,
+      GROUND_SIZE,
+      0.96,
+      0,
+    ),
   );
   ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
   scene.add(ground);
 
-  const grid = new THREE.GridHelper(200, 40, 0x1f2f1f, 0x1f2f1f);
-  grid.position.y = 0.01;
-  scene.add(grid);
-
-  const skyGrid = new THREE.GridHelper(200, 40, 0xffe8a8, 0xd4b870);
-  skyGrid.position.y = 60;
-  scene.add(skyGrid);
-
-  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  const ambient = new THREE.AmbientLight(0xffffff, 0.38);
   scene.add(ambient);
 
-  const sun = new THREE.DirectionalLight(0xffffff, 0.8);
-  sun.position.set(50, 100, 25);
+  const sun = new THREE.DirectionalLight(0xfff4e8, 1.05);
+  sun.position.set(28, 52, 18);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.bias = -0.0004;
+  sun.shadow.normalBias = 0.02;
+  sun.shadow.camera.near = 1;
+  sun.shadow.camera.far = 120;
+  const shadowSpan = 48;
+  sun.shadow.camera.left = -shadowSpan;
+  sun.shadow.camera.right = shadowSpan;
+  sun.shadow.camera.top = shadowSpan;
+  sun.shadow.camera.bottom = -shadowSpan;
   scene.add(sun);
 
   window.addEventListener("resize", () => {

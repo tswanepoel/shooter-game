@@ -1,5 +1,5 @@
 export const CROSSHAIR = {
-  sizePx: 7,
+  sizePx: 6,
   outlinePx: 4,
 } as const;
 

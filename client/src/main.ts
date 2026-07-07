@@ -15,6 +15,7 @@ import {
   getCharacterHitRoots,
 } from "./render/players.ts";
 import { createProjectileRenderer, type ProjectileRenderer } from "./render/projectiles.ts";
+import { buildShipment } from "./render/shipment.ts";
 import { createScene } from "./render/scene.ts";
 import { getCurrentWeapon } from "./sim/activeWeapon.ts";
 import { bindLocalWeaponMuzzleLineSampler } from "./sim/aimDirection.ts";
@@ -29,19 +30,22 @@ import {
   getActiveWeaponId,
   toggleActiveSlot,
 } from "./state/loadout.ts";
-import { localPlayer, localPlayerId } from "./state/world.ts";
+import { localPlayer } from "./state/world.ts";
 import { createDamageOverlay } from "./ui/damageOverlay.ts";
 import { createDeathOverlay } from "./ui/deathOverlay.ts";
 import { showLobby } from "./ui/lobby.ts";
 import { createHitMarker } from "./ui/hitMarker.ts";
 import { createKillFeed } from "./ui/killFeed.ts";
-import { createDevTools } from "./ui/devTools.ts";
 import { createWeaponHud } from "./ui/weaponHud.ts";
 
 const MAX_DT = 0.1;
 
 const { scene, camera, renderer, aimOcclusionRoots: worldAimOcclusionRoots } = createScene();
 bindPointerLockTarget(renderer.domElement);
+
+const shipment = buildShipment(scene);
+worldAimOcclusionRoots.push(...shipment.occlusionRoots);
+const worldHitRoots = shipment.hitRoots;
 
 let projectileRenderer: ProjectileRenderer | undefined;
 let currentBulletModelUrl: string | undefined;
@@ -54,17 +58,6 @@ const killFeed = createKillFeed();
 const deathOverlay = createDeathOverlay();
 let gameStarted = false;
 const playerScene = createPlayerSceneManager(scene);
-const devTools = createDevTools({
-  scene,
-  camera,
-  renderer,
-  sampleEyeWorldPosition(out) {
-    if (!localPlayerId) return false;
-    return playerScene.sampleEyeWorldPosition(localPlayerId, out);
-  },
-  getViewerYaw: () => localPlayer.targetYaw,
-  isActive: () => gameStarted,
-});
 bindProjectileEyeSampler(playerScene.sampleEyeWorldPosition);
 bindLocalWeaponMuzzleLineSampler(playerScene.sampleLocalWeaponMuzzleLine);
 
@@ -145,14 +138,13 @@ function loop(now: number): void {
 
   if (gameStarted) {
     tick(dt);
-    devTools.tick(dt);
+    advanceProjectiles(dt, [...getCharacterHitRoots(), ...worldHitRoots]);
     const aimOcclusionRoots = getAimOcclusionRoots(worldAimOcclusionRoots);
     crosshair.update(camera, aimOcclusionRoots);
     tickCombatFeedback(dt, camera, hitMarker, damageOverlay, aimOcclusionRoots);
     deathOverlay.update();
     killFeed.tick(dt);
     projectileRenderer?.update();
-    advanceProjectiles(dt, getCharacterHitRoots());
   }
 
   if (gameStarted) {

@@ -58,7 +58,7 @@ export function createCrosshair(scene: THREE.Scene): Crosshair {
   const texture = createCrosshairTexture();
   const material = new THREE.SpriteMaterial({
     map: texture,
-    depthTest: true,
+    depthTest: false,
     depthWrite: false,
     transparent: true,
   });
@@ -79,16 +79,14 @@ export function createCrosshair(scene: THREE.Scene): Crosshair {
     }
 
     computeAimRay(muzzleOrigin, weaponDirection, camera);
-    const visible = computeWeaponAimWorldPoint(
+    sprite.visible = computeWeaponAimWorldPoint(
       muzzleOrigin,
       weaponDirection,
       camera,
       occlusionRoots,
       aimPoint,
     );
-
-    sprite.visible = visible;
-    if (!visible) return;
+    if (!sprite.visible) return;
 
     sprite.position.copy(aimPoint);
     scaleSpriteToScreenPixels(

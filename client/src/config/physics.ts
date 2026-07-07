@@ -1,4 +1,4 @@
-export const WORLD_BOUNDARY = 45;
+// World/spawn bounds live in config/shipment.ts (yard footprint). Must match server/GameConfig.cs.
 
 export const MOVE_SPEED = {
   forward: 6,

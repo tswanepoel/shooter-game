@@ -1,7 +1,11 @@
 import * as THREE from "three";
 import { HIT_MARKER } from "../config/feedback.ts";
 import { computeAimRay } from "../sim/aimDirection.ts";
-import { applyAimScreenPosition, projectWeaponLineToScreen } from "./aimScreen.ts";
+import {
+  applyAimScreenPosition,
+  resolveWeaponAimScreenPosition,
+  type AimScreenPosition,
+} from "./aimScreen.ts";
 
 export interface HitMarker {
   flash(): void;
@@ -55,7 +59,11 @@ export function createHitMarker(): HitMarker {
   document.body.appendChild(root);
 
   let elapsed = Number.POSITIVE_INFINITY;
+  let frozenScreen: AimScreenPosition | undefined;
   const totalDuration = HIT_MARKER.holdDuration + HIT_MARKER.fadeDuration;
+
+  const muzzleOrigin = new THREE.Vector3();
+  const weaponDirection = new THREE.Vector3();
 
   function applyOpacity(opacity: number): void {
     const opacityText = opacity.toFixed(3);
@@ -69,31 +77,48 @@ export function createHitMarker(): HitMarker {
     applyOpacity(1);
   }
 
-  const muzzleOrigin = new THREE.Vector3();
-  const weaponDirection = new THREE.Vector3();
-
-  function tick(dt: number, camera: THREE.Camera, occlusionRoots: readonly THREE.Object3D[]): void {
-    if (elapsed >= totalDuration) {
-      root.style.display = "none";
-      return;
-    }
-
+  function captureScreen(
+    camera: THREE.Camera,
+    occlusionRoots: readonly THREE.Object3D[],
+  ): void {
     computeAimRay(muzzleOrigin, weaponDirection, camera);
-    applyAimScreenPosition(
-      root,
-      projectWeaponLineToScreen(camera, muzzleOrigin, weaponDirection, occlusionRoots),
+    frozenScreen = resolveWeaponAimScreenPosition(
+      camera,
+      muzzleOrigin,
+      weaponDirection,
+      occlusionRoots,
     );
-    root.style.display = "block";
-
-    if (elapsed < HIT_MARKER.holdDuration) {
-      applyOpacity(1);
-    } else {
-      const fadeT = (elapsed - HIT_MARKER.holdDuration) / HIT_MARKER.fadeDuration;
-      applyOpacity(1 - easeOut(Math.min(1, fadeT)));
-    }
-
-    elapsed += dt;
   }
 
-  return { flash, tick };
+  return {
+    flash,
+
+    tick(dt: number, camera: THREE.Camera, occlusionRoots: readonly THREE.Object3D[]): void {
+      if (elapsed >= totalDuration) {
+        frozenScreen = undefined;
+        root.style.display = "none";
+        return;
+      }
+
+      if (elapsed === 0) {
+        captureScreen(camera, occlusionRoots);
+      }
+
+      if (!frozenScreen) {
+        root.style.display = "none";
+        return;
+      }
+
+      applyAimScreenPosition(root, { ...frozenScreen, visible: true });
+
+      if (elapsed < HIT_MARKER.holdDuration) {
+        applyOpacity(1);
+      } else {
+        const fadeT = (elapsed - HIT_MARKER.holdDuration) / HIT_MARKER.fadeDuration;
+        applyOpacity(1 - easeOut(Math.min(1, fadeT)));
+      }
+
+      elapsed += dt;
+    },
+  };
 }

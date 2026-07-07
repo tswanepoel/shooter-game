@@ -72,8 +72,8 @@ app.Run();
 
 Vector3Dto RandomSpawnPosition()
 {
-    var x = (Random.Shared.NextDouble() * 2 - 1) * GameConfig.SpawnAreaHalfExtent;
-    var z = (Random.Shared.NextDouble() * 2 - 1) * GameConfig.SpawnAreaHalfExtent;
+    var x = (Random.Shared.NextDouble() * 2 - 1) * GameConfig.SpawnHalfExtentX;
+    var z = (Random.Shared.NextDouble() * 2 - 1) * GameConfig.SpawnHalfExtentZ;
     return new Vector3Dto(x, 0, z);
 }
 

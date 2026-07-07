@@ -4,6 +4,10 @@ import type { WeaponRecipe } from "../config/weapons.ts";
 /** holding-right extends arm-right local +Y into "forward". */
 export const HELD_ARM_FORWARD = new THREE.Vector3(0, 1, 0);
 
+const weaponWorldPosition = new THREE.Vector3();
+const weaponWorldQuaternion = new THREE.Quaternion();
+const weaponWorldScale = new THREE.Vector3();
+
 export function weaponAuthoredForward(weapon: WeaponRecipe): THREE.Vector3 {
   return new THREE.Vector3(
     weapon.forwardAxis.x,
@@ -31,11 +35,9 @@ export function orientWeaponForHeld(mesh: THREE.Object3D, weapon: WeaponRecipe):
   mesh.rotateOnAxis(authoredForward, Math.PI);
 }
 
-const boreHint = new THREE.Vector3();
-
 /**
  * Convert a muzzle recipe point (arm-attachment frame, same space as gripOffset)
- * into a fixed offset in weapon-mesh local space.
+ * into a fixed offset in weapon-mesh local space. Baked once at load.
  */
 export function bakeMuzzleOffsetInWeaponLocal(
   muzzleInArmSpace: { x: number; y: number; z: number },
@@ -47,31 +49,34 @@ export function bakeMuzzleOffsetInWeaponLocal(
     .applyQuaternion(weaponMesh.quaternion.clone().invert());
 }
 
-/** Muzzle world position from a baked weapon-local offset. */
-export function sampleBakedMuzzleWorldPosition(
-  muzzleInWeaponLocal: THREE.Vector3,
+function sampleWeaponWorldPose(weaponMesh: THREE.Object3D): void {
+  weaponMesh.updateMatrixWorld(true);
+  weaponMesh.matrixWorld.decompose(weaponWorldPosition, weaponWorldQuaternion, weaponWorldScale);
+}
+
+/** World position for a weapon-local point; ignores visual scale compensation on the mesh. */
+export function sampleWeaponLocalPointWorld(
+  pointInWeaponLocal: THREE.Vector3,
   weaponMesh: THREE.Object3D,
   out: THREE.Vector3,
 ): void {
-  out.copy(muzzleInWeaponLocal).applyMatrix4(weaponMesh.matrixWorld);
+  sampleWeaponWorldPose(weaponMesh);
+  out.copy(pointInWeaponLocal).applyQuaternion(weaponWorldQuaternion).add(weaponWorldPosition);
 }
 
 /**
- * Bore direction from the oriented forwardAxis, including live animation.
- * When muzzle and grip are known, flip so the ray exits the muzzle end.
+ * Bore direction from the live weapon mesh attitude.
+ * orientWeaponForHeld aligns forwardAxis onto the arm but the π grip roll leaves
+ * the exit bore opposite authored forward — negation is part of the held pose.
  */
 export function sampleWeaponBoreWorldDirection(
   weapon: WeaponRecipe,
   weaponMesh: THREE.Object3D,
   out: THREE.Vector3,
-  muzzleWorld?: THREE.Vector3,
-  gripWorld?: THREE.Vector3,
 ): void {
-  out.copy(weaponAuthoredForward(weapon)).transformDirection(weaponMesh.matrixWorld).normalize();
-  if (!muzzleWorld || !gripWorld) return;
-
-  boreHint.subVectors(muzzleWorld, gripWorld);
-  if (boreHint.lengthSq() < 1e-8) return;
-  boreHint.normalize();
-  if (out.dot(boreHint) < 0) out.negate();
+  sampleWeaponWorldPose(weaponMesh);
+  out.copy(weaponAuthoredForward(weapon))
+    .applyQuaternion(weaponWorldQuaternion)
+    .normalize()
+    .negate();
 }

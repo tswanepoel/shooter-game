@@ -7,8 +7,8 @@ import type { AimCascadeState } from "../sim/aimCascade.ts";
 import {
   bakeMuzzleOffsetInWeaponLocal,
   orientWeaponForHeld,
-  sampleBakedMuzzleWorldPosition,
   sampleWeaponBoreWorldDirection,
+  sampleWeaponLocalPointWorld,
 } from "./weaponMesh.ts";
 
 export type LocomotionState = "idle" | "walk" | "sprint";
@@ -231,20 +231,17 @@ export async function loadPlayerAvatar(
     camera.rotation.setFromQuaternion(camera.quaternion, "YXZ");
   }
 
-  const gripWorld = new THREE.Vector3();
-
   function sampleWeaponMuzzleLine(outOrigin: THREE.Vector3, outDirection: THREE.Vector3): void {
     characterMesh.updateMatrixWorld(true);
-    weaponMesh.updateMatrixWorld(true);
-    gripWorld.setFromMatrixPosition(weaponMesh.matrixWorld);
 
     if (primaryMuzzle) {
-      sampleBakedMuzzleWorldPosition(primaryMuzzleLocal, weaponMesh, outOrigin);
+      sampleWeaponLocalPointWorld(primaryMuzzleLocal, weaponMesh, outOrigin);
     } else {
-      outOrigin.copy(gripWorld);
+      weaponMesh.updateMatrixWorld(true);
+      outOrigin.setFromMatrixPosition(weaponMesh.matrixWorld);
     }
 
-    sampleWeaponBoreWorldDirection(weapon, weaponMesh, outDirection, outOrigin, gripWorld);
+    sampleWeaponBoreWorldDirection(weapon, weaponMesh, outDirection);
   }
 
   function restoreAlivePose(): void {

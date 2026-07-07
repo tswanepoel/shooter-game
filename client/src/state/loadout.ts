@@ -1,3 +1,5 @@
+import { tryGetWeaponRecipe, type WeaponRecipe } from "../config/weapons.ts";
+
 export type WeaponSlotId = string | null;
 export type ActiveSlot = "primary" | "secondary";
 
@@ -71,6 +73,10 @@ export function resolveSlotWeapon(loadout: Loadout, slot: ActiveSlot): WeaponSlo
 
 export function getActiveWeaponId(): WeaponSlotId {
   return resolveSlotWeapon(lifeLoadout, activeSlot);
+}
+
+export function getActiveWeapon(): WeaponRecipe | undefined {
+  return tryGetWeaponRecipe(getActiveWeaponId());
 }
 
 export function toggleActiveSlot(): ActiveSlot {

@@ -1,8 +1,6 @@
-export interface Vec3 {
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
+import type { Vec3 } from "../types/vec3.ts";
+
+export type { Vec3 };
 
 export interface CharacterRecipe {
   id: string;
@@ -44,27 +42,13 @@ export const CHARACTER_IDS = Object.keys(CHARACTER_RECIPES);
 
 export const DEFAULT_CHARACTER_ID = "character-a";
 
-let currentCharacterId = DEFAULT_CHARACTER_ID;
-
-export function getCurrentCharacterId(): string {
-  return currentCharacterId;
-}
-
 export function getCharacterRecipe(id: string): CharacterRecipe {
   const recipe = CHARACTER_RECIPES[id];
   if (!recipe) throw new Error(`unknown character recipe: ${id}`);
   return recipe;
 }
 
-export function getCurrentCharacter(): CharacterRecipe {
-  return getCharacterRecipe(currentCharacterId);
-}
-
 export function resolveCharacterId(id: string | undefined): string {
   if (id && id in CHARACTER_RECIPES) return id;
   return DEFAULT_CHARACTER_ID;
-}
-
-export function setCurrentCharacterId(id: string): void {
-  currentCharacterId = resolveCharacterId(id);
 }

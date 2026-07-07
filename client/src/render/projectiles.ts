@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import type { WeaponRecipe } from "../config/weapons.ts";
-import { localPlayerId, projectiles } from "../state/world.ts";
+import { getLocalPlayerId, projectiles } from "../state/world.ts";
 
 export interface ProjectileRenderer {
   update(): void;
@@ -37,7 +37,7 @@ export async function createProjectileRenderer(
     for (const projectile of projectiles) {
       // Local shots are authoritative but invisible in first person — the foam
       // bullet mesh at the muzzle reads as an ugly red bloom in the view-model.
-      if (projectile.ownerId === localPlayerId) continue;
+      if (projectile.ownerId === getLocalPlayerId()) continue;
 
       seen.add(projectile.id);
 

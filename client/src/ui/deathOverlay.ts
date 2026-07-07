@@ -1,7 +1,7 @@
 import { bus } from "../bus.ts";
 import { RESPAWN } from "../config/combat.ts";
 import { DEATH_OVERLAY } from "../config/ui.ts";
-import { localPlayer, localPlayerId } from "../state/world.ts";
+import { getLocalPlayerId, localPlayer } from "../state/world.ts";
 import { getLoadoutOverlay } from "./loadoutOverlay.ts";
 import { createDeathRespawnOptionsHint } from "./pressKeyHint.ts";
 
@@ -37,12 +37,12 @@ export function createDeathOverlay(): DeathOverlay {
   let deathAtMs: number | undefined;
 
   bus.on("deathReceived", ({ victimId, deathAt }) => {
-    if (victimId !== localPlayerId) return;
+    if (victimId !== getLocalPlayerId()) return;
     deathAtMs = deathAt ?? Date.now();
   });
 
   bus.on("respawnReceived", ({ id }) => {
-    if (id === localPlayerId) deathAtMs = undefined;
+    if (id === getLocalPlayerId()) deathAtMs = undefined;
   });
 
   return {

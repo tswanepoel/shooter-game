@@ -9,7 +9,7 @@ import {
   setPendingSlot,
   stagePendingFromLife,
 } from "../state/loadout.ts";
-import { localPlayer, localPlayerId } from "../state/world.ts";
+import { getLocalPlayerId, localPlayer } from "../state/world.ts";
 import { getLoadoutOverlay } from "../ui/loadoutOverlay.ts";
 import { releasePointerLockForUi } from "./pointerLock.ts";
 
@@ -75,7 +75,7 @@ export function initLoadoutMenu(): void {
   }
 
   function handleLoadoutKey(event: KeyboardEvent): void {
-    if (!localPlayerId) return;
+    if (!getLocalPlayerId()) return;
     if (!isLoadoutMenuKey(event.code)) return;
     event.preventDefault();
 
@@ -98,13 +98,13 @@ export function initLoadoutMenu(): void {
   );
 
   bus.on("respawnReceived", ({ id }) => {
-    if (id !== localPlayerId) return;
+    if (id !== getLocalPlayerId()) return;
     deathAtMs = undefined;
     overlay.close();
   });
 
   bus.on("deathReceived", ({ victimId, deathAt }) => {
-    if (victimId !== localPlayerId) return;
+    if (victimId !== getLocalPlayerId()) return;
     deathAtMs = deathAt ?? Date.now();
     overlay.close();
   });

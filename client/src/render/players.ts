@@ -4,7 +4,8 @@ import { getCharacterRecipe } from "../config/characters.ts";
 import type { CharacterRecipe } from "../config/characters.ts";
 import { getWeaponRecipe, resolveWeaponSlot, type WeaponRecipe } from "../config/weapons.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
-import { localPlayer, localPlayerId, remotePlayers } from "../state/world.ts";
+import { getLocalPlayerId, localPlayer, remotePlayers } from "../state/world.ts";
+import type { Vec3 } from "../types/vec3.ts";
 import {
   classifyLocalLocomotion,
   classifyLocomotionFromSpeed,
@@ -43,7 +44,7 @@ export function getAimOcclusionRoots(worldRoots: readonly THREE.Object3D[]): THR
 
 function syncAvatar(
   avatar: PlayerAvatar,
-  position: { x: number; y: number; z: number },
+  position: Vec3,
   torsoYaw: number,
   alive: boolean,
   locomotion: LocomotionState,
@@ -71,7 +72,7 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
   let localLoadGeneration = 0;
 
   bus.on("fireReceived", ({ id }) => {
-    if (id === localPlayerId) {
+    if (id === getLocalPlayerId()) {
       localAvatar?.triggerMuzzleFlash();
       return;
     }
@@ -87,7 +88,7 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
   });
 
   function sampleEyeWorldPosition(playerId: string, out: THREE.Vector3): boolean {
-    if (playerId === localPlayerId && localAvatar) {
+    if (playerId === getLocalPlayerId() && localAvatar) {
       localAvatar.sampleEyeWorldPosition(out);
       return true;
     }
@@ -163,9 +164,10 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
 
     const previous = localAvatar;
     localAvatar = avatar;
-    avatar.root.userData.playerId = localPlayerId;
+    const playerId = getLocalPlayerId();
+    avatar.root.userData.playerId = playerId;
     scene.add(avatar.root);
-    if (localPlayerId) hitRoots.set(localPlayerId, avatar.root);
+    if (playerId) hitRoots.set(playerId, avatar.root);
 
     if (previous) {
       previous.root.parent?.remove(previous.root);

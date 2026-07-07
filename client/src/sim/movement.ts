@@ -19,44 +19,61 @@ let rightHeld = false;
 let sprintKeyHeld = false;
 let controlEngaged = false;
 
-bus.on("moveForwardStarted", () => {
-  forwardHeld = true;
-});
-bus.on("moveForwardStopped", () => {
-  forwardHeld = false;
-});
-bus.on("moveBackwardStarted", () => {
-  backwardHeld = true;
-});
-bus.on("moveBackwardStopped", () => {
-  backwardHeld = false;
-});
-bus.on("moveLeftStarted", () => {
-  leftHeld = true;
-});
-bus.on("moveLeftStopped", () => {
-  leftHeld = false;
-});
-bus.on("moveRightStarted", () => {
-  rightHeld = true;
-});
-bus.on("moveRightStopped", () => {
-  rightHeld = false;
-});
-bus.on("sprintStarted", () => {
-  sprintKeyHeld = true;
-});
-bus.on("sprintStopped", () => {
-  sprintKeyHeld = false;
-});
+export function initMovement(): void {
+  bus.on("moveForwardStarted", () => {
+    forwardHeld = true;
+  });
+  bus.on("moveForwardStopped", () => {
+    forwardHeld = false;
+  });
+  bus.on("moveBackwardStarted", () => {
+    backwardHeld = true;
+  });
+  bus.on("moveBackwardStopped", () => {
+    backwardHeld = false;
+  });
+  bus.on("moveLeftStarted", () => {
+    leftHeld = true;
+  });
+  bus.on("moveLeftStopped", () => {
+    leftHeld = false;
+  });
+  bus.on("moveRightStarted", () => {
+    rightHeld = true;
+  });
+  bus.on("moveRightStopped", () => {
+    rightHeld = false;
+  });
+  bus.on("sprintStarted", () => {
+    sprintKeyHeld = true;
+  });
+  bus.on("sprintStopped", () => {
+    sprintKeyHeld = false;
+  });
 
-bus.on("controlEngaged", () => {
-  controlEngaged = true;
-});
-bus.on("controlReleased", () => {
-  controlEngaged = false;
-  clearPointerDelta();
-});
+  bus.on("controlEngaged", () => {
+    controlEngaged = true;
+  });
+  bus.on("controlReleased", () => {
+    controlEngaged = false;
+    clearPointerDelta();
+  });
+
+  bus.on("jumped", () => {
+    if (!localPlayer.alive) {
+      if (getLoadoutOverlay().isOpen()) return;
+      bus.emit("respawnRequested", undefined);
+      return;
+    }
+    if (!localPlayer.grounded) return;
+    const velocity = computeHorizontalVelocity();
+    localPlayer.airHorizontal.x = velocity.x;
+    localPlayer.airHorizontal.z = velocity.z;
+    localPlayer.velocityY = JUMP_SPEED;
+    localPlayer.grounded = false;
+    bus.emit("jumpLaunched", undefined);
+  });
+}
 
 function applyBufferedPointerTurn(): void {
   const { dx, dy } = drainPointerDelta();
@@ -67,21 +84,6 @@ function applyBufferedPointerTurn(): void {
   localPlayer.targetPitch -= dy * MOUSE_SENSITIVITY;
   localPlayer.targetPitch = clamp(localPlayer.targetPitch, -MAX_PITCH, MAX_PITCH);
 }
-
-bus.on("jumped", () => {
-  if (!localPlayer.alive) {
-    if (getLoadoutOverlay().isOpen()) return;
-    bus.emit("respawnRequested", undefined);
-    return;
-  }
-  if (!localPlayer.grounded) return;
-  const velocity = computeHorizontalVelocity();
-  localPlayer.airHorizontal.x = velocity.x;
-  localPlayer.airHorizontal.z = velocity.z;
-  localPlayer.velocityY = JUMP_SPEED;
-  localPlayer.grounded = false;
-  bus.emit("jumpLaunched", undefined);
-});
 
 export function tickMovement(dt: number): void {
   applyBufferedPointerTurn();

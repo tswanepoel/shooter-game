@@ -26,10 +26,6 @@ export class EventBus<Events extends object> {
     return () => set.delete(listener);
   }
 
-  off<K extends keyof Events>(event: K, listener: Listener<Events[K]>): void {
-    this.listeners[event]?.delete(listener);
-  }
-
   emit<K extends keyof Events>(event: K, payload: Events[K]): void {
     for (const listener of this.listeners[event] ?? []) {
       try {

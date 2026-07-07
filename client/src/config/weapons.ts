@@ -1,8 +1,6 @@
-export interface Vec3 {
-  readonly x: number;
-  readonly y: number;
-  readonly z: number;
-}
+import type { Vec3 } from "../types/vec3.ts";
+
+export type { Vec3 };
 
 export interface WeaponRecipe {
   id: string;

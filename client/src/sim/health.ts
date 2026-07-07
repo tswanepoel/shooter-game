@@ -2,7 +2,7 @@ import { bus } from "../bus.ts";
 import { HEALTH } from "../config/combat.ts";
 import { STAMINA } from "../config/physics.ts";
 import { snapCascadeToTarget } from "./aimCascade.ts";
-import { localPlayer, localPlayerId, remotePlayers } from "../state/world.ts";
+import { getLocalPlayerId, localPlayer, remotePlayers } from "../state/world.ts";
 
 export function initHealth(): void {
   bus.on("welcomed", () => {
@@ -11,7 +11,7 @@ export function initHealth(): void {
   });
 
   bus.on("healthReceived", ({ id, health, attackerId }) => {
-    if (id === localPlayerId) {
+    if (id === getLocalPlayerId()) {
       localPlayer.health = health;
       if (attackerId) bus.emit("damageTaken", { attackerId });
       return;
@@ -21,7 +21,7 @@ export function initHealth(): void {
   });
 
   bus.on("deathReceived", ({ victimId }) => {
-    if (victimId === localPlayerId) {
+    if (victimId === getLocalPlayerId()) {
       localPlayer.alive = false;
       localPlayer.targetPitch = 0;
       snapCascadeToTarget(localPlayer);
@@ -32,7 +32,7 @@ export function initHealth(): void {
   });
 
   bus.on("respawnReceived", ({ id, position }) => {
-    if (id === localPlayerId) {
+    if (id === getLocalPlayerId()) {
       localPlayer.position.x = position.x;
       localPlayer.position.y = position.y;
       localPlayer.position.z = position.z;

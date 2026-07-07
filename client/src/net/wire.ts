@@ -1,10 +1,7 @@
 import type { ActiveSlot } from "../state/loadout.ts";
+import type { Vec3 } from "../types/vec3.ts";
 
-export interface Vector3 {
-  x: number;
-  y: number;
-  z: number;
-}
+export type Vector3 = Vec3;
 
 export interface PlayerSnapshot {
   id: string;

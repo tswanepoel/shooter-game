@@ -7,8 +7,8 @@
  */
 import * as THREE from "three";
 import { CROSSHAIR_DISTANCE } from "../config/physics.ts";
-import { getCurrentWeapon } from "../sim/activeWeapon.ts";
-import { localPlayerId } from "../state/world.ts";
+import { getActiveWeapon } from "../state/loadout.ts";
+import { getLocalPlayerId } from "../state/world.ts";
 
 const point = new THREE.Vector3();
 const aimWorld = new THREE.Vector3();
@@ -41,7 +41,7 @@ function findPlayerId(object: THREE.Object3D): string | undefined {
 
 function isLocalPlayerHit(object: THREE.Object3D): boolean {
   const playerId = findPlayerId(object);
-  return playerId === localPlayerId;
+  return playerId === getLocalPlayerId();
 }
 
 function isWorldCollider(object: THREE.Object3D): boolean {
@@ -65,7 +65,7 @@ function resolveWeaponAimHit(
   rayOrigin.copy(origin);
   rayDirection.copy(direction);
   raycaster.set(rayOrigin, rayDirection);
-  raycaster.far = getCurrentWeapon()?.projectileMaxRange ?? CROSSHAIR_DISTANCE;
+  raycaster.far = getActiveWeapon()?.projectileMaxRange ?? CROSSHAIR_DISTANCE;
 
   const hits = raycaster
     .intersectObjects(occlusionRoots as THREE.Object3D[], true)

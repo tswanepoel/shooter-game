@@ -1,8 +1,9 @@
 import * as THREE from "three";
 import { bus } from "../bus.ts";
-import { getCurrentWeapon } from "./activeWeapon.ts";
+import { getActiveWeapon } from "../state/loadout.ts";
 import { sendHit } from "../net/connection.ts";
-import { localPlayer, localPlayerId, projectiles, remotePlayers } from "../state/world.ts";
+import { getLocalPlayerId, localPlayer, projectiles, remotePlayers } from "../state/world.ts";
+import type { Vec3 } from "../types/vec3.ts";
 import { computeAimRay } from "./aimDirection.ts";
 
 let fireHeld = false;
@@ -26,34 +27,36 @@ export function bindProjectileEyeSampler(
   samplePlayerEyeWorldPosition = sampler;
 }
 
-bus.on("fireStarted", () => {
-  fireHeld = true;
-});
-bus.on("fireStopped", () => {
-  fireHeld = false;
-});
-bus.on("controlEngaged", () => {
-  controlEngaged = true;
-});
-bus.on("controlReleased", () => {
-  controlEngaged = false;
-  fireHeld = false;
-});
+export function initProjectiles(): void {
+  bus.on("fireStarted", () => {
+    fireHeld = true;
+  });
+  bus.on("fireStopped", () => {
+    fireHeld = false;
+  });
+  bus.on("controlEngaged", () => {
+    controlEngaged = true;
+  });
+  bus.on("controlReleased", () => {
+    controlEngaged = false;
+    fireHeld = false;
+  });
 
-bus.on("fireReceived", ({ id }) => {
-  // Cosmetic only: the remote's own client owns hit authority for its shots.
-  if (!remotePlayers.get(id)) return;
-  if (!samplePlayerEyeWorldPosition?.(id, fireOrigin)) return;
-  const remote = remotePlayers.get(id)!;
-  spawnProjectile(
-    { x: fireOrigin.x, y: fireOrigin.y, z: fireOrigin.z },
-    { yaw: remote.torsoYaw, pitch: remote.armPitch },
-    id,
-  );
-});
+  bus.on("fireReceived", ({ id }) => {
+    // Cosmetic only: the remote's own client owns hit authority for its shots.
+    if (!remotePlayers.get(id)) return;
+    if (!samplePlayerEyeWorldPosition?.(id, fireOrigin)) return;
+    const remote = remotePlayers.get(id)!;
+    spawnProjectile(
+      { x: fireOrigin.x, y: fireOrigin.y, z: fireOrigin.z },
+      { yaw: remote.torsoYaw, pitch: remote.armPitch },
+      id,
+    );
+  });
+}
 
 export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
-  const weapon = getCurrentWeapon();
+  const weapon = getActiveWeapon();
   if (!weapon) return;
 
   const fireInterval = 1 / weapon.fireRate;
@@ -76,7 +79,7 @@ export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
 }
 
 export function advanceProjectiles(dt: number, hitRoots: THREE.Object3D[]): void {
-  const weapon = getCurrentWeapon();
+  const weapon = getActiveWeapon();
   if (!weapon) return;
 
   const step = weapon.projectileSpeed * dt;
@@ -93,7 +96,7 @@ export function advanceProjectiles(dt: number, hitRoots: THREE.Object3D[]): void
     if (hitRoots.length > 0) {
       const hit = sweepHit(previous, projectile.position, hitRoots);
       if (hit) {
-        if (hit.kind === "player" && projectile.ownerId === localPlayerId) {
+        if (hit.kind === "player" && projectile.ownerId === getLocalPlayerId()) {
           sendHit(hit.playerId);
           bus.emit("hitConfirmed", undefined);
         }
@@ -113,11 +116,11 @@ export function advanceProjectiles(dt: number, hitRoots: THREE.Object3D[]): void
 }
 
 function spawnProjectile(
-  origin: { x: number; y: number; z: number },
+  origin: Vec3,
   direction: THREE.Vector3 | { yaw: number; pitch: number },
-  ownerId: string = localPlayerId ?? "",
+  ownerId: string = getLocalPlayerId() ?? "",
 ): void {
-  let dir: { x: number; y: number; z: number };
+  let dir: Vec3;
   if (direction instanceof THREE.Vector3) {
     dir = { x: direction.x, y: direction.y, z: direction.z };
   } else {
@@ -141,11 +144,7 @@ function spawnProjectile(
 
 type SweepHit = { kind: "player"; playerId: string } | { kind: "world" };
 
-function sweepHit(
-  from: { x: number; y: number; z: number },
-  to: { x: number; y: number; z: number },
-  hitRoots: THREE.Object3D[],
-): SweepHit | undefined {
+function sweepHit(from: Vec3, to: Vec3, hitRoots: THREE.Object3D[]): SweepHit | undefined {
   rayDirection.set(to.x - from.x, to.y - from.y, to.z - from.z);
   const distance = rayDirection.length();
   if (distance <= 0) return undefined;
@@ -158,7 +157,7 @@ function sweepHit(
   const hits = raycaster.intersectObjects(hitRoots, true).sort((a, b) => a.distance - b.distance);
   for (const hit of hits) {
     const playerId = findPlayerId(hit.object);
-    if (playerId && playerId !== localPlayerId) {
+    if (playerId && playerId !== getLocalPlayerId()) {
       const remote = remotePlayers.get(playerId);
       if (remote?.alive) return { kind: "player", playerId };
     }

@@ -1,10 +1,9 @@
 import { bus } from "./bus.ts";
-import { getCurrentCharacter } from "./config/characters.ts";
+import { getActiveCharacter } from "./state/character.ts";
 import { POS_BROADCAST_INTERVAL } from "./config/network.ts";
 import { initForfeit, tickForfeit } from "./input/forfeit.ts";
-import { initLoadoutMenu } from "./input/loadoutMenu.ts";
-
 import { initKeyboard } from "./input/keyboard.ts";
+import { initLoadoutMenu } from "./input/loadoutMenu.ts";
 import { initMouse } from "./input/mouse.ts";
 import { bindPointerLockTarget } from "./input/pointerLock.ts";
 import { connectSpectator, sendPosition } from "./net/connection.ts";
@@ -17,16 +16,23 @@ import {
 import { createProjectileRenderer, type ProjectileRenderer } from "./render/projectiles.ts";
 import { buildShipment } from "./render/shipment.ts";
 import { createScene } from "./render/scene.ts";
-import { getCurrentWeapon } from "./sim/activeWeapon.ts";
+
 import { bindLocalWeaponMuzzleLineSampler } from "./sim/aimDirection.ts";
 import { tickAimCascade } from "./sim/aimCascade.ts";
 import { initCombatFeedback, tickCombatFeedback } from "./sim/combatFeedback.ts";
 import { initHealth } from "./sim/health.ts";
-import { tickMovement } from "./sim/movement.ts";
-import { advanceProjectiles, bindProjectileEyeSampler, tickProjectileFire } from "./sim/projectiles.ts";
-import { tickRemoteSync } from "./sim/remoteSync.ts";
+import { initMovement, tickMovement } from "./sim/movement.ts";
+import {
+  advanceProjectiles,
+  bindProjectileEyeSampler,
+  initProjectiles,
+  tickProjectileFire,
+} from "./sim/projectiles.ts";
+import { initRemoteSync, tickRemoteSync } from "./sim/remoteSync.ts";
+import { initWorldSync } from "./state/worldSync.ts";
 import {
   getActiveSlot,
+  getActiveWeapon,
   getActiveWeaponId,
   toggleActiveSlot,
 } from "./state/loadout.ts";
@@ -61,6 +67,10 @@ const playerScene = createPlayerSceneManager(scene);
 bindProjectileEyeSampler(playerScene.sampleEyeWorldPosition);
 bindLocalWeaponMuzzleLineSampler(playerScene.sampleLocalWeaponMuzzleLine);
 
+initWorldSync();
+initMovement();
+initProjectiles();
+initRemoteSync();
 initHealth();
 initCombatFeedback(hitMarker, damageOverlay);
 initForfeit();
@@ -76,8 +86,8 @@ function refreshWeaponHud(): void {
 
 async function loadLocalPlayerAssets(): Promise<void> {
   const generation = ++assetLoadGeneration;
-  const character = getCurrentCharacter();
-  const weapon = getCurrentWeapon();
+  const character = getActiveCharacter();
+  const weapon = getActiveWeapon();
 
   await playerScene.loadLocal(character, weapon ?? null);
   if (generation !== assetLoadGeneration) return;
@@ -145,9 +155,6 @@ function loop(now: number): void {
     deathOverlay.update();
     killFeed.tick(dt);
     projectileRenderer?.update();
-  }
-
-  if (gameStarted) {
     renderer.render(scene, camera);
   }
   requestAnimationFrame(loop);

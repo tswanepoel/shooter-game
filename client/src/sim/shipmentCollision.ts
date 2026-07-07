@@ -149,9 +149,3 @@ export function resolveShipmentMovement(
   nextZ = clamp(nextZ, -WORLD_BOUNDARY_Z + r, WORLD_BOUNDARY_Z - r);
   return { x: nextX, z: nextZ, y: nextY };
 }
-
-/** @deprecated Use resolveShipmentMovement — kept for any external callers. */
-export function resolveShipmentPosition(x: number, z: number): { x: number; z: number } {
-  const resolved = resolveShipmentMovement(x, z, 0);
-  return { x: resolved.x, z: resolved.z };
-}

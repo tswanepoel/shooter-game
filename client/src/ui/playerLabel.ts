@@ -1,9 +1,9 @@
-import { getCurrentCharacterId } from "../config/characters.ts";
-import { localPlayerId, remotePlayers } from "../state/world.ts";
+import { getActiveCharacterId } from "../state/character.ts";
+import { getLocalPlayerId, remotePlayers } from "../state/world.ts";
 
 export function labelForPlayer(playerId: string): string {
-  if (playerId === localPlayerId) {
-    return formatCharacterId(getCurrentCharacterId());
+  if (playerId === getLocalPlayerId()) {
+    return formatCharacterId(getActiveCharacterId());
   }
   const remote = remotePlayers.get(playerId);
   if (remote) return formatCharacterId(remote.characterId);

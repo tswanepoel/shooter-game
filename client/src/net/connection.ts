@@ -61,7 +61,6 @@ function handleMessage(raw: string): void {
 
   switch (message.type) {
     case "lobby":
-      console.log("lobby", message);
       bus.emit("lobbyReady", message);
       bus.emit("takenUpdated", {
         type: "taken",
@@ -72,22 +71,18 @@ function handleMessage(raw: string): void {
       bus.emit("takenUpdated", message);
       break;
     case "claimRejected":
-      console.log("claimRejected", message);
       bus.emit("claimRejected", message);
       break;
     case "welcome":
       localId = message.id;
-      console.log("welcome", message);
       bus.emit("welcomed", message);
       break;
     case "join":
       if (!localId) return;
-      console.log("join", message);
       bus.emit("playerJoined", message);
       break;
     case "leave":
       if (!localId) return;
-      console.log("leave", message);
       bus.emit("playerLeft", message);
       break;
     case "pos":
@@ -108,18 +103,15 @@ function handleMessage(raw: string): void {
       break;
     case "health":
       if (!localId) return;
-      console.log("health", message);
       bus.emit("healthReceived", message);
       break;
     case "death":
       if (!localId) return;
-      console.log("death", message);
       if (message.victimId === localId) deathAtMs = message.deathAt ?? Date.now();
       bus.emit("deathReceived", message);
       break;
     case "respawn":
       if (!localId) return;
-      console.log("respawn", message);
       if (message.id === localId) {
         deathAtMs = undefined;
         const loadout = commitPendingToLife();

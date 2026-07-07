@@ -79,9 +79,12 @@ export function getActiveWeapon(): WeaponRecipe | undefined {
   return tryGetWeaponRecipe(getActiveWeaponId());
 }
 
-export function toggleActiveSlot(): ActiveSlot {
-  activeSlot = activeSlot === "primary" ? "secondary" : "primary";
-  return activeSlot;
+/** Swap active slot only when the other slot has a weapon equipped. */
+export function toggleActiveSlot(): boolean {
+  const other: ActiveSlot = activeSlot === "primary" ? "secondary" : "primary";
+  if (!resolveSlotWeapon(lifeLoadout, other)) return false;
+  activeSlot = other;
+  return true;
 }
 
 export function setActiveSlot(slot: ActiveSlot): void {

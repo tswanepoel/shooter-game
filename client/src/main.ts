@@ -108,7 +108,7 @@ async function loadLocalPlayerAssets(): Promise<void> {
 
 bus.on("weaponSlotToggled", () => {
   if (!gameStarted || !localPlayer.alive) return;
-  toggleActiveSlot();
+  if (!toggleActiveSlot()) return;
   refreshWeaponHud();
   bus.emit("weaponSwitched", { activeSlot: getActiveSlot() });
   void loadLocalPlayerAssets().catch((error) => {

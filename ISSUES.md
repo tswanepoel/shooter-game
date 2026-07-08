@@ -53,6 +53,7 @@ Tracked tuning, polish, and feature gaps.
 - [x] **11. Own weapon visible when dead** — local view-model should hide on death.
 - [x] **13. Respawn timer too simple** — manual respawn after short min delay; no server forced respawn (player chooses when).
 - [x] **47. Death camera stuck** — when the player dies, the camera does not move to the death-pose vantage point.
+- [ ] **64. Options menu dismissed by death** — pressing O opens the options menu; if an opponent kills the player while it's open, the menu just closes instead of switching to the loadout/weapon-pick flow shown on a normal death.
 
 ## Loadout & lobby
 

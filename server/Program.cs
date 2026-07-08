@@ -45,6 +45,10 @@ app.Map("/ws", async (HttpContext context) =>
     {
         // Abrupt disconnect (network drop, tab kill); fall through to cleanup below.
     }
+    catch (OperationCanceledException)
+    {
+        // Server shutting down; fall through to cleanup below.
+    }
     finally
     {
         if (playerId is not null)
@@ -72,7 +76,7 @@ async Task SendAsync<T>(WebSocket socket, T message)
     var json = JsonSerializer.SerializeToUtf8Bytes(message, jsonOptions);
     if (socket.State == WebSocketState.Open)
     {
-        await socket.SendAsync(new ArraySegment<byte>(json), WebSocketMessageType.Text, true, CancellationToken.None);
+        await socket.SendAsync(new ArraySegment<byte>(json), WebSocketMessageType.Text, true, app.Lifetime.ApplicationStopping);
     }
 }
 
@@ -336,7 +340,7 @@ async Task<byte[]?> ReadTextMessageAsync(WebSocket socket, byte[] buffer)
     WebSocketReceiveResult result;
     do
     {
-        result = await socket.ReceiveAsync(buffer, CancellationToken.None);
+        result = await socket.ReceiveAsync(buffer, app.Lifetime.ApplicationStopping);
         if (result.MessageType == WebSocketMessageType.Close) return null;
         stream.Write(buffer, 0, result.Count);
     } while (!result.EndOfMessage);

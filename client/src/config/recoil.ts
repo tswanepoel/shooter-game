@@ -38,7 +38,7 @@ export const RECOIL_GLOBAL = {
   maxFatigue: 1,
   yawJitter: 0.18,
   residualBleedDelay: 0,
-  residualBleedRate: 2.2,
+  residualBleedRate: 8.8,
   /** Slow residual bleed while trigger is held — balances in-fire accumulation. */
   firingResidualBleedRate: 0.62,
   /** Fatigue lowers in-fire bleed so the plateau sits higher when tired. */

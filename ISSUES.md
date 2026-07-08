@@ -33,12 +33,12 @@ Tracked tuning, polish, and feature gaps.
 
 ## Weapons
 
-- [ ] **9. Grip/hand alignment off** — per-weapon handle-to-hand alignment needs tuning.
+- [x] **9. Grip/hand alignment off** — per-weapon handle-to-hand alignment needs tuning.
 - [ ] **10. Large slow projectiles** — add weapon variant(s) with big, slow projectiles for variety.
 - [ ] **18. Magazine reloads** — ammo magazines with reload flow (not infinite mag).
 - [ ] **19. Grenades / extras** — middle mouse hold starts fuse or charges throwable; release or timeout throws/activates.
 - [ ] **20. Fire modes** — per-weapon single-fire, burst-fire, and fully-auto toggles where appropriate.
-- [ ] **23. Remote muzzle flash misaligned** — flash sphere not aligned to barrel on opponent held weapons.
+- [x] **23. Remote muzzle flash misaligned** — flash sphere not aligned to barrel on opponent held weapons.
 - [ ] **62. Weapon swap needs motion** — scrolling to the other slot is an instant swap; needs a visible transition (holster/draw, arm motion, or similar) when switching primary/secondary.
 
 ## Combat rules & tuning
@@ -60,20 +60,20 @@ Tracked tuning, polish, and feature gaps.
 - [x] **59. Wheel to empty slot breaks avatar** — scrolling onto an unarmed/empty slot leaves the local character giant with vertical gaps between body parts (salami-cut); this is real world state, not a visual glitch — the player ends up viewing the map from far above.
 - [x] **60. Wheel should skip empty slots** — mouse wheel must not select empty primary/secondary slots; only swap to the other slot when it has a weapon equipped.
 - [ ] **61. Spectate not implemented** — loadout overlay exposes a Spectate action, but it only dismisses the menu; no spectator camera or match observation flow exists yet.
-- [ ] **15. Character picker visuals** — show character models/previews at join, not letter labels.
-- [ ] **26. Create and join lobbies** — rooms with shareable join flow; room code in URL for easy copy/share.
+- [x] **15. Character picker visuals** — show character models/previews at join, not letter labels.
+- [x] **26. Create and join lobbies** — rooms with shareable join flow; room code in URL for easy copy/share.
 - [x] **48. Loadout picker pre-selects blanks** — after joining, the loadout overlay shows default empty primary/secondary slots; require explicit player choices with no pre-filled selection.
 - [x] **49. Overlapping primary/secondary weapon pools** — primary slot can pick weapons that belong in secondary; each slot's catalog should be disjoint.
 
 ## Multiplayer sync
 
-- [ ] **27. Remote neck range stiff** — pitch looks good overall, but neck is rigid; trade a little arm range for more neck range on remotes.
+- [x] **27. Remote neck range stiff** — pitch looks good overall, but neck is rigid; trade a little arm range for more neck range on remotes.
 - [ ] **28. Remote head jerk** — head snaps on inbound position/aim updates; explore client-side smoothing (interpolation, buffering, or fancier filtering).
 - [ ] **29. Harden for real lag** — use Chrome network emulation to stress-test; improve prediction, interpolation, and feedback under latency.
 
 ## Map & world
 
-- [ ] **30. Scene dressing** — add props, cover, and vertical elements to the playspace.
+- [x] **30. Scene dressing** — add props, cover, and vertical elements to the playspace.
 - [ ] **35. Map pickups** — placed ammo and grenade replenishment; dead players drop ammo.
 - [x] **52. Lighting too low** — overall scene brightness needs a bump.
 - [x] **53. Shadows too dark** — shadow intensity/fill is heavier than intended.
@@ -94,7 +94,7 @@ Tracked tuning, polish, and feature gaps.
 - [x] **41. Remove aim debug overlay** — lose the on-screen angle debug HUD.
 - [ ] **42. Weapon HUD visuals** — weapon indicator is text-only; needs a proper visual (icon, silhouette, or view-model hint).
 - [ ] **43. FPS and ping overlay** — show frame rate and network latency (debug/readout HUD).
-- [ ] **50. Spawn flash before scene ready** — brief blank or unlit frame right after join/spawn; something renders before the proper scene/assets are in place.
+- [x] **50. Spawn flash before scene ready** — brief blank or unlit frame right after join/spawn; something renders before the proper scene/assets are in place.
 
 ## Audio
 

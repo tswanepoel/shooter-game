@@ -1,7 +1,12 @@
 import { connectAndJoinRoom, RoomJoinError } from "../net/connection.ts";
 import {
+  readRoomCodeFromUrl,
+  writeRoomCodeToUrl,
+} from "../state/roomRoute.ts";
+import {
   DEFAULT_ROOM_CODE,
   getDisplayName,
+  getRoomCode,
   loadStoredDisplayName,
   saveDisplayName,
 } from "../state/session.ts";
@@ -68,8 +73,9 @@ export function showRoomGate(handlers: RoomGateHandlers): void {
   codeInput.maxLength = 24;
   codeInput.autocomplete = "off";
   codeInput.placeholder = "Room code";
-  codeInput.value = DEFAULT_ROOM_CODE;
+  codeInput.value = readRoomCodeFromUrl() ?? DEFAULT_ROOM_CODE;
   codeInput.style.cssText = FIELD_INPUT_STYLE;
+  writeRoomCodeToUrl(codeInput.value);
   codeLabel.append(codeCaption, codeInput);
 
   const status = document.createElement("p");
@@ -109,6 +115,7 @@ export function showRoomGate(handlers: RoomGateHandlers): void {
 
     try {
       await connectAndJoinRoom(code, name);
+      writeRoomCodeToUrl(getRoomCode() ?? code);
       overlay.remove();
       handlers.onJoined();
     } catch (error) {
@@ -130,7 +137,15 @@ export function showRoomGate(handlers: RoomGateHandlers): void {
   });
 
   nameInput.addEventListener("input", refreshButton);
-  codeInput.addEventListener("input", refreshButton);
+  codeInput.addEventListener("input", () => {
+    writeRoomCodeToUrl(codeInput.value);
+    refreshButton();
+  });
+
+  window.addEventListener("popstate", () => {
+    codeInput.value = readRoomCodeFromUrl() ?? DEFAULT_ROOM_CODE;
+    refreshButton();
+  });
   nameInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter") void tryJoin();
   });

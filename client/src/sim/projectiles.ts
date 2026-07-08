@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { bus } from "../bus.ts";
 import { tryGetWeaponRecipe } from "../config/weapons.ts";
+import { speedAtDistance } from "../config/ballistics.ts";
 import { getActiveWeapon } from "../state/loadout.ts";
 import { sendHit } from "../net/connection.ts";
 import { getLocalPlayerId, localPlayer, projectiles, remotePlayers } from "../state/world.ts";
@@ -122,11 +123,12 @@ export function advanceProjectiles(dt: number, hitRoots: THREE.Object3D[]): void
   const weapon = getActiveWeapon();
   if (!weapon) return;
 
-  const step = weapon.projectileSpeed * dt;
-
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const projectile = projectiles[i];
     const previous = projectile.previousPosition;
+
+    const speed = speedAtDistance(weapon, projectile.distanceTraveled);
+    const step = speed * dt;
 
     projectile.position.x += projectile.direction.x * step;
     projectile.position.y += projectile.direction.y * step;
@@ -137,7 +139,7 @@ export function advanceProjectiles(dt: number, hitRoots: THREE.Object3D[]): void
       const hit = sweepHit(previous, projectile.position, hitRoots);
       if (hit) {
         if (hit.kind === "player" && projectile.ownerId === getLocalPlayerId()) {
-          sendHit(hit.playerId);
+          sendHit(hit.playerId, hit.bodyPart, speed);
           bus.emit("hitConfirmed", undefined);
         }
         projectiles.splice(i, 1);
@@ -182,7 +184,9 @@ function spawnProjectile(
   });
 }
 
-type SweepHit = { kind: "player"; playerId: string } | { kind: "world" };
+type SweepHit = { kind: "player"; playerId: string; bodyPart: string } | { kind: "world" };
+
+const BODY_PART_NAMES = new Set(["head", "torso", "arm-left", "arm-right", "leg-left", "leg-right"]);
 
 function sweepHit(from: Vec3, to: Vec3, hitRoots: THREE.Object3D[]): SweepHit | undefined {
   rayDirection.set(to.x - from.x, to.y - from.y, to.z - from.z);
@@ -199,7 +203,7 @@ function sweepHit(from: Vec3, to: Vec3, hitRoots: THREE.Object3D[]): SweepHit | 
     const playerId = findPlayerId(hit.object);
     if (playerId && playerId !== getLocalPlayerId()) {
       const remote = remotePlayers.get(playerId);
-      if (remote?.alive) return { kind: "player", playerId };
+      if (remote?.alive) return { kind: "player", playerId, bodyPart: findBodyPart(hit.object) };
     }
     if (isWorldCollider(hit.object)) return { kind: "world" };
   }
@@ -214,6 +218,15 @@ function findPlayerId(object: THREE.Object3D): string | undefined {
     node = node.parent;
   }
   return undefined;
+}
+
+function findBodyPart(object: THREE.Object3D): string {
+  let node: THREE.Object3D | null = object;
+  while (node) {
+    if (BODY_PART_NAMES.has(node.name)) return node.name;
+    node = node.parent;
+  }
+  return "torso";
 }
 
 function isWorldCollider(object: THREE.Object3D): boolean {

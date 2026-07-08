@@ -37,7 +37,7 @@ public sealed class CombatService
 
     public bool TryApplyHit(string senderId, byte[] payload)
     {
-        if (!TryParseHit(payload, out var shooterId, out var targetId)) return false;
+        if (!TryParseHit(payload, out var shooterId, out var targetId, out var bodyPart, out var speedAtImpact)) return false;
         if (shooterId != senderId) return true;
         if (shooterId == targetId) return true;
 
@@ -51,7 +51,7 @@ public sealed class CombatService
 
         if (shooterEntry.State.WeaponId is null) return true;
 
-        var damage = GameConfig.DamageForWeapon(shooterEntry.State.WeaponId);
+        var damage = GameConfig.DamageForImpact(shooterEntry.State.WeaponId, speedAtImpact, bodyPart);
         ApplyDamage(target, damage, shooterId);
         return true;
     }
@@ -177,10 +177,17 @@ public sealed class CombatService
 
     private byte[] Serialize<T>(T message) => JsonSerializer.SerializeToUtf8Bytes(message, _jsonOptions);
 
-    private static bool TryParseHit(byte[] payload, out string shooterId, out string targetId)
+    private static bool TryParseHit(
+        byte[] payload,
+        out string shooterId,
+        out string targetId,
+        out string? bodyPart,
+        out double speedAtImpact)
     {
         shooterId = string.Empty;
         targetId = string.Empty;
+        bodyPart = null;
+        speedAtImpact = 0;
 
         try
         {
@@ -192,6 +199,16 @@ public sealed class CombatService
 
             shooterId = shooterProp.GetString() ?? string.Empty;
             targetId = targetProp.GetString() ?? string.Empty;
+            if (root.TryGetProperty("bodyPart", out var bodyPartProp))
+            {
+                bodyPart = bodyPartProp.GetString();
+            }
+
+            if (root.TryGetProperty("speedAtImpact", out var speedProp) && speedProp.ValueKind == JsonValueKind.Number)
+            {
+                speedAtImpact = speedProp.GetDouble();
+            }
+
             return shooterId.Length > 0 && targetId.Length > 0;
         }
         catch (JsonException)

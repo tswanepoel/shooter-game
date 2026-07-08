@@ -29,7 +29,7 @@ Tracked tuning, polish, and feature gaps.
 - [x] **7. Hit marker misaligned** — height off; not centered over crosshair.
 - [x] **8. Damage-hit cue weak** — vignette/indicator needs a more impactful being-hit cue.
 - [x] **24. Hit marker unimpressive** — alignment fixed but feedback still too subtle; needs stronger visual punch.
-- [ ] **63. Fire kick through body to camera** — shots need recoil that drives real motion through the aim cascade (arms/torso) and ultimately the head-mounted camera, not cosmetic weapon-mesh-only kick.
+- [x] **63. Fire kick through body to camera** — shots need recoil that drives real motion through the aim cascade (arms/torso) and ultimately the head-mounted camera, not cosmetic weapon-mesh-only kick.
 
 ## Weapons
 
@@ -40,12 +40,13 @@ Tracked tuning, polish, and feature gaps.
 - [ ] **20. Fire modes** — per-weapon single-fire, burst-fire, and fully-auto toggles where appropriate.
 - [x] **23. Remote muzzle flash misaligned** — flash sphere not aligned to barrel on opponent held weapons.
 - [ ] **62. Weapon swap needs motion** — scrolling to the other slot is an instant swap; needs a visible transition (holster/draw, arm motion, or similar) when switching primary/secondary.
+- [ ] **65. Projectiles as first-class, shared entities** — ammo/projectile properties currently live inside each weapon's own definition rather than as an independent, identified, reusable concept. Multiple weapons already conceptually fire the same kind of round; giving projectile types their own identity would let weapons reference a shared type instead of duplicating its properties, and would give future ammo pickups/replenishment (see #18) something concrete to grant.
 
 ## Combat rules & tuning
 
 - [x] **16. TTK too fast** — time-to-kill feels too quick; tune damage, fire rate, or health.
 - [ ] **21. Damage drop-off** — projectile/hit damage falls off with travel distance or range.
-- [ ] **22. Hit location multipliers** — head/body/limb (or similar) damage multipliers for certain body parts.
+- [x] **22. Hit location multipliers** — head/body/limb (or similar) damage multipliers for certain body parts.
 - [x] **25. Health regen pacing** — longer quiet period after damage before regen starts; faster recovery once it kicks in (`combat.ts` / `GameConfig.cs`).
 
 ## Death & respawn

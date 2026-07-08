@@ -1,4 +1,5 @@
 import type { WeaponRecipe } from "./weapons.ts";
+import { BALLISTICS, muzzleImpulse } from "./ballistics.ts";
 
 export interface RecoilProfile {
   kickPitch: number;
@@ -50,14 +51,15 @@ export const RECOIL_GLOBAL = {
 } as const;
 
 const REFERENCE_FIRE_RATE = 14;
-const BASE_KICK_PITCH = (0.7 * Math.PI) / 180;
 const BASE_MAX_DRIFT_PITCH = (3 * Math.PI) / 180;
 
 export function getRecoilProfile(weapon: WeaponRecipe): RecoilProfile {
   const fireRateScale = REFERENCE_FIRE_RATE / weapon.fireRate;
   const rateFactor = weapon.fireRate / REFERENCE_FIRE_RATE;
   return {
-    kickPitch: BASE_KICK_PITCH * Math.sqrt(fireRateScale),
+    // Kick strength is the backward half of the muzzle impulse (mass x muzzle velocity);
+    // fire rate governs how kicks stack (fatigue/cadence), not per-shot magnitude.
+    kickPitch: BALLISTICS.impulseToKickPitch * muzzleImpulse(weapon),
     fatigueScale: 1 + rateFactor * 0.35,
     maxDriftPitch: BASE_MAX_DRIFT_PITCH * Math.sqrt(fireRateScale) * (1 + rateFactor * 0.12),
   };

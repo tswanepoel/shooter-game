@@ -93,6 +93,8 @@ export interface HitMessage {
   type: "hit";
   id: string;
   targetId: string;
+  bodyPart: string;
+  speedAtImpact: number;
 }
 
 export interface RespawnRequestMessage {

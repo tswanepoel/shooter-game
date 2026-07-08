@@ -212,9 +212,9 @@ function sendIdOnly(type: "jump" | "fire"): void {
   send({ type, id: localId });
 }
 
-export function sendHit(targetId: string): void {
+export function sendHit(targetId: string, bodyPart: string, speedAtImpact: number): void {
   if (!localId) return;
-  send({ type: "hit", id: localId, targetId });
+  send({ type: "hit", id: localId, targetId, bodyPart, speedAtImpact });
 }
 
 function send(message: ClientMessage): void {

@@ -44,10 +44,6 @@ export function initLoadoutMenu(): void {
           stagePendingFromLife();
           overlay.close();
         },
-        onSpectate: () => {
-          stagePendingFromLife();
-          overlay.close();
-        },
         onApply: (loadout) => {
           syncPendingLoadout(loadout);
           preservePendingLoadoutForNextDeath();
@@ -64,9 +60,6 @@ export function initLoadoutMenu(): void {
       loadout: getPendingLoadout(),
       spawnEnabled: canRespawnNow(),
       onChange: syncPendingLoadout,
-      onSpectate: () => {
-        overlay.close();
-      },
       onSpawn: () => {
         overlay.close();
         bus.emit("respawnRequested", undefined);

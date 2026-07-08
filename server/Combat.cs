@@ -9,18 +9,18 @@ public sealed class CombatService
     private readonly ConcurrentDictionary<string, (WebSocket Socket, PlayerState State)> _players;
     private readonly JsonSerializerOptions _jsonOptions;
     private readonly Func<Vector3Dto> _randomSpawnPosition;
-    private readonly Func<byte[], Task> _broadcastToAllAsync;
+    private readonly Func<string, byte[], Task> _broadcastForPlayerAsync;
 
     public CombatService(
         ConcurrentDictionary<string, (WebSocket Socket, PlayerState State)> players,
         JsonSerializerOptions jsonOptions,
         Func<Vector3Dto> randomSpawnPosition,
-        Func<byte[], Task> broadcastToAllAsync)
+        Func<string, byte[], Task> broadcastForPlayerAsync)
     {
         _players = players;
         _jsonOptions = jsonOptions;
         _randomSpawnPosition = randomSpawnPosition;
-        _broadcastToAllAsync = broadcastToAllAsync;
+        _broadcastForPlayerAsync = broadcastForPlayerAsync;
     }
 
     public void StartRegenLoop(CancellationToken cancellationToken)
@@ -150,23 +150,23 @@ public sealed class CombatService
 
     private async Task BroadcastHealthAsync(string playerId, double health, string? attackerId)
     {
-        await _broadcastToAllAsync(Serialize(new HealthMessage("health", playerId, health, attackerId)));
+        await _broadcastForPlayerAsync(playerId, Serialize(new HealthMessage("health", playerId, health, attackerId)));
     }
 
     private async Task BroadcastDeathAsync(string victimId, string killerId, long deathAt)
     {
-        await _broadcastToAllAsync(Serialize(new DeathMessage("death", victimId, killerId, deathAt)));
+        await _broadcastForPlayerAsync(victimId, Serialize(new DeathMessage("death", victimId, killerId, deathAt)));
     }
 
     private async Task BroadcastRespawnAsync(string playerId, Vector3Dto position)
     {
-        await _broadcastToAllAsync(Serialize(new RespawnMessage("respawn", playerId, position)));
+        await _broadcastForPlayerAsync(playerId, Serialize(new RespawnMessage("respawn", playerId, position)));
     }
 
     private async Task BroadcastWeaponAsync(string playerId)
     {
         if (!_players.TryGetValue(playerId, out var entry)) return;
-        await _broadcastToAllAsync(Serialize(new
+        await _broadcastForPlayerAsync(playerId, Serialize(new
         {
             type = "weapon",
             id = playerId,

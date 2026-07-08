@@ -6,7 +6,7 @@ import { initKeyboard } from "./input/keyboard.ts";
 import { initLoadoutMenu } from "./input/loadoutMenu.ts";
 import { initMouse } from "./input/mouse.ts";
 import { bindPointerLockTarget } from "./input/pointerLock.ts";
-import { connectSpectator, sendPosition } from "./net/connection.ts";
+import { sendPosition } from "./net/connection.ts";
 import { createCrosshair } from "./render/crosshair.ts";
 import {
   createPlayerSceneManager,
@@ -36,12 +36,13 @@ import {
   getActiveWeaponId,
   toggleActiveSlot,
 } from "./state/loadout.ts";
-import { localPlayer } from "./state/world.ts";
+import { getLocalPlayerId, localPlayer } from "./state/world.ts";
 import { createDamageOverlay } from "./ui/damageOverlay.ts";
 import { createDeathOverlay } from "./ui/deathOverlay.ts";
 import { showLobby } from "./ui/lobby.ts";
 import { createHitMarker } from "./ui/hitMarker.ts";
 import { createKillFeed } from "./ui/killFeed.ts";
+import { showRoomGate } from "./ui/roomGate.ts";
 import { createWeaponHud } from "./ui/weaponHud.ts";
 
 const MAX_DT = 0.1;
@@ -136,6 +137,7 @@ function tick(dt: number): void {
 }
 
 function tickPosBroadcast(dt: number): void {
+  if (!getLocalPlayerId()) return;
   posBroadcastElapsed += dt;
   if (posBroadcastElapsed < POS_BROADCAST_INTERVAL) return;
   posBroadcastElapsed = 0;
@@ -164,7 +166,7 @@ bus.on("joinSpawnClicked", () => {
   renderer.domElement.style.display = "block";
 });
 
-function enterGame(): void {
+function enterGameAsPlayer(): void {
   initKeyboard();
   initMouse(renderer.domElement);
   playerScene.applyCamera(camera);
@@ -176,10 +178,13 @@ function enterGame(): void {
   });
 }
 
-connectSpectator();
-
-showLobby(() => {
-  enterGame();
+showRoomGate({
+  onJoined: () => {
+    showLobby({
+      onSpawn: enterGameAsPlayer,
+      onSpectate: () => {},
+    });
+  },
 });
 
 requestAnimationFrame(loop);

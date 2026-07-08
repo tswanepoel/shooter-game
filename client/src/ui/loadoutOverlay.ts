@@ -27,13 +27,14 @@ export interface LoadoutOverlayOpenOptions {
   allowBackdropCancel?: boolean;
   onChange?: (loadout: Loadout) => void;
   onSpawn?: (loadout: Loadout) => void;
-  onSpectate?: () => void;
   onClose?: () => void;
   onApply?: (loadout: Loadout) => void;
   onCancel?: () => void;
 }
 
 export interface LoadoutOverlay {
+  /** Warm weapon grids off-screen so open() can appear at full size. */
+  prepare(): Promise<void>;
   open(options: LoadoutOverlayOpenOptions): void;
   close(): void;
   setLoadout(loadout: Loadout): void;
@@ -88,19 +89,6 @@ const APPLY_BUTTON_STYLE = [
   "cursor:pointer",
 ].join(";");
 
-const SPECTATE_BUTTON_STYLE = [
-  "box-sizing:border-box",
-  `width:${FOOTER_BUTTON_WIDTH}`,
-  "padding:10px 20px",
-  "border:2px solid #6af",
-  "border-radius:8px",
-  "background:#10141c",
-  "color:#8ab4ff",
-  "font:600 1rem system-ui,sans-serif",
-  "text-align:center",
-  "cursor:pointer",
-].join(";");
-
 const TILE_BUTTON_BASE = [
   "display:block",
   "width:100%",
@@ -122,17 +110,6 @@ function loadoutsEqual(a: Loadout, b: Loadout): boolean {
   return a.primary === b.primary && a.secondary === b.secondary;
 }
 
-function initialSlotChosen(
-  footerMode: LoadoutOverlayFooterMode,
-  current: Loadout,
-): Record<ActiveSlot, boolean> {
-  if (footerMode === "alive") return { primary: true, secondary: true };
-  return {
-    primary: current.primary !== null,
-    secondary: current.secondary !== null,
-  };
-}
-
 function weaponTileCode(id: string): string {
   const suffix = id.replace("blaster-", "");
   return suffix.length === 1 ? suffix.toUpperCase() : suffix.toUpperCase().slice(0, 2);
@@ -140,9 +117,9 @@ function weaponTileCode(id: string): string {
 
 interface SlotWeaponTile {
   slot: ActiveSlot;
-  weaponId: string | null;
+  weaponId: string;
   button: HTMLButtonElement;
-  preview?: LoadoutWeaponPreview;
+  preview: LoadoutWeaponPreview;
 }
 
 let sharedOverlay: LoadoutOverlay | undefined;
@@ -183,6 +160,7 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     "color:#fff",
     "font-family:system-ui,sans-serif",
     "overflow:hidden",
+    "transition:opacity 0.12s ease",
   ].join(";");
 
   const header = document.createElement("div");
@@ -201,27 +179,13 @@ export function createLoadoutOverlay(): LoadoutOverlay {
   body.style.cssText =
     "display:none;flex-direction:column;gap:16px;overflow:auto;min-height:0;scrollbar-gutter:stable;";
 
-  function createSlotSection(
-    label: string,
-    hint: string,
-  ): { section: HTMLElement; emptyRow: HTMLDivElement; grid: HTMLDivElement } {
+  function createSlotSection(label: string): { section: HTMLElement; grid: HTMLDivElement } {
     const section = document.createElement("section");
     section.style.cssText = "display:flex;flex-direction:column;gap:10px;";
 
-    const heading = document.createElement("div");
     const headingTitle = document.createElement("h3");
     headingTitle.textContent = label;
     headingTitle.style.cssText = "margin:0;font-size:0.78rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#8ab4ff;";
-    const headingHint = document.createElement("p");
-    headingHint.textContent = hint;
-    headingHint.style.cssText = "margin:4px 0 0;font-size:0.8rem;color:#6a7588;";
-    heading.append(headingTitle, headingHint);
-
-    const emptyRow = document.createElement("div");
-    emptyRow.style.cssText = [
-      "width:100%",
-      `max-width:calc((100% - ${(GRID_COLUMNS - 1) * GRID_GAP}px) / ${GRID_COLUMNS})`,
-    ].join(";");
 
     const grid = document.createElement("div");
     grid.style.cssText = [
@@ -231,12 +195,12 @@ export function createLoadoutOverlay(): LoadoutOverlay {
       `gap:${GRID_GAP}px`,
     ].join(";");
 
-    section.append(heading, emptyRow, grid);
-    return { section, emptyRow, grid };
+    section.append(headingTitle, grid);
+    return { section, grid };
   }
 
-  const primarySection = createSlotSection("Primary", "Any weapon");
-  const secondarySection = createSlotSection("Secondary", "Pistol, shotgun, or launcher");
+  const primarySection = createSlotSection("Primary");
+  const secondarySection = createSlotSection("Secondary");
 
   body.append(primarySection.section, secondarySection.section);
 
@@ -248,11 +212,6 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     "padding-top:4px",
   ].join(";");
 
-  const spectateButton = document.createElement("button");
-  spectateButton.type = "button";
-  spectateButton.textContent = "Spectate";
-  spectateButton.style.cssText = SPECTATE_BUTTON_STYLE;
-
   const spawnButton = document.createElement("button");
   spawnButton.type = "button";
   spawnButton.textContent = "Spawn";
@@ -263,21 +222,19 @@ export function createLoadoutOverlay(): LoadoutOverlay {
   aliveButton.textContent = "Close";
   aliveButton.style.cssText = CLOSE_BUTTON_STYLE;
 
-  footer.append(spectateButton, spawnButton, aliveButton);
+  footer.append(spawnButton, aliveButton);
   panel.append(header, loadingEl, body, footer);
   backdrop.appendChild(panel);
   document.body.appendChild(backdrop);
 
   let visible = false;
   let loadout: Loadout = { primary: null, secondary: null };
-  let slotChosen: Record<ActiveSlot, boolean> = { primary: false, secondary: false };
   let footerMode: LoadoutOverlayFooterMode = "spawn";
   let spawnEnabled = true;
   let baselineLoadout: Loadout | null = null;
   let allowBackdropCancel = false;
   let onChange: ((loadout: Loadout) => void) | undefined;
   let onSpawn: ((loadout: Loadout) => void) | undefined;
-  let onSpectate: (() => void) | undefined;
   let onClose: (() => void) | undefined;
   let onApply: ((loadout: Loadout) => void) | undefined;
   let onCancel: (() => void) | undefined;
@@ -294,14 +251,11 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     onChange?.({ ...loadout });
   }
 
-  function assignToSlot(slot: ActiveSlot, weaponId: string | null): void {
-    if (weaponId !== null) {
-      if (!weaponAllowsSlot(weaponId, slot)) return;
-      if (loadout[otherSlot(slot)] === weaponId) return;
-    }
+  function assignToSlot(slot: ActiveSlot, weaponId: string): void {
+    if (!weaponAllowsSlot(weaponId, slot)) return;
+    if (loadout[otherSlot(slot)] === weaponId) return;
     const current = loadout[slot];
     loadout = { ...loadout, [slot]: current === weaponId ? null : weaponId };
-    slotChosen = { ...slotChosen, [slot]: true };
     refresh();
     notify();
   }
@@ -310,32 +264,12 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     return baselineLoadout !== null && !loadoutsEqual(loadout, baselineLoadout);
   }
 
-  function isLoadoutEmpty(): boolean {
-    return loadout.primary === null && loadout.secondary === null;
-  }
-
-  function bothSlotsChosen(): boolean {
-    return slotChosen.primary && slotChosen.secondary;
-  }
-
-  function canSpawn(): boolean {
-    return bothSlotsChosen() && !isLoadoutEmpty();
-  }
-
-  function canSpectate(): boolean {
-    return bothSlotsChosen() && isLoadoutEmpty();
-  }
-
   function refreshTile(tile: SlotWeaponTile): void {
-    const selected = tile.weaponId !== null && loadout[tile.slot] === tile.weaponId;
-    const unarmedSelected =
-      slotChosen[tile.slot] && tile.weaponId === null && loadout[tile.slot] === null;
-    const takenInOther =
-      tile.weaponId !== null && loadout[otherSlot(tile.slot)] === tile.weaponId;
+    const selected = loadout[tile.slot] === tile.weaponId;
+    const takenInOther = loadout[otherSlot(tile.slot)] === tile.weaponId;
     const disabled = takenInOther;
 
-    const animate = !disabled && selected;
-    tile.preview?.setSpinActive(animate);
+    tile.preview.setSpinActive(!disabled && selected);
 
     tile.button.disabled = disabled;
     if (disabled) {
@@ -347,7 +281,7 @@ export function createLoadoutOverlay(): LoadoutOverlay {
       return;
     }
 
-    if (selected || unarmedSelected) {
+    if (selected) {
       tile.button.style.opacity = "1";
       tile.button.style.cursor = "pointer";
       tile.button.style.borderColor = "#6af";
@@ -363,15 +297,8 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     tile.button.setAttribute("aria-pressed", "false");
   }
 
-  function refreshSpectateButton(): void {
-    const enabled = canSpectate();
-    spectateButton.disabled = !enabled;
-    spectateButton.style.opacity = enabled ? "1" : "0.45";
-    spectateButton.style.cursor = enabled ? "pointer" : "not-allowed";
-  }
-
   function refreshSpawnButton(): void {
-    const enabled = spawnEnabled && canSpawn();
+    const enabled = spawnEnabled;
     spawnButton.disabled = !enabled;
     spawnButton.style.opacity = enabled ? "1" : "0.45";
     spawnButton.style.cursor = enabled ? "pointer" : "not-allowed";
@@ -389,11 +316,8 @@ export function createLoadoutOverlay(): LoadoutOverlay {
   function refreshFooterButtons(): void {
     const showSpawn = footerMode === "spawn";
     const showAliveAction = footerMode === "alive";
-    const showSpectate = showSpawn || showAliveAction;
-    spectateButton.style.display = showSpectate ? "block" : "none";
     spawnButton.style.display = showSpawn ? "block" : "none";
     aliveButton.style.display = showAliveAction ? "block" : "none";
-    if (showSpectate) refreshSpectateButton();
     if (showSpawn) refreshSpawnButton();
     if (showAliveAction) refreshAliveButton();
   }
@@ -404,16 +328,8 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     refreshFooterButtons();
   }
 
-  function trySpectate(): void {
-    if (!visible || (footerMode !== "spawn" && footerMode !== "alive") || !canSpectate() || !onSpectate) {
-      return;
-    }
-    onSpectate();
-    requestPointerLockForGame();
-  }
-
   function trySpawn(): void {
-    if (!visible || footerMode !== "spawn" || !spawnEnabled || !canSpawn() || !onSpawn) return;
+    if (!visible || footerMode !== "spawn" || !spawnEnabled || !onSpawn) return;
     onSpawn({ ...loadout });
     requestPointerLockForGame();
   }
@@ -430,7 +346,7 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     requestPointerLockForGame();
   }
 
-  function createTileButton(slot: ActiveSlot, weaponId: string | null, label: string): HTMLButtonElement {
+  function createTileButton(slot: ActiveSlot, weaponId: string, label: string): HTMLButtonElement {
     const button = document.createElement("button");
     button.type = "button";
     button.setAttribute("aria-label", label);
@@ -440,22 +356,20 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     const viewport = document.createElement("div");
     viewport.style.cssText = `width:100%;height:${TILE_HEIGHT}px;position:relative;display:block;overflow:hidden;`;
 
-    if (weaponId !== null) {
-      const badge = document.createElement("span");
-      badge.textContent = weaponTileCode(weaponId);
-      badge.style.cssText = [
-        "position:absolute",
-        "top:6px",
-        "right:8px",
-        "z-index:1",
-        "font-size:0.68rem",
-        "font-weight:700",
-        "letter-spacing:0.06em",
-        "color:#8a96a8",
-        "text-shadow:0 1px 4px rgba(0,0,0,0.8)",
-      ].join(";");
-      viewport.appendChild(badge);
-    }
+    const badge = document.createElement("span");
+    badge.textContent = weaponTileCode(weaponId);
+    badge.style.cssText = [
+      "position:absolute",
+      "top:6px",
+      "right:8px",
+      "z-index:1",
+      "font-size:0.68rem",
+      "font-weight:700",
+      "letter-spacing:0.06em",
+      "color:#8a96a8",
+      "text-shadow:0 1px 4px rgba(0,0,0,0.8)",
+    ].join(";");
+    viewport.appendChild(badge);
 
     button.append(viewport);
     button.addEventListener("click", () => assignToSlot(slot, weaponId));
@@ -475,14 +389,9 @@ export function createLoadoutOverlay(): LoadoutOverlay {
 
     async function addTiles(
       slot: ActiveSlot,
-      emptyRow: HTMLDivElement,
       grid: HTMLDivElement,
       bucket: SlotWeaponTile[],
     ): Promise<void> {
-      const unarmedButton = createTileButton(slot, null, "Empty");
-      emptyRow.appendChild(unarmedButton);
-      bucket.push({ slot, weaponId: null, button: unarmedButton });
-
       const previews = await Promise.all(
         weaponsForSlot(slot).map((weaponId) =>
           createLoadoutWeaponPreview(weaponId, tileWidth, TILE_HEIGHT),
@@ -501,13 +410,12 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     }
 
     await Promise.all([
-      addTiles("primary", primarySection.emptyRow, primarySection.grid, primaryTiles),
-      addTiles("secondary", secondarySection.emptyRow, secondarySection.grid, secondaryTiles),
+      addTiles("primary", primarySection.grid, primaryTiles),
+      addTiles("secondary", secondarySection.grid, secondaryTiles),
     ]);
 
     gridsReady = true;
     loadingEl.style.display = "none";
-    body.style.display = "flex";
   }
 
   function ensureGrids(): Promise<void> {
@@ -527,8 +435,8 @@ export function createLoadoutOverlay(): LoadoutOverlay {
       if (!visible || !previewRenderer) return;
       const dt = Math.min((now - lastPreviewTime) / 1000, 0.1);
       lastPreviewTime = now;
-      for (const tile of primaryTiles) tile.preview?.update(dt, previewRenderer);
-      for (const tile of secondaryTiles) tile.preview?.update(dt, previewRenderer);
+      for (const tile of primaryTiles) tile.preview.update(dt, previewRenderer);
+      for (const tile of secondaryTiles) tile.preview.update(dt, previewRenderer);
       frameId = requestAnimationFrame(tick);
     };
     cancelAnimationFrame(frameId);
@@ -539,7 +447,6 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     cancelAnimationFrame(frameId);
   }
 
-  spectateButton.addEventListener("click", trySpectate);
   spawnButton.addEventListener("click", trySpawn);
   aliveButton.addEventListener("click", tryAliveAction);
 
@@ -549,55 +456,86 @@ export function createLoadoutOverlay(): LoadoutOverlay {
     closeOverlay();
   });
 
+  function hideBackdrop(): void {
+    backdrop.style.display = "none";
+    backdrop.style.visibility = "";
+    panel.style.opacity = "";
+    panel.style.pointerEvents = "";
+  }
+
   function closeOverlay(): void {
     if (!visible) return;
     visible = false;
     stopPreviewLoop();
-    backdrop.style.display = "none";
+    hideBackdrop();
     onChange = undefined;
     onSpawn = undefined;
-    onSpectate = undefined;
     onClose = undefined;
     onApply = undefined;
     onCancel = undefined;
     allowBackdropCancel = false;
     spawnEnabled = true;
     baselineLoadout = null;
-    slotChosen = { primary: false, secondary: false };
+  }
+
+  function revealPanel(): void {
+    if (!visible) return;
+    body.style.display = "flex";
+    loadingEl.style.display = "none";
+    panel.style.opacity = "1";
+    panel.style.pointerEvents = "auto";
+    refresh();
+    startPreviewLoop();
   }
 
   return {
+    prepare(): Promise<void> {
+      if (gridsReady) return Promise.resolve();
+
+      backdrop.style.visibility = "hidden";
+      backdrop.style.display = "flex";
+      panel.style.opacity = "0";
+      panel.style.pointerEvents = "none";
+      body.style.display = "none";
+      loadingEl.style.display = "none";
+
+      return ensureGrids().finally(() => {
+        if (!visible) hideBackdrop();
+      });
+    },
+
     open(options: LoadoutOverlayOpenOptions): void {
       loadout = sanitizeLoadout(options.loadout);
-      slotChosen = initialSlotChosen(options.footerMode, loadout);
       footerMode = options.footerMode;
       spawnEnabled = options.spawnEnabled ?? true;
       baselineLoadout = options.footerMode === "alive" ? sanitizeLoadout(options.loadout) : null;
       allowBackdropCancel = options.allowBackdropCancel ?? false;
       onChange = options.onChange;
       onSpawn = options.onSpawn;
-      onSpectate = options.onSpectate;
       onClose = options.onClose;
       onApply = options.onApply;
       onCancel = options.onCancel;
 
       titleEl.textContent = options.title ?? "Choose your weapons";
-      subtitleEl.textContent =
-        options.subtitle ?? "Choose both slots before spawning. Scroll wheel swaps in-game.";
+      if (options.subtitle) {
+        subtitleEl.textContent = options.subtitle;
+        subtitleEl.style.display = "block";
+      } else {
+        subtitleEl.textContent = "";
+        subtitleEl.style.display = "none";
+      }
 
-      loadingEl.style.display = gridsReady ? "none" : "block";
-      loadingEl.style.color = "#8a96a8";
-      body.style.display = gridsReady ? "flex" : "none";
+      loadingEl.style.display = "none";
+      body.style.display = "none";
+      panel.style.opacity = "0";
+      panel.style.pointerEvents = "none";
 
       refresh();
       if (options.releaseCapture !== false) releasePointerLockForUi();
       visible = true;
+      backdrop.style.visibility = "";
       backdrop.style.display = "flex";
-      void ensureGrids().then(() => {
-        if (!visible) return;
-        refresh();
-        startPreviewLoop();
-      });
+      void ensureGrids().then(revealPanel);
     },
     close: closeOverlay,
     setLoadout(next: Loadout): void {

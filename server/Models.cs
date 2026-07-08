@@ -5,6 +5,8 @@ public sealed record Vector3Dto(double X, double Y, double Z);
 public sealed class PlayerState
 {
     public required string Id { get; init; }
+    public required string RoomCode { get; init; }
+    public required string DisplayName { get; init; }
     public required Vector3Dto Position { get; set; }
     public double Yaw { get; set; }
     public double Pitch { get; set; }
@@ -22,6 +24,7 @@ public sealed class PlayerState
 
 public sealed record PlayerSnapshotDto(
     string Id,
+    string DisplayName,
     Vector3Dto Position,
     double Yaw,
     double Pitch,
@@ -29,10 +32,15 @@ public sealed record PlayerSnapshotDto(
     string CharacterId,
     string WeaponId);
 
-public sealed record LobbyMessage(
+public sealed record RoomJoinedMessage(
     string Type,
-    string SpectatorId,
-    IReadOnlyList<string> TakenCharacterIds);
+    string SessionId,
+    string RoomCode,
+    string DisplayName,
+    IReadOnlyList<string> TakenCharacterIds,
+    IReadOnlyList<PlayerSnapshotDto> Players);
+
+public sealed record RoomJoinRejectedMessage(string Type, string Reason);
 
 public sealed record TakenMessage(string Type, IReadOnlyList<string> CharacterIds);
 
@@ -41,17 +49,15 @@ public sealed record ClaimRejectedMessage(string Type, string Reason);
 public sealed record WelcomeMessage(
     string Type,
     string Id,
+    string DisplayName,
     Vector3Dto Position,
     string CharacterId,
-    string? WeaponId,
-    string? PrimaryWeaponId,
-    string? SecondaryWeaponId,
-    string ActiveSlot,
     IReadOnlyList<PlayerSnapshotDto> Roster);
 
 public sealed record JoinMessage(
     string Type,
     string Id,
+    string DisplayName,
     Vector3Dto Position,
     double Yaw,
     double Pitch,

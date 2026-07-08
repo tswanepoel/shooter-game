@@ -6,7 +6,9 @@ import {
   getActiveSlot,
   getPendingLoadout,
   stagePendingFromLife,
+  type Loadout,
 } from "../state/loadout.ts";
+import { setRoomJoined } from "../state/session.ts";
 import { getLoadoutOverlay } from "../ui/loadoutOverlay.ts";
 import { decodeServerMessage, type ClientMessage, type Vector3 } from "./wire.ts";
 
@@ -14,6 +16,21 @@ let socket: WebSocket | undefined;
 let localId: string | undefined;
 let deathAtMs: number | undefined;
 let handlersBound = false;
+let joinRoomPromise: Promise<void> | undefined;
+let joinRoomResolve: (() => void) | undefined;
+let joinRoomReject: ((error: Error) => void) | undefined;
+
+export type RoomJoinFailureReason = "nameTaken" | "invalid" | "connection";
+
+export class RoomJoinError extends Error {
+  readonly reason: RoomJoinFailureReason;
+
+  constructor(reason: RoomJoinFailureReason, message?: string) {
+    super(message ?? reason);
+    this.name = "RoomJoinError";
+    this.reason = reason;
+  }
+}
 
 function bindGameHandlers(): void {
   if (handlersBound) return;
@@ -60,8 +77,17 @@ function handleMessage(raw: string): void {
   if (!message) return;
 
   switch (message.type) {
-    case "lobby":
-      bus.emit("lobbyReady", message);
+    case "roomJoined":
+      setRoomJoined({
+        sessionId: message.sessionId,
+        roomCode: message.roomCode,
+        displayName: message.displayName,
+      });
+      bus.emit("roomJoined", message);
+      joinRoomResolve?.();
+      joinRoomResolve = undefined;
+      joinRoomReject = undefined;
+      joinRoomPromise = undefined;
       bus.emit("takenUpdated", {
         type: "taken",
         characterIds: message.takenCharacterIds,
@@ -69,6 +95,9 @@ function handleMessage(raw: string): void {
       break;
     case "taken":
       bus.emit("takenUpdated", message);
+      break;
+    case "roomJoinRejected":
+      rejectJoinRoom(new RoomJoinError(message.reason));
       break;
     case "claimRejected":
       bus.emit("claimRejected", message);
@@ -78,41 +107,32 @@ function handleMessage(raw: string): void {
       bus.emit("welcomed", message);
       break;
     case "join":
-      if (!localId) return;
       bus.emit("playerJoined", message);
       break;
     case "leave":
-      if (!localId) return;
       bus.emit("playerLeft", message);
       break;
     case "pos":
-      if (!localId) return;
       bus.emit("positionReceived", message);
       break;
     case "jump":
-      if (!localId) return;
       bus.emit("jumpReceived", message);
       break;
     case "fire":
-      if (!localId) return;
       bus.emit("fireReceived", message);
       break;
     case "weapon":
-      if (!localId) return;
       bus.emit("weaponReceived", message);
       break;
     case "health":
-      if (!localId) return;
       bus.emit("healthReceived", message);
       break;
     case "death":
-      if (!localId) return;
       if (message.victimId === localId) deathAtMs = message.deathAt ?? Date.now();
       bus.emit("deathReceived", message);
       break;
     case "respawn":
-      if (!localId) return;
-      if (message.id === localId) {
+      if (localId && message.id === localId) {
         deathAtMs = undefined;
         const loadout = commitPendingToLife();
         bus.emit("loadoutCommitted", loadout);
@@ -122,27 +142,64 @@ function handleMessage(raw: string): void {
   }
 }
 
-export function connectSpectator(): void {
-  if (socket) return;
+function rejectJoinRoom(error: Error): void {
+  joinRoomReject?.(error);
+  joinRoomResolve = undefined;
+  joinRoomReject = undefined;
+  joinRoomPromise = undefined;
+}
+
+export function connectAndJoinRoom(code: string, displayName: string): Promise<void> {
+  if (joinRoomPromise) return joinRoomPromise;
 
   bindGameHandlers();
+
+  joinRoomPromise = new Promise<void>((resolve, reject) => {
+    joinRoomResolve = resolve;
+    joinRoomReject = reject;
+  });
+
+  if (socket && socket.readyState !== WebSocket.CLOSED) {
+    socket.close();
+    socket = undefined;
+  }
+
   socket = new WebSocket(`ws://${window.location.hostname}:${WS_PORT}${WS_PATH}`);
 
+  socket.addEventListener("open", () => {
+    send({ type: "joinRoom", code, displayName });
+  });
+
   socket.addEventListener("error", () => {
-    console.error("websocket connection failed — is the server running?");
+    rejectJoinRoom(new RoomJoinError("connection", "websocket connection failed"));
+  });
+
+  socket.addEventListener("close", () => {
+    if (joinRoomPromise) {
+      rejectJoinRoom(new RoomJoinError("connection", "websocket closed before room join"));
+    }
   });
 
   socket.addEventListener("message", (event) => {
     handleMessage(String(event.data));
   });
+
+  return joinRoomPromise;
 }
 
-export function sendClaim(
-  characterId: string,
-  primaryWeaponId: string | null,
-  secondaryWeaponId: string | null,
-): void {
-  send({ type: "claim", characterId, primaryWeaponId, secondaryWeaponId });
+export function sendClaim(characterId: string): void {
+  send({ type: "claim", characterId });
+}
+
+export function sendLoadout(loadout: Loadout): void {
+  if (!localId) return;
+  send({
+    type: "loadout",
+    id: localId,
+    primaryWeaponId: loadout.primary,
+    secondaryWeaponId: loadout.secondary,
+    activeSlot: getActiveSlot(),
+  });
 }
 
 export function sendPosition(position: Vector3, yaw: number, pitch: number): void {

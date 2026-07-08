@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net.WebSockets;
 using System.Text.Json;
 using Server;
@@ -8,23 +7,18 @@ var app = builder.Build();
 
 app.UseWebSockets();
 
-var players = new ConcurrentDictionary<string, (WebSocket Socket, PlayerState State)>();
-var spectators = new ConcurrentDictionary<string, WebSocket>();
 var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+var roomManager = new RoomManager(jsonOptions);
 var combatCts = new CancellationTokenSource();
 
-async Task BroadcastToAllAsync(byte[] payload)
-{
-    foreach (var (_, (socket, _)) in players)
-    {
-        if (socket.State == WebSocketState.Open)
-        {
-            await socket.SendAsync(new ArraySegment<byte>(payload), WebSocketMessageType.Text, true, CancellationToken.None);
-        }
-    }
-}
+async Task BroadcastCombatForPlayerAsync(string playerId, byte[] payload) =>
+    await roomManager.BroadcastToRoomOfPlayerAsync(playerId, payload);
 
-var combat = new CombatService(players, jsonOptions, RandomSpawnPosition, BroadcastToAllAsync);
+var combat = new CombatService(
+    roomManager.Players,
+    jsonOptions,
+    RandomSpawnPosition,
+    BroadcastCombatForPlayerAsync);
 combat.StartRegenLoop(combatCts.Token);
 app.Lifetime.ApplicationStopping.Register(() => combatCts.Cancel());
 
@@ -39,15 +33,13 @@ app.Map("/ws", async (HttpContext context) =>
     }
 
     using var socket = await context.WebSockets.AcceptWebSocketAsync();
-    var spectatorId = Guid.NewGuid().ToString();
-    spectators[spectatorId] = socket;
-
-    await SendAsync(socket, new LobbyMessage("lobby", spectatorId, GetTakenCharacterIds()));
-
+    var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "";
+    string? sessionId = null;
     string? playerId = null;
+
     try
     {
-        playerId = await SessionLoopAsync(socket, spectatorId);
+        (sessionId, playerId) = await SessionLoopAsync(socket, clientIp);
     }
     catch (WebSocketException)
     {
@@ -57,13 +49,11 @@ app.Map("/ws", async (HttpContext context) =>
     {
         if (playerId is not null)
         {
-            players.TryRemove(playerId, out _);
-            await BroadcastAsync(playerId, new LeaveMessage("leave", playerId));
-            await BroadcastTakenAsync();
+            await roomManager.RemovePlayerAsync(playerId);
         }
-        else
+        else if (sessionId is not null)
         {
-            spectators.TryRemove(spectatorId, out _);
+            await roomManager.LeaveSessionAsync(sessionId);
         }
     }
 });
@@ -77,15 +67,6 @@ Vector3Dto RandomSpawnPosition()
     return new Vector3Dto(x, 0, z);
 }
 
-IReadOnlyList<string> GetTakenCharacterIds() =>
-    players.Values
-        .Select(p => p.State.CharacterId)
-        .Distinct()
-        .ToList();
-
-PlayerSnapshotDto ToSnapshot(PlayerState state) =>
-    new(state.Id, state.Position, state.Yaw, state.Pitch, state.Alive, state.CharacterId, state.WeaponId ?? string.Empty);
-
 async Task SendAsync<T>(WebSocket socket, T message)
 {
     var json = JsonSerializer.SerializeToUtf8Bytes(message, jsonOptions);
@@ -95,48 +76,183 @@ async Task SendAsync<T>(WebSocket socket, T message)
     }
 }
 
-async Task BroadcastAsync<T>(string excludeId, T message)
+async Task<(string? SessionId, string? PlayerId)> SessionLoopAsync(WebSocket socket, string clientIp)
 {
-    var json = JsonSerializer.SerializeToUtf8Bytes(message, jsonOptions);
-    foreach (var (playerId, (socket, _)) in players)
+    var buffer = new byte[8192];
+    string? sessionId = null;
+    string? playerId = null;
+    Room? room = null;
+
+    while (socket.State == WebSocketState.Open)
     {
-        if (playerId == excludeId || socket.State != WebSocketState.Open) continue;
-        await socket.SendAsync(new ArraySegment<byte>(json), WebSocketMessageType.Text, true, CancellationToken.None);
+        var payload = await ReadTextMessageAsync(socket, buffer);
+        if (payload is null) return (sessionId, playerId);
+
+        if (sessionId is null)
+        {
+            if (await TryJoinRoomAsync(socket, payload, clientIp) is { } joined)
+            {
+                sessionId = joined.SessionId;
+                room = joined.Room;
+            }
+
+            continue;
+        }
+
+        if (playerId is null)
+        {
+            if (await TryPromoteMemberAsync(socket, sessionId, room!, payload) is string claimedId)
+            {
+                playerId = claimedId;
+            }
+
+            continue;
+        }
+
+        if (combat.TryApplyHit(playerId, payload)) continue;
+        if (combat.TryRequestSuicide(playerId, payload)) continue;
+        if (combat.TryRequestRespawn(playerId, payload)) continue;
+        if (TryApplyLoadoutChange(playerId, payload))
+        {
+            await BroadcastWeaponAsync(playerId);
+            continue;
+        }
+        if (TryApplyWeaponChange(playerId, payload))
+        {
+            await BroadcastWeaponAsync(playerId);
+            continue;
+        }
+        await roomManager.RelayInRoomAsync(playerId, payload);
     }
+
+    return (sessionId, playerId);
 }
 
-async Task BroadcastTakenAsync()
+async Task<(string SessionId, Room Room)?> TryJoinRoomAsync(WebSocket socket, byte[] payload, string clientIp)
 {
-    var json = JsonSerializer.SerializeToUtf8Bytes(new TakenMessage("taken", GetTakenCharacterIds()), jsonOptions);
-    foreach (var (_, socket) in spectators)
+    string? code;
+    string? displayName;
+    try
     {
-        if (socket.State == WebSocketState.Open)
-        {
-            await socket.SendAsync(new ArraySegment<byte>(json), WebSocketMessageType.Text, true, CancellationToken.None);
-        }
+        using var doc = JsonDocument.Parse(payload);
+        var root = doc.RootElement;
+        if (!root.TryGetProperty("type", out var typeProp)) return null;
+        if (typeProp.GetString() != "joinRoom") return null;
+        if (!root.TryGetProperty("code", out var codeProp)) return null;
+        if (!root.TryGetProperty("displayName", out var nameProp)) return null;
+        code = codeProp.GetString();
+        displayName = nameProp.GetString();
+    }
+    catch (JsonException)
+    {
+        return null;
     }
 
-    foreach (var (_, (socket, _)) in players)
+    if (code is null || displayName is null) return null;
+
+    var (result, sessionId, room) = await roomManager.TryJoinAsync(socket, code, displayName, clientIp);
+    if (result == RoomJoinResult.NameTaken)
     {
-        if (socket.State == WebSocketState.Open)
-        {
-            await socket.SendAsync(new ArraySegment<byte>(json), WebSocketMessageType.Text, true, CancellationToken.None);
-        }
+        await SendAsync(socket, new RoomJoinRejectedMessage("roomJoinRejected", "nameTaken"));
+        return null;
     }
+
+    if (result == RoomJoinResult.Invalid)
+    {
+        await SendAsync(socket, new RoomJoinRejectedMessage("roomJoinRejected", "invalid"));
+        return null;
+    }
+
+    if (result != RoomJoinResult.Ok || sessionId is null || room is null) return null;
+    await SendAsync(socket, new RoomJoinedMessage(
+        "roomJoined",
+        sessionId,
+        room.Code,
+        displayName.Trim(),
+        room.GetTakenCharacterIds(),
+        room.BuildPlayerSnapshots()));
+
+    return (sessionId, room);
 }
 
-async Task RelayRawAsync(string senderId, byte[] payload)
+async Task<string?> TryPromoteMemberAsync(WebSocket socket, string sessionId, Room room, byte[] payload)
 {
-    foreach (var (playerId, (socket, _)) in players)
+    var member = room.GetMember(sessionId);
+    if (member is null) return null;
+
+    string? characterId;
+    try
     {
-        if (playerId == senderId || socket.State != WebSocketState.Open) continue;
-        await socket.SendAsync(new ArraySegment<byte>(payload), WebSocketMessageType.Text, true, CancellationToken.None);
+        using var doc = JsonDocument.Parse(payload);
+        var root = doc.RootElement;
+        if (!root.TryGetProperty("type", out var typeProp)) return null;
+        if (typeProp.GetString() != "claim") return null;
+        if (!root.TryGetProperty("characterId", out var characterProp)) return null;
+        characterId = characterProp.GetString();
     }
+    catch (JsonException)
+    {
+        return null;
+    }
+
+    if (characterId is null || !GameConfig.ValidCharacterIds.Contains(characterId))
+    {
+        await SendAsync(socket, new ClaimRejectedMessage("claimRejected", "invalidCharacter"));
+        return null;
+    }
+
+    if (room.GetTakenCharacterIds().Contains(characterId))
+    {
+        await SendAsync(socket, new ClaimRejectedMessage("claimRejected", "characterTaken"));
+        return null;
+    }
+
+    var playerId = Guid.NewGuid().ToString();
+    var spawnPosition = RandomSpawnPosition();
+    var state = new PlayerState
+    {
+        Id = playerId,
+        RoomCode = room.Code,
+        DisplayName = member.DisplayName,
+        Position = spawnPosition,
+        CharacterId = characterId,
+    };
+    LoadoutRules.Apply(state, null, null, "primary");
+
+    var roster = roomManager.Players.Values
+        .Where(entry => entry.State.RoomCode == room.Code)
+        .Select(entry => roomManager.ToSnapshot(entry.State))
+        .ToList();
+
+    roomManager.Players[playerId] = (socket, state);
+    roomManager.RegisterPlayer(playerId, room.Code, sessionId);
+
+    await SendAsync(socket, new WelcomeMessage(
+        "welcome",
+        playerId,
+        state.DisplayName,
+        spawnPosition,
+        state.CharacterId,
+        roster));
+    await room.BroadcastAsync(new JoinMessage(
+        "join",
+        playerId,
+        state.DisplayName,
+        spawnPosition,
+        state.Yaw,
+        state.Pitch,
+        state.Alive,
+        state.CharacterId,
+        state.WeaponId ?? string.Empty),
+        excludeSessionId: sessionId);
+    await roomManager.BroadcastTakenAsync(room);
+
+    return playerId;
 }
 
 bool TryApplyLoadoutChange(string senderId, byte[] payload)
 {
-    if (!players.TryGetValue(senderId, out var entry)) return false;
+    if (!roomManager.Players.TryGetValue(senderId, out var entry)) return false;
     if (!entry.State.Alive) return false;
 
     try
@@ -176,7 +292,7 @@ bool TryApplyLoadoutChange(string senderId, byte[] payload)
 
 bool TryApplyWeaponChange(string senderId, byte[] payload)
 {
-    if (!players.TryGetValue(senderId, out var entry)) return false;
+    if (!roomManager.Players.TryGetValue(senderId, out var entry)) return false;
     if (!entry.State.Alive) return false;
 
     try
@@ -203,7 +319,7 @@ bool TryApplyWeaponChange(string senderId, byte[] payload)
 
 async Task BroadcastWeaponAsync(string playerId)
 {
-    if (!players.TryGetValue(playerId, out var entry)) return;
+    if (!roomManager.Players.TryGetValue(playerId, out var entry)) return;
     var payload = JsonSerializer.SerializeToUtf8Bytes(new
     {
         type = "weapon",
@@ -211,129 +327,7 @@ async Task BroadcastWeaponAsync(string playerId)
         weaponId = entry.State.WeaponId ?? string.Empty,
         activeSlot = entry.State.ActiveSlot,
     }, jsonOptions);
-    await BroadcastToAllAsync(payload);
-}
-
-async Task<string?> SessionLoopAsync(WebSocket socket, string spectatorId)
-{
-    var buffer = new byte[8192];
-    string? playerId = null;
-
-    while (socket.State == WebSocketState.Open)
-    {
-        var payload = await ReadTextMessageAsync(socket, buffer);
-        if (payload is null) return playerId;
-
-        if (playerId is null)
-        {
-            if (await TryPromoteSpectatorAsync(socket, spectatorId, payload) is string claimedId)
-            {
-                playerId = claimedId;
-            }
-
-            continue;
-        }
-
-        if (combat.TryApplyHit(playerId, payload)) continue;
-        if (combat.TryRequestSuicide(playerId, payload)) continue;
-        if (combat.TryRequestRespawn(playerId, payload)) continue;
-        if (TryApplyLoadoutChange(playerId, payload))
-        {
-            await BroadcastWeaponAsync(playerId);
-            continue;
-        }
-        if (TryApplyWeaponChange(playerId, payload))
-        {
-            await BroadcastWeaponAsync(playerId);
-            continue;
-        }
-        await RelayRawAsync(playerId, payload);
-    }
-
-    return playerId;
-}
-
-async Task<string?> TryPromoteSpectatorAsync(WebSocket socket, string spectatorId, byte[] payload)
-{
-    string? characterId;
-    string? primaryWeaponId = null;
-    string? secondaryWeaponId = null;
-    try
-    {
-        using var doc = JsonDocument.Parse(payload);
-        var root = doc.RootElement;
-        if (!root.TryGetProperty("type", out var typeProp)) return null;
-        if (typeProp.GetString() != "claim") return null;
-        if (!root.TryGetProperty("characterId", out var characterProp)) return null;
-        characterId = characterProp.GetString();
-
-        if (root.TryGetProperty("primaryWeaponId", out var primaryProp))
-        {
-            primaryWeaponId = primaryProp.ValueKind == JsonValueKind.Null ? null : primaryProp.GetString();
-        }
-
-        if (root.TryGetProperty("secondaryWeaponId", out var secondaryProp))
-        {
-            secondaryWeaponId = secondaryProp.ValueKind == JsonValueKind.Null ? null : secondaryProp.GetString();
-        }
-    }
-    catch (JsonException)
-    {
-        return null;
-    }
-
-    if (characterId is null || !GameConfig.ValidCharacterIds.Contains(characterId))
-    {
-        await SendAsync(socket, new ClaimRejectedMessage("claimRejected", "invalidCharacter"));
-        return null;
-    }
-
-    if (players.Values.Any(p => p.State.CharacterId == characterId))
-    {
-        await SendAsync(socket, new ClaimRejectedMessage("claimRejected", "characterTaken"));
-        return null;
-    }
-
-    spectators.TryRemove(spectatorId, out _);
-
-    var playerId = Guid.NewGuid().ToString();
-    var spawnPosition = RandomSpawnPosition();
-    var state = new PlayerState
-    {
-        Id = playerId,
-        Position = spawnPosition,
-        CharacterId = characterId,
-    };
-    LoadoutRules.Apply(state, primaryWeaponId, secondaryWeaponId, "primary");
-
-    var roster = players.Values
-        .Select(p => ToSnapshot(p.State))
-        .ToList();
-
-    players[playerId] = (socket, state);
-
-    await SendAsync(socket, new WelcomeMessage(
-        "welcome",
-        playerId,
-        spawnPosition,
-        state.CharacterId,
-        state.WeaponId,
-        state.PrimaryWeaponId,
-        state.SecondaryWeaponId,
-        state.ActiveSlot,
-        roster));
-    await BroadcastAsync(playerId, new JoinMessage(
-        "join",
-        playerId,
-        spawnPosition,
-        state.Yaw,
-        state.Pitch,
-        state.Alive,
-        state.CharacterId,
-        state.WeaponId ?? string.Empty));
-    await BroadcastTakenAsync();
-
-    return playerId;
+    await roomManager.BroadcastToRoomOfPlayerAsync(playerId, payload);
 }
 
 async Task<byte[]?> ReadTextMessageAsync(WebSocket socket, byte[] buffer)

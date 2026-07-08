@@ -13,6 +13,11 @@ import {
   type LocomotionState,
   type PlayerAvatar,
 } from "./playerAvatar.ts";
+import {
+  createPlayerNameTag,
+  disposePlayerNameTag,
+  setPlayerNameTagText,
+} from "./playerNameTags.ts";
 
 export type { LocomotionState } from "./playerAvatar.ts";
 export { classifyLocomotionFromSpeed } from "./playerAvatar.ts";
@@ -29,6 +34,8 @@ interface LoadedPlayer {
   avatar: PlayerAvatar;
   characterId: string;
   weaponId: string;
+  nameTag: THREE.Sprite;
+  displayName: string;
 }
 
 const hitRoots = new Map<string, THREE.Object3D>();
@@ -110,6 +117,7 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
   function removeRemote(id: string): void {
     const entry = remotes.get(id);
     if (!entry) return;
+    disposePlayerNameTag(entry.nameTag);
     scene.remove(entry.avatar.root);
     hitRoots.delete(id);
     remotes.delete(id);
@@ -148,9 +156,17 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
       if (current.characterId !== character.id || current.weaponId !== weaponKey) return;
 
       avatar.root.userData.playerId = id;
+      const nameTag = createPlayerNameTag(current.displayName);
+      avatar.root.add(nameTag);
       scene.add(avatar.root);
       hitRoots.set(id, avatar.root);
-      remotes.set(id, { avatar, characterId: character.id, weaponId: weaponKey });
+      remotes.set(id, {
+        avatar,
+        characterId: character.id,
+        weaponId: weaponKey,
+        nameTag,
+        displayName: current.displayName,
+      });
     });
   }
 
@@ -222,6 +238,11 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
       }
 
       entry.avatar.weaponMesh.visible = remote.alive && entry.avatar.armed;
+      entry.nameTag.visible = remote.alive;
+      if (entry.displayName !== remote.displayName) {
+        entry.nameTag = setPlayerNameTagText(entry.nameTag, remote.displayName);
+        entry.displayName = remote.displayName;
+      }
       syncAvatar(
         entry.avatar,
         remote.position,

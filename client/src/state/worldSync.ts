@@ -2,55 +2,17 @@ import { bus } from "../bus.ts";
 import { HEALTH } from "../config/combat.ts";
 import { resolveCharacterId } from "../config/characters.ts";
 import { resolveWeaponSlot } from "../config/weapons.ts";
-import type { JoinMessage, PlayerSnapshot, WelcomeMessage } from "../net/wire.ts";
+import type { JoinMessage, PlayerSnapshot, RoomJoinedMessage, WelcomeMessage } from "../net/wire.ts";
 import { snapCascadeToTarget } from "../sim/aimCascade.ts";
 import { setActiveCharacterId } from "./character.ts";
-import {
-  getLifeLoadout,
-  pickDefaultActiveSlot,
-  setLifeLoadout,
-  type Loadout,
-} from "./loadout.ts";
+import { setPlayerRole } from "./session.ts";
+import { setLifeLoadout } from "./loadout.ts";
 import {
   localPlayer,
   remotePlayers,
   setLocalPlayerId,
   type RemotePlayerState,
 } from "./world.ts";
-
-function loadoutFromWelcome(message: {
-  weaponId?: string;
-  primaryWeaponId?: string | null;
-  secondaryWeaponId?: string | null;
-  activeSlot?: "primary" | "secondary";
-}): { loadout: Loadout; activeSlot: "primary" | "secondary" } {
-  const hasLoadoutPayload =
-    message.primaryWeaponId !== undefined ||
-    message.secondaryWeaponId !== undefined ||
-    message.activeSlot !== undefined;
-
-  if (hasLoadoutPayload) {
-    const loadout: Loadout = {
-      primary: resolveWeaponSlot(message.primaryWeaponId ?? message.weaponId),
-      secondary: resolveWeaponSlot(message.secondaryWeaponId),
-    };
-    return {
-      loadout,
-      activeSlot: message.activeSlot ?? pickDefaultActiveSlot(loadout),
-    };
-  }
-
-  const staged = getLifeLoadout();
-  if (staged.primary !== null || staged.secondary !== null) {
-    return { loadout: { ...staged }, activeSlot: pickDefaultActiveSlot(staged) };
-  }
-
-  const legacy: Loadout = {
-    primary: resolveWeaponSlot(message.weaponId),
-    secondary: null,
-  };
-  return { loadout: legacy, activeSlot: pickDefaultActiveSlot(legacy) };
-}
 
 function createRemotePlayer(snapshot: PlayerSnapshot): RemotePlayerState {
   const remote: RemotePlayerState = {
@@ -77,6 +39,7 @@ function createRemotePlayer(snapshot: PlayerSnapshot): RemotePlayerState {
     cascadeInitialized: false,
     alive: snapshot.alive,
     health: HEALTH.max,
+    displayName: snapshot.displayName,
     characterId: resolveCharacterId(snapshot.characterId),
     weaponId: resolveWeaponSlot(snapshot.weaponId) ?? "",
   };
@@ -87,6 +50,7 @@ function createRemotePlayer(snapshot: PlayerSnapshot): RemotePlayerState {
 function createRemotePlayerFromJoin(message: JoinMessage): RemotePlayerState {
   return createRemotePlayer({
     id: message.id,
+    displayName: message.displayName,
     position: message.position,
     yaw: message.yaw,
     pitch: message.pitch,
@@ -97,13 +61,19 @@ function createRemotePlayerFromJoin(message: JoinMessage): RemotePlayerState {
 }
 
 export function initWorldSync(): void {
+  bus.on("roomJoined", (message: RoomJoinedMessage) => {
+    remotePlayers.clear();
+    for (const snapshot of message.players ?? []) {
+      remotePlayers.set(snapshot.id, createRemotePlayer(snapshot));
+    }
+  });
+
   bus.on("welcomed", (message: WelcomeMessage) => {
+    setPlayerRole();
     setLocalPlayerId(message.id);
     localPlayer.id = message.id;
     setActiveCharacterId(resolveCharacterId(message.characterId));
-    const { loadout, activeSlot } = loadoutFromWelcome(message);
-    setLifeLoadout(loadout, activeSlot);
-    bus.emit("loadoutCommitted", loadout);
+    setLifeLoadout({ primary: null, secondary: null }, "primary");
     localPlayer.position.x = message.position.x;
     localPlayer.position.y = message.position.y;
     localPlayer.position.z = message.position.z;

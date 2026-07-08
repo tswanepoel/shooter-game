@@ -6,9 +6,9 @@ import type {
   JoinMessage,
   JumpMessage,
   LeaveMessage,
-  LobbyMessage,
   PosMessage,
   RespawnMessage,
+  RoomJoinedMessage,
   TakenMessage,
   WeaponMessage,
   WelcomeMessage,
@@ -62,7 +62,7 @@ export interface BusEvents {
   loadoutCommitted: { primary: string | null; secondary: string | null };
   controlEngaged: undefined;
   controlReleased: undefined;
-  lobbyReady: LobbyMessage;
+  roomJoined: RoomJoinedMessage;
   takenUpdated: TakenMessage;
   claimRejected: ClaimRejectedMessage;
   welcomed: WelcomeMessage;

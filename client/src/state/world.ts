@@ -62,6 +62,7 @@ export interface RemotePlayerState extends AimCascadeState {
   cascadeInitialized: boolean;
   alive: boolean;
   health: number;
+  displayName: string;
   characterId: string;
   weaponId: string;
 }

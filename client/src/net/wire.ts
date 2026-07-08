@@ -5,6 +5,7 @@ export type Vector3 = Vec3;
 
 export interface PlayerSnapshot {
   id: string;
+  displayName: string;
   position: Vector3;
   yaw: number;
   pitch: number;
@@ -13,10 +14,18 @@ export interface PlayerSnapshot {
   weaponId: string;
 }
 
-export interface LobbyMessage {
-  type: "lobby";
-  spectatorId: string;
+export interface RoomJoinedMessage {
+  type: "roomJoined";
+  sessionId: string;
+  roomCode: string;
+  displayName: string;
   takenCharacterIds: string[];
+  players: PlayerSnapshot[];
+}
+
+export interface RoomJoinRejectedMessage {
+  type: "roomJoinRejected";
+  reason: "nameTaken" | "invalid";
 }
 
 export interface TakenMessage {
@@ -32,18 +41,16 @@ export interface ClaimRejectedMessage {
 export interface WelcomeMessage {
   type: "welcome";
   id: string;
+  displayName: string;
   position: Vector3;
   characterId: string;
-  weaponId: string;
-  primaryWeaponId?: string | null;
-  secondaryWeaponId?: string | null;
-  activeSlot?: ActiveSlot;
   roster: PlayerSnapshot[];
 }
 
 export interface JoinMessage {
   type: "join";
   id: string;
+  displayName: string;
   position: Vector3;
   yaw: number;
   pitch: number;
@@ -132,12 +139,11 @@ export interface RespawnMessage {
 export interface ClaimMessage {
   type: "claim";
   characterId: string;
-  primaryWeaponId?: string | null;
-  secondaryWeaponId?: string | null;
 }
 
 export type ServerMessage =
-  | LobbyMessage
+  | RoomJoinedMessage
+  | RoomJoinRejectedMessage
   | TakenMessage
   | ClaimRejectedMessage
   | WelcomeMessage
@@ -151,7 +157,14 @@ export type ServerMessage =
   | DeathMessage
   | RespawnMessage;
 
+export interface JoinRoomMessage {
+  type: "joinRoom";
+  code: string;
+  displayName: string;
+}
+
 export type ClientMessage =
+  | JoinRoomMessage
   | ClaimMessage
   | PosMessage
   | JumpMessage
@@ -170,28 +183,11 @@ function readString(record: Record<string, unknown>, camel: string, pascal: stri
   return undefined;
 }
 
-function readNullableString(
-  record: Record<string, unknown>,
-  camel: string,
-  pascal: string,
-): string | null | undefined {
-  if (camel in record) {
-    const value = record[camel];
-    if (value === null) return null;
-    if (typeof value === "string") return value;
-  }
-  if (pascal in record) {
-    const value = record[pascal];
-    if (value === null) return null;
-    if (typeof value === "string") return value;
-  }
-  return undefined;
-}
-
 function normalizeSnapshot(raw: unknown): PlayerSnapshot | undefined {
   if (typeof raw !== "object" || raw === null) return undefined;
   const record = raw as Record<string, unknown>;
   const id = readString(record, "id", "Id");
+  const displayName = readString(record, "displayName", "DisplayName") ?? id ?? "Player";
   const position = record.position ?? record.Position;
   if (!id || typeof position !== "object" || position === null) return undefined;
 
@@ -211,7 +207,7 @@ function normalizeSnapshot(raw: unknown): PlayerSnapshot | undefined {
   }
   if (!characterId || weaponId === undefined) return undefined;
 
-  return { id, position: { x, y, z }, yaw, pitch, alive, characterId, weaponId };
+  return { id, displayName, position: { x, y, z }, yaw, pitch, alive, characterId, weaponId };
 }
 
 export function decodeServerMessage(raw: string): ServerMessage | undefined {
@@ -221,7 +217,7 @@ export function decodeServerMessage(raw: string): ServerMessage | undefined {
   const record = parsed as Record<string, unknown>;
   const type = record.type;
 
-  if (type === "lobby" || type === "taken") {
+  if (type === "taken" || type === "roomJoined") {
     const takenRaw = record.takenCharacterIds ?? record.TakenCharacterIds ?? record.characterIds ?? record.CharacterIds;
     if (Array.isArray(takenRaw)) {
       record.takenCharacterIds = takenRaw.filter((id): id is string => typeof id === "string");
@@ -229,7 +225,21 @@ export function decodeServerMessage(raw: string): ServerMessage | undefined {
     }
   }
 
+  if (type === "roomJoined") {
+    const playersRaw = record.players ?? record.Players;
+    if (Array.isArray(playersRaw)) {
+      record.players = playersRaw
+        .map((entry) => normalizeSnapshot(entry))
+        .filter((entry): entry is PlayerSnapshot => entry !== undefined);
+    } else {
+      record.players = [];
+    }
+  }
+
   if (type === "welcome" || type === "join") {
+    const id = readString(record, "id", "Id");
+    const displayName = readString(record, "displayName", "DisplayName") ?? id ?? "Player";
+    record.displayName = displayName;
     const characterId = readString(record, "characterId", "CharacterId");
     if (characterId) record.characterId = characterId;
     const weaponId = readString(record, "weaponId", "WeaponId");
@@ -237,15 +247,6 @@ export function decodeServerMessage(raw: string): ServerMessage | undefined {
   }
 
   if (type === "welcome") {
-    const primaryWeaponId = readNullableString(record, "primaryWeaponId", "PrimaryWeaponId");
-    if (primaryWeaponId !== undefined) record.primaryWeaponId = primaryWeaponId;
-
-    const secondaryWeaponId = readNullableString(record, "secondaryWeaponId", "SecondaryWeaponId");
-    if (secondaryWeaponId !== undefined) record.secondaryWeaponId = secondaryWeaponId;
-
-    const activeSlot = readString(record, "activeSlot", "ActiveSlot");
-    if (activeSlot === "primary" || activeSlot === "secondary") record.activeSlot = activeSlot;
-
     const rosterRaw = record.roster ?? record.Roster;
     if (Array.isArray(rosterRaw)) {
       record.roster = rosterRaw

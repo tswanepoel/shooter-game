@@ -2,6 +2,7 @@ import { bus } from "../bus.ts";
 import { HEALTH } from "../config/combat.ts";
 import { STAMINA } from "../config/physics.ts";
 import { snapCascadeToTarget } from "./aimCascade.ts";
+import { resetRecoil } from "./recoilCascade.ts";
 import { getLocalPlayerId, localPlayer, remotePlayers } from "../state/world.ts";
 
 export function initHealth(): void {
@@ -25,10 +26,14 @@ export function initHealth(): void {
       localPlayer.alive = false;
       localPlayer.targetPitch = 0;
       snapCascadeToTarget(localPlayer);
+      resetRecoil(localPlayer.recoil);
       return;
     }
     const remote = remotePlayers.get(victimId);
-    if (remote) remote.alive = false;
+    if (remote) {
+      remote.alive = false;
+      resetRecoil(remote.recoil);
+    }
   });
 
   bus.on("respawnReceived", ({ id, position }) => {
@@ -59,5 +64,6 @@ export function initHealth(): void {
     remote.alive = true;
     remote.velocityY = 0;
     remote.grounded = true;
+    resetRecoil(remote.recoil);
   });
 }

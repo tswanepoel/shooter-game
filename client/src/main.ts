@@ -19,13 +19,17 @@ import { createScene } from "./render/scene.ts";
 
 import { bindLocalWeaponMuzzleLineSampler } from "./sim/aimDirection.ts";
 import { tickAimCascade } from "./sim/aimCascade.ts";
+import { tickRecoilCascade } from "./sim/recoilCascade.ts";
 import { initCombatFeedback, tickCombatFeedback } from "./sim/combatFeedback.ts";
 import { initHealth } from "./sim/health.ts";
 import { initMovement, tickMovement } from "./sim/movement.ts";
 import {
   advanceProjectiles,
+  bindProjectileAimPoseSync,
+  bindRemoteProjectileAimSync,
   bindProjectileEyeSampler,
   initProjectiles,
+  isFireActive,
   tickProjectileFire,
 } from "./sim/projectiles.ts";
 import { initRemoteSync, tickRemoteSync } from "./sim/remoteSync.ts";
@@ -66,6 +70,8 @@ const deathOverlay = createDeathOverlay();
 let gameStarted = false;
 const playerScene = createPlayerSceneManager(scene);
 bindProjectileEyeSampler(playerScene.sampleEyeWorldPosition);
+bindProjectileAimPoseSync(playerScene.syncLocalAimPose);
+bindRemoteProjectileAimSync(playerScene.syncRemoteAimPose, playerScene.sampleRemoteWeaponMuzzleLine);
 bindLocalWeaponMuzzleLineSampler(playerScene.sampleLocalWeaponMuzzleLine);
 
 initWorldSync();
@@ -129,9 +135,10 @@ function tick(dt: number): void {
   tickForfeit();
   tickMovement(dt);
   tickAimCascade(dt);
+  tickRecoilCascade(localPlayer.recoil, dt, isFireActive());
+  tickProjectileFire(dt, camera);
   playerScene.update(dt);
   playerScene.applyCamera(camera);
-  tickProjectileFire(dt, camera);
   tickRemoteSync(dt);
   tickPosBroadcast(dt);
 }

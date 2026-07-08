@@ -1,7 +1,9 @@
 import { bus } from "../bus.ts";
 import { GRAVITY, JUMP_SPEED, REMOTE_POSITION_LERP_RATE } from "../config/physics.ts";
 import { remotePlayers } from "../state/world.ts";
+import { tryGetWeaponRecipe } from "../config/weapons.ts";
 import { snapCascadeToTarget, tickCascade } from "./aimCascade.ts";
+import { isRecoilFiring, tickRecoilCascade } from "./recoilCascade.ts";
 import { getShipmentGroundHeight } from "./shipmentCollision.ts";
 
 export function initRemoteSync(): void {
@@ -67,5 +69,8 @@ export function tickRemoteSync(dt: number): void {
     }
 
     tickCascade(remote, dt);
+
+    const weapon = tryGetWeaponRecipe(remote.weaponId);
+    tickRecoilCascade(remote.recoil, dt, isRecoilFiring(remote.recoil, weapon?.fireRate));
   }
 }

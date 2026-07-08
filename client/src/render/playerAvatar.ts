@@ -8,6 +8,7 @@ import {
 import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
 import type { WeaponRecipe } from "../config/weapons.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
+import type { RecoilPoseOffsets } from "../sim/recoilCascade.ts";
 import { makeDampedWalkLocomotionClip } from "./locomotionClips.ts";
 import {
   bakeMuzzleOffsetInWeaponLocal,
@@ -83,9 +84,11 @@ export interface PlayerAvatar {
   readonly armed: boolean;
   setLocomotion(state: LocomotionState): void;
   triggerMuzzleFlash(): void;
-  update(dt: number, aim?: AimCascadeState): void;
+  update(dt: number, aim?: AimCascadeState, recoil?: RecoilPoseOffsets): void;
+  syncAimPose(aim: AimCascadeState, recoil?: RecoilPoseOffsets): void;
   updateDeath(dt: number): void;
   sampleEyeWorldPosition(out: THREE.Vector3): void;
+  applyObserverCamera(camera: THREE.PerspectiveCamera): void;
   applyDeathCamera(camera: THREE.PerspectiveCamera): void;
   sampleWeaponMuzzleLine(outOrigin: THREE.Vector3, outDirection: THREE.Vector3): void;
   dispose(): void;
@@ -211,10 +214,23 @@ export async function loadPlayerAvatar(
     setAimPivot(armAimPivot, 0, 0);
   }
 
-  function applyAimPose(aim: AimCascadeState): void {
-    setAimPivot(torsoAimPivot, -aim.torsoPitch, 0);
-    setAimPivot(headAimPivot, -aim.headPitch, aim.headYaw - aim.torsoYaw);
-    setAimPivot(armAimPivot, -aim.shoulderPitch, 0);
+  function applyAimPose(aim: AimCascadeState, recoil?: RecoilPoseOffsets): void {
+    const r = recoil;
+    setAimPivot(
+      torsoAimPivot,
+      -aim.torsoPitch - (r?.torsoPitch ?? 0),
+      -(r?.torsoYaw ?? 0),
+    );
+    setAimPivot(
+      headAimPivot,
+      -aim.targetPitch - (r?.headPitch ?? 0),
+      aim.targetYaw - aim.torsoYaw + (r?.headYaw ?? 0),
+    );
+    setAimPivot(
+      armAimPivot,
+      -aim.shoulderPitch - (r?.shoulderPitch ?? 0),
+      -(r?.shoulderYaw ?? 0),
+    );
   }
 
   function updateDeath(dt: number): void {
@@ -237,13 +253,17 @@ export async function loadPlayerAvatar(
     out.copy(eyeOffset).applyMatrix4(headBone.matrixWorld);
   }
 
-  function applyDeathCamera(camera: THREE.PerspectiveCamera): void {
+  function applyObserverCamera(camera: THREE.PerspectiveCamera): void {
     sampleEyeWorldPosition(camera.position);
     headForward.set(0, 0, 1).transformDirection(headBone.matrixWorld).normalize();
     lookTarget.copy(camera.position).add(headForward);
     lookAtMatrix.lookAt(camera.position, lookTarget, worldUp);
     camera.quaternion.setFromRotationMatrix(lookAtMatrix);
     camera.rotation.setFromQuaternion(camera.quaternion, "YXZ");
+  }
+
+  function applyDeathCamera(camera: THREE.PerspectiveCamera): void {
+    applyObserverCamera(camera);
   }
 
   function sampleWeaponMuzzleLine(outOrigin: THREE.Vector3, outDirection: THREE.Vector3): void {
@@ -268,7 +288,11 @@ export async function loadPlayerAvatar(
     mixer.update(0);
   }
 
-  function update(dt: number, aim?: AimCascadeState): void {
+  function syncAimPose(aim: AimCascadeState, recoil?: RecoilPoseOffsets): void {
+    applyAimPose(aim, recoil);
+  }
+
+  function update(dt: number, aim?: AimCascadeState, recoil?: RecoilPoseOffsets): void {
     if (deathActive) {
       deathActive = false;
       restoreAlivePose();
@@ -276,7 +300,7 @@ export async function loadPlayerAvatar(
     walkAction.setEffectiveWeight(approach(walkAction.getEffectiveWeight(), targetWeight.walk, dt));
     sprintAction.setEffectiveWeight(approach(sprintAction.getEffectiveWeight(), targetWeight.sprint, dt));
     mixer.update(dt);
-    if (aim) applyAimPose(aim);
+    if (aim) applyAimPose(aim, recoil);
 
     if (muzzleFlashTimer > 0) {
       muzzleFlashTimer -= dt;
@@ -304,8 +328,10 @@ export async function loadPlayerAvatar(
     setLocomotion,
     triggerMuzzleFlash,
     update,
+    syncAimPose,
     updateDeath,
     sampleEyeWorldPosition,
+    applyObserverCamera,
     applyDeathCamera,
     sampleWeaponMuzzleLine,
     dispose,

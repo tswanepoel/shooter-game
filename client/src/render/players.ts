@@ -4,6 +4,7 @@ import { getCharacterRecipe } from "../config/characters.ts";
 import type { CharacterRecipe } from "../config/characters.ts";
 import { getWeaponRecipe, resolveWeaponSlot, type WeaponRecipe } from "../config/weapons.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
+import { getRecoilPoseOffsets } from "../sim/recoilCascade.ts";
 import { getLocalPlayerId, localPlayer, remotePlayers } from "../state/world.ts";
 import type { Vec3 } from "../types/vec3.ts";
 import {
@@ -26,8 +27,15 @@ export interface PlayerSceneManager {
   loadLocal(character: CharacterRecipe, weapon: WeaponRecipe | null): Promise<void>;
   update(dt: number): void;
   applyCamera(camera: THREE.PerspectiveCamera): void;
+  syncLocalAimPose(): void;
+  syncRemoteAimPose(playerId: string): void;
   sampleEyeWorldPosition(playerId: string, out: THREE.Vector3): boolean;
   sampleLocalWeaponMuzzleLine(outOrigin: THREE.Vector3, outDirection: THREE.Vector3): boolean;
+  sampleRemoteWeaponMuzzleLine(
+    playerId: string,
+    outOrigin: THREE.Vector3,
+    outDirection: THREE.Vector3,
+  ): boolean;
 }
 
 interface LoadedPlayer {
@@ -39,7 +47,6 @@ interface LoadedPlayer {
 }
 
 const hitRoots = new Map<string, THREE.Object3D>();
-const eyeWorld = new THREE.Vector3();
 
 export function getCharacterHitRoots(): THREE.Object3D[] {
   return Array.from(hitRoots.values());
@@ -57,13 +64,14 @@ function syncAvatar(
   locomotion: LocomotionState,
   dt: number,
   aim?: AimCascadeState,
+  recoil?: ReturnType<typeof getRecoilPoseOffsets>,
 ): void {
   avatar.root.position.set(position.x, position.y, position.z);
   avatar.root.rotation.y = torsoYaw + Math.PI;
 
   if (alive) {
     avatar.setLocomotion(locomotion);
-    avatar.update(dt, aim);
+    avatar.update(dt, aim, recoil);
     return;
   }
 
@@ -111,6 +119,17 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
   ): boolean {
     if (!localAvatar?.armed) return false;
     localAvatar.sampleWeaponMuzzleLine(outOrigin, outDirection);
+    return true;
+  }
+
+  function sampleRemoteWeaponMuzzleLine(
+    playerId: string,
+    outOrigin: THREE.Vector3,
+    outDirection: THREE.Vector3,
+  ): boolean {
+    const entry = remotes.get(playerId);
+    if (!entry?.avatar.armed) return false;
+    entry.avatar.sampleWeaponMuzzleLine(outOrigin, outDirection);
     return true;
   }
 
@@ -195,6 +214,7 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
     if (!localAvatar) return;
 
     localAvatar.weaponMesh.visible = localPlayer.alive && localAvatar.armed;
+    const recoilPose = getRecoilPoseOffsets(localPlayer.recoil);
     syncAvatar(
       localAvatar,
       localPlayer.position,
@@ -203,17 +223,27 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
       classifyLocalLocomotion(localPlayer.sprinting, localPlayer.horizontalSpeed),
       dt,
       localPlayer,
+      recoilPose,
     );
+  }
+
+  function syncLocalAimPose(): void {
+    if (!localAvatar || !localPlayer.alive) return;
+    localAvatar.syncAimPose(localPlayer, getRecoilPoseOffsets(localPlayer.recoil));
+  }
+
+  function syncRemoteAimPose(playerId: string): void {
+    const entry = remotes.get(playerId);
+    const remote = remotePlayers.get(playerId);
+    if (!entry || !remote?.alive) return;
+    entry.avatar.syncAimPose(remote, getRecoilPoseOffsets(remote.recoil));
   }
 
   function applyCamera(camera: THREE.PerspectiveCamera): void {
     if (!localAvatar) return;
 
     if (localPlayer.alive) {
-      localAvatar.sampleEyeWorldPosition(eyeWorld);
-      camera.position.copy(eyeWorld);
-      camera.rotation.y = localPlayer.targetYaw;
-      camera.rotation.x = localPlayer.targetPitch;
+      localAvatar.applyObserverCamera(camera);
       return;
     }
 
@@ -251,6 +281,7 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
         classifyLocomotionFromSpeed(remote.measuredSpeed),
         dt,
         remote,
+        getRecoilPoseOffsets(remote.recoil),
       );
     }
 
@@ -261,7 +292,10 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
     loadLocal,
     update,
     applyCamera,
+    syncLocalAimPose,
+    syncRemoteAimPose,
     sampleEyeWorldPosition,
     sampleLocalWeaponMuzzleLine,
+    sampleRemoteWeaponMuzzleLine,
   };
 }

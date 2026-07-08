@@ -4,6 +4,7 @@ import { resolveCharacterId } from "../config/characters.ts";
 import { resolveWeaponSlot } from "../config/weapons.ts";
 import type { JoinMessage, PlayerSnapshot, RoomJoinedMessage, WelcomeMessage } from "../net/wire.ts";
 import { snapCascadeToTarget } from "../sim/aimCascade.ts";
+import { createRecoilState, resetRecoil } from "../sim/recoilCascade.ts";
 import { setActiveCharacterId } from "./character.ts";
 import { setPlayerRole } from "./session.ts";
 import { setLifeLoadout } from "./loadout.ts";
@@ -36,6 +37,7 @@ function createRemotePlayer(snapshot: PlayerSnapshot): RemotePlayerState {
     headPitch: 0,
     shoulderPitch: 0,
     armPitch: 0,
+    recoil: createRecoilState(snapshot.id),
     cascadeInitialized: false,
     alive: snapshot.alive,
     health: HEALTH.max,
@@ -77,6 +79,7 @@ export function initWorldSync(): void {
     localPlayer.position.x = message.position.x;
     localPlayer.position.y = message.position.y;
     localPlayer.position.z = message.position.z;
+    localPlayer.recoil.seedId = message.id;
 
     remotePlayers.clear();
     for (const snapshot of message.roster) {
@@ -94,6 +97,8 @@ export function initWorldSync(): void {
 
   bus.on("weaponReceived", ({ id, weaponId }) => {
     const remote = remotePlayers.get(id);
-    if (remote) remote.weaponId = resolveWeaponSlot(weaponId) ?? "";
+    if (!remote) return;
+    remote.weaponId = resolveWeaponSlot(weaponId) ?? "";
+    resetRecoil(remote.recoil);
   });
 }

@@ -1,13 +1,20 @@
 import * as THREE from "three";
 import { bus } from "../bus.ts";
+import { tryGetWeaponRecipe } from "../config/weapons.ts";
 import { getActiveWeapon } from "../state/loadout.ts";
 import { sendHit } from "../net/connection.ts";
 import { getLocalPlayerId, localPlayer, projectiles, remotePlayers } from "../state/world.ts";
 import type { Vec3 } from "../types/vec3.ts";
+import { applyRecoilImpulse } from "./recoilCascade.ts";
 import { computeAimRay } from "./aimDirection.ts";
 
 let fireHeld = false;
 let controlEngaged = false;
+let syncAimPoseBeforeFire: (() => void) | undefined;
+let syncRemoteAimPoseBeforeFire: ((playerId: string) => void) | undefined;
+let sampleRemoteWeaponMuzzleLine:
+  | ((playerId: string, outOrigin: THREE.Vector3, outDirection: THREE.Vector3) => boolean)
+  | undefined;
 let cooldown = 0;
 let nextId = 1;
 
@@ -20,6 +27,22 @@ const fireDirection = new THREE.Vector3();
 let samplePlayerEyeWorldPosition:
   | ((playerId: string, out: THREE.Vector3) => boolean)
   | undefined;
+
+export function bindProjectileAimPoseSync(sync: () => void): void {
+  syncAimPoseBeforeFire = sync;
+}
+
+export function bindRemoteProjectileAimSync(
+  syncRemoteAimPose: (playerId: string) => void,
+  sampleMuzzleLine: (playerId: string, outOrigin: THREE.Vector3, outDirection: THREE.Vector3) => boolean,
+): void {
+  syncRemoteAimPoseBeforeFire = syncRemoteAimPose;
+  sampleRemoteWeaponMuzzleLine = sampleMuzzleLine;
+}
+
+export function isFireActive(): boolean {
+  return fireHeld && controlEngaged && localPlayer.alive;
+}
 
 export function bindProjectileEyeSampler(
   sampler: (playerId: string, out: THREE.Vector3) => boolean,
@@ -44,9 +67,24 @@ export function initProjectiles(): void {
 
   bus.on("fireReceived", ({ id }) => {
     // Cosmetic only: the remote's own client owns hit authority for its shots.
-    if (!remotePlayers.get(id)) return;
+    const remote = remotePlayers.get(id);
+    if (!remote?.alive || !remote.weaponId) return;
+
+    const weapon = tryGetWeaponRecipe(remote.weaponId);
+    if (!weapon) return;
+    applyRecoilImpulse(remote.recoil, weapon);
+    syncRemoteAimPoseBeforeFire?.(id);
+
+    if (sampleRemoteWeaponMuzzleLine?.(id, fireOrigin, fireDirection)) {
+      spawnProjectile(
+        { x: fireOrigin.x, y: fireOrigin.y, z: fireOrigin.z },
+        fireDirection,
+        id,
+      );
+      return;
+    }
+
     if (!samplePlayerEyeWorldPosition?.(id, fireOrigin)) return;
-    const remote = remotePlayers.get(id)!;
     spawnProjectile(
       { x: fireOrigin.x, y: fireOrigin.y, z: fireOrigin.z },
       { yaw: remote.torsoYaw, pitch: remote.armPitch },
@@ -64,6 +102,8 @@ export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
   cooldown = Math.max(0, cooldown - dt);
 
   if (fireHeld && controlEngaged && localPlayer.alive && cooldown <= 0) {
+    applyRecoilImpulse(localPlayer.recoil, weapon);
+    syncAimPoseBeforeFire?.();
     computeAimRay(fireOrigin, fireDirection, camera);
     spawnProjectile(
       {

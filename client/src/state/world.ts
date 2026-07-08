@@ -1,8 +1,10 @@
 import { STAMINA } from "../config/physics.ts";
 import type { AimCascadeState } from "../sim/aimCascade.ts";
+import { createRecoilState, type RecoilCascadeState } from "../sim/recoilCascade.ts";
 import type { Vec3 } from "../types/vec3.ts";
 
 export interface LocalPlayerState extends AimCascadeState {
+  recoil: RecoilCascadeState;
   id?: string;
   position: Vec3;
   health: number;
@@ -32,6 +34,7 @@ export const localPlayer: LocalPlayerState = {
   headPitch: 0,
   shoulderPitch: 0,
   armPitch: 0,
+  recoil: createRecoilState(),
   stamina: STAMINA.max,
   sprinting: false,
   horizontalSpeed: 0,
@@ -52,6 +55,7 @@ export interface Projectile {
 export const projectiles: Projectile[] = [];
 
 export interface RemotePlayerState extends AimCascadeState {
+  recoil: RecoilCascadeState;
   id: string;
   position: Vec3;
   targetPosition: Vec3;

@@ -29,7 +29,7 @@ Tracked tuning, polish, and feature gaps.
 - [x] **7. Hit marker misaligned** — height off; not centered over crosshair.
 - [x] **8. Damage-hit cue weak** — vignette/indicator needs a more impactful being-hit cue.
 - [x] **24. Hit marker unimpressive** — alignment fixed but feedback still too subtle; needs stronger visual punch.
-- [ ] **63. Fire kick through body to camera** — shots need recoil that drives real motion through the aim cascade (arms/torso/head) and ultimately the head-mounted camera, not cosmetic weapon-mesh-only kick.
+- [ ] **63. Fire kick through body to camera** — shots need recoil that drives real motion through the aim cascade (arms/torso) and ultimately the head-mounted camera, not cosmetic weapon-mesh-only kick.
 
 ## Weapons
 

@@ -1,7 +1,10 @@
 import { bus } from "../bus.ts";
 import { CHARACTER_IDS } from "../config/characters.ts";
 import { sendClaim, sendLoadout } from "../net/connection.ts";
-import { getPendingLoadout, setLobbyLoadout } from "../state/loadout.ts";
+import { LoadoutModule } from "../modules/loadout/index.ts";
+import { LoadoutIntentModule } from "../modules/loadout-intent/index.ts";
+import { loadoutIntentState } from "../input/loadoutMenu.ts";
+import { localPlayer } from "../state/world.ts";
 import { getDisplayName, setSpectatorRole } from "../state/session.ts";
 import { getLoadoutOverlay } from "./loadoutOverlay.ts";
 import { SECONDARY_BUTTON_STYLE } from "./sharedUi.ts";
@@ -175,10 +178,11 @@ export function showLobby(handlers: LobbyHandlers): void {
       if (disposed || selectedId !== id) return;
       loadoutOverlay.open({
         footerMode: "spawn",
-        loadout: getPendingLoadout(),
+        loadout: loadoutIntentState.pending,
         onSpawn: (loadout) => {
           loadoutOverlay.close();
-          setLobbyLoadout(loadout);
+          LoadoutModule.set(localPlayer.loadout, loadout);
+          LoadoutIntentModule.setPending(loadoutIntentState, loadout);
           sendLoadout(loadout);
           bus.emit("joinSpawnClicked", undefined);
           handlers.onSpawn();

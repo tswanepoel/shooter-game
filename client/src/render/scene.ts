@@ -1,6 +1,7 @@
 import * as THREE from "three";
-import { CAMERA_FOV } from "../config/physics.ts";
 import { createAsphaltTexture, createTiledStandardMaterial } from "./proceduralTextures.ts";
+
+const CAMERA_FOV = 90;
 
 export interface SceneContext {
   scene: THREE.Scene;

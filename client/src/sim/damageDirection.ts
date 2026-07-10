@@ -5,8 +5,8 @@ export function bearingToAttacker(attackerId: string): number | undefined {
   const attacker = remotePlayers.get(attackerId);
   if (!attacker) return undefined;
 
-  const dx = attacker.position.x - localPlayer.position.x;
-  const dz = attacker.position.z - localPlayer.position.z;
+  const dx = attacker.x - localPlayer.x;
+  const dz = attacker.z - localPlayer.z;
   if (dx * dx + dz * dz < 1e-6) return undefined;
 
   const worldBearing = Math.atan2(-dx, -dz);

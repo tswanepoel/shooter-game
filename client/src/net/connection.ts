@@ -1,16 +1,15 @@
 import { bus } from "../bus.ts";
 import { RESPAWN } from "../config/combat.ts";
-import { WS_PATH, WS_PORT } from "../config/network.ts";
-import {
-  commitPendingToLife,
-  getActiveSlot,
-  getPendingLoadout,
-  stagePendingFromLife,
-  type Loadout,
-} from "../state/loadout.ts";
+import { LoadoutModule, type LoadoutState as Loadout } from "../modules/loadout/index.ts";
+import { loadoutIntentState } from "../input/loadoutMenu.ts";
+import { WeaponSwapModule } from "../modules/weapon-swap/index.ts";
+import { getActiveSlot, localPlayer } from "../state/world.ts";
 import { setRoomJoined } from "../state/session.ts";
 import { getLoadoutOverlay } from "../ui/loadoutOverlay.ts";
 import { decodeServerMessage, type ClientMessage, type Vector3 } from "./wire.ts";
+
+const WS_PORT = 5179;
+const WS_PATH = "/ws";
 
 let socket: WebSocket | undefined;
 let localId: string | undefined;
@@ -42,7 +41,6 @@ function bindGameHandlers(): void {
   bus.on("deathReceived", ({ victimId, deathAt }) => {
     if (victimId !== localId) return;
     deathAtMs = deathAt ?? Date.now();
-    stagePendingFromLife();
   });
 
   bus.on("respawnRequested", () => {
@@ -51,7 +49,7 @@ function bindGameHandlers(): void {
     const elapsed = Date.now() - deathAtMs;
     if (elapsed < RESPAWN.minDelay * 1000) return;
 
-    const pending = getPendingLoadout();
+    const pending = loadoutIntentState.pending;
     send({
       type: "respawn",
       id: localId,
@@ -134,7 +132,8 @@ function handleMessage(raw: string): void {
     case "respawn":
       if (localId && message.id === localId) {
         deathAtMs = undefined;
-        const loadout = commitPendingToLife();
+        const loadout = LoadoutModule.set(localPlayer.loadout, loadoutIntentState.pending);
+        WeaponSwapModule.setActiveSlot(localPlayer.weaponSwap, WeaponSwapModule.resolveDefaultSlot(loadout));
         bus.emit("loadoutCommitted", loadout);
       }
       bus.emit("respawnReceived", message);

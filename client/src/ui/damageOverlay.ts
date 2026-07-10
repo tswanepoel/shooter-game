@@ -1,5 +1,4 @@
-import { HEALTH } from "../config/combat.ts";
-import { DAMAGE_OVERLAY } from "../config/feedback.ts";
+import { maxHealth } from "../modules/health/index.ts";
 import { bearingToAttacker } from "../sim/damageDirection.ts";
 import { localPlayer } from "../state/world.ts";
 
@@ -8,6 +7,22 @@ export interface DamageOverlay {
   tick(dt: number): void;
   reset(): void;
 }
+
+const DAMAGE_OVERLAY = {
+  maxConcurrentSplats: 4,
+  splatSizePx: 200,
+  edgeInsetPercent: 38,
+  rotationJitterDegrees: 32,
+  animDuration: 0.1,
+  holdDuration: 0.18,
+  fadeDuration: 0.65,
+  vignetteMaxOpacity: 0.85,
+  vignetteStackPerHit: 0.55,
+  vignettePulseDecayRate: 7,
+  vignetteRestMax: 0.72,
+  vignetteRestCurve: 1.2,
+  vignetteRestSmoothing: 5,
+} as const;
 
 interface SplatSequence {
   prefix: string;
@@ -86,7 +101,7 @@ export function createDamageOverlay(): DamageOverlay {
   const slots: SplatSlot[] = [];
 
   function healthRestTarget(health: number): number {
-    const missing = 1 - health / HEALTH.max;
+    const missing = 1 - health / maxHealth;
     if (missing <= 0) return 0;
     return missing ** DAMAGE_OVERLAY.vignetteRestCurve * DAMAGE_OVERLAY.vignetteRestMax;
   }

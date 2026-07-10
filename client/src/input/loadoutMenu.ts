@@ -1,29 +1,23 @@
 import { bus } from "../bus.ts";
 import { RESPAWN } from "../config/combat.ts";
-import { isLoadoutMenuKey } from "../config/keybinds.ts";
-import {
-  clearPendingPreserve,
-  getLifeLoadout,
-  getPendingLoadout,
-  preservePendingLoadoutForNextDeath,
-  setPendingSlot,
-  stagePendingFromLife,
-} from "../state/loadout.ts";
+import { LoadoutIntentModule, createInitialState as createLoadoutIntentState, type LoadoutIntentState } from "../modules/loadout-intent/index.ts";
 import { getLocalPlayerId, localPlayer } from "../state/world.ts";
 import { getLoadoutOverlay } from "../ui/loadoutOverlay.ts";
 import { releasePointerLockForUi } from "./pointerLock.ts";
 
+const LOADOUT_MENU_KEY = "KeyO";
+
+export const loadoutIntentState: LoadoutIntentState = createLoadoutIntentState();
+
 let deathAtMs: number | undefined;
+
+function isLoadoutMenuKey(code: string): boolean {
+  return code === LOADOUT_MENU_KEY;
+}
 
 function canRespawnNow(): boolean {
   if (deathAtMs === undefined) return false;
   return Date.now() - deathAtMs >= RESPAWN.minDelay * 1000;
-}
-
-function syncPendingLoadout(loadout: { primary: string | null; secondary: string | null }): void {
-  setPendingSlot("primary", loadout.primary);
-  setPendingSlot("secondary", loadout.secondary);
-  bus.emit("loadoutPendingChanged", undefined);
 }
 
 export function initLoadoutMenu(): void {
@@ -33,20 +27,15 @@ export function initLoadoutMenu(): void {
     releasePointerLockForUi();
 
     if (localPlayer.alive) {
-      clearPendingPreserve();
-      stagePendingFromLife();
       overlay.open({
         footerMode: "alive",
         releaseCapture: false,
-        loadout: getLifeLoadout(),
-        onChange: syncPendingLoadout,
+        loadout: localPlayer.loadout,
         onClose: () => {
-          stagePendingFromLife();
           overlay.close();
         },
         onApply: (loadout) => {
-          syncPendingLoadout(loadout);
-          preservePendingLoadoutForNextDeath();
+          LoadoutIntentModule.setPending(loadoutIntentState, loadout);
           overlay.close();
           bus.emit("forfeitRequested", undefined);
         },
@@ -57,10 +46,10 @@ export function initLoadoutMenu(): void {
     overlay.open({
       footerMode: "spawn",
       releaseCapture: false,
-      loadout: getPendingLoadout(),
+      loadout: loadoutIntentState.pending,
       spawnEnabled: canRespawnNow(),
-      onChange: syncPendingLoadout,
-      onSpawn: () => {
+      onSpawn: (loadout) => {
+        LoadoutIntentModule.setPending(loadoutIntentState, loadout);
         overlay.close();
         bus.emit("respawnRequested", undefined);
       },
@@ -74,7 +63,6 @@ export function initLoadoutMenu(): void {
 
     if (overlay.isOpen()) {
       overlay.close();
-      if (localPlayer.alive) stagePendingFromLife();
       return;
     }
 

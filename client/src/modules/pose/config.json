@@ -1,0 +1,27 @@
+{
+  "torso": {
+    "pivot": {
+      "chase": { "snappy": 256, "laggy": 32, "speedScale": 1 }
+    },
+    "flex": {
+      "max": { "inward": 0.2617993877991494, "outward": 0.1308996938995747 },
+      "chase": { "snappy": 48, "laggy": 10, "speedScale": 1 }
+    }
+  },
+  "shoulder": {
+    "flex": {
+      "max": { "inward": 1.3089969389957472, "outward": 1.4398966328953218 },
+      "chase": { "snappy": 48, "laggy": 10, "speedScale": 1 }
+    }
+  },
+  "head": {
+    "pivot": { 
+      "chase": { "snappy": 368, "laggy": 96, "speedScale": 1 } 
+    },
+    "flex": {
+      "max": { "inward": 0.9599310885968813, "outward": 0.8726646259971648 },
+      "chase": { "snappy": 368, "laggy": 96, "speedScale": 1 }
+    }
+  },
+  "smoothing": 5
+}

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { bus } from "../bus.ts";
 import { localPlayer } from "../state/world.ts";
-import { resetRecoil } from "./recoilCascade.ts";
+import { RecoilModule } from "../modules/recoil/index.ts";
 import type { DamageOverlay } from "../ui/damageOverlay.ts";
 import type { HitMarker } from "../ui/hitMarker.ts";
 
@@ -19,7 +19,7 @@ export function initCombatFeedback(
 
   bus.on("feedbackReset", () => {
     damageOverlay.reset();
-    resetRecoil(localPlayer.recoil);
+    RecoilModule.reset(localPlayer.recoil);
   });
 }
 

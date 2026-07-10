@@ -1,5 +1,5 @@
 import { formatWeaponLabel } from "../config/weapons.ts";
-import type { ActiveSlot } from "../state/loadout.ts";
+import type { ActiveSlot } from "../modules/weapon-swap/index.ts";
 
 export interface WeaponHud {
   update(activeSlot: ActiveSlot, weaponId: string | null): void;

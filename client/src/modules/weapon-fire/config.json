@@ -1,0 +1,22 @@
+{
+  "fireRateByWeaponId": {
+    "blaster-a": 14,
+    "blaster-b": 6,
+    "blaster-c": 7,
+    "blaster-d": 2.5,
+    "blaster-e": 1.5,
+    "blaster-f": 10,
+    "blaster-g": 10,
+    "blaster-h": 11,
+    "blaster-i": 10,
+    "blaster-j": 10,
+    "blaster-k": 10,
+    "blaster-l": 10,
+    "blaster-m": 10,
+    "blaster-n": 10,
+    "blaster-o": 10,
+    "blaster-p": 10,
+    "blaster-q": 10,
+    "blaster-r": 10
+  }
+}

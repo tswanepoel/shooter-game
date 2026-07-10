@@ -7,11 +7,6 @@ export interface WeaponRecipe {
   modelUrl: string;
   forwardAxis: Vec3;
   gripOffset: Vec3;
-  fireRate: number;
-  /** Projectile mass (kg-ish, abstract units); combined with projectileSpeed for muzzle impulse. */
-  mass: number;
-  projectileSpeed: number;
-  projectileMaxRange: number;
   bulletModelUrl: string;
   bulletLength: number;
   bulletForwardAxis: Vec3;
@@ -24,11 +19,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-a",
     modelUrl: "/models/blaster-a.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.14, z: 0.34 },
-    fireRate: 14,
-    mass: 1.6,
-    projectileSpeed: 700,
-    projectileMaxRange: 80,
+    gripOffset: { x: 0, y: -1.14, z: 0.34 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -39,11 +30,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-b",
     modelUrl: "/models/blaster-b.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1, z: 0.3 },
-    fireRate: 6,
-    mass: 0.35,
-    projectileSpeed: 600,
-    projectileMaxRange: 60,
+    gripOffset: { x: 0, y: -1, z: 0.3 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -54,11 +41,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-c",
     modelUrl: "/models/blaster-c.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.11, z: 0.2 },
-    fireRate: 7,
-    mass: 0.45,
-    projectileSpeed: 900,
-    projectileMaxRange: 120,
+    gripOffset: { x: 0, y: -1.11, z: 0.2 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -69,11 +52,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-d",
     modelUrl: "/models/blaster-d.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.11, z: 0.18 },
-    fireRate: 2.5,
-    mass: 0.7,
-    projectileSpeed: 500,
-    projectileMaxRange: 45,
+    gripOffset: { x: 0, y: -1.11, z: 0.18 },
     bulletModelUrl: "/models/bullet-foam-thick.glb",
     bulletLength: 0.14,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -84,11 +63,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-e",
     modelUrl: "/models/blaster-e.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -2.34, z: 0.22 },
-    fireRate: 1.5,
-    mass: 1.1,
-    projectileSpeed: 1200,
-    projectileMaxRange: 150,
+    gripOffset: { x: 0, y: -2.34, z: 0.22 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -99,11 +74,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-f",
     modelUrl: "/models/blaster-f.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.39, z: 0.19 },
-    fireRate: 10,
-    mass: 1.1,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -1.39, z: 0.19 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -114,11 +85,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-g",
     modelUrl: "/models/blaster-g.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.27, z: 0.22 },
-    fireRate: 10,
-    mass: 0.45,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -1.27, z: 0.22 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -129,11 +96,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-h",
     modelUrl: "/models/blaster-h.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.25, z: 0.24 },
-    fireRate: 11,
-    mass: 0.45,
-    projectileSpeed: 750,
-    projectileMaxRange: 85,
+    gripOffset: { x: 0, y: -1.25, z: 0.24 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -144,11 +107,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-i",
     modelUrl: "/models/blaster-i.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -0.93, z: 0.22 },
-    fireRate: 10,
-    mass: 0.35,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -0.93, z: 0.22 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -162,11 +121,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-j",
     modelUrl: "/models/blaster-j.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.2, z: 0.15 },
-    fireRate: 10,
-    mass: 1.3,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -1.2, z: 0.15 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -180,11 +135,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-k",
     modelUrl: "/models/blaster-k.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.09, z: 0.2 },
-    fireRate: 10,
-    mass: 1.3,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -1.09, z: 0.2 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -195,11 +146,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-l",
     modelUrl: "/models/blaster-l.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.16, z: 0.2 },
-    fireRate: 10,
-    mass: 0.45,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -1.16, z: 0.2 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -213,11 +160,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-m",
     modelUrl: "/models/blaster-m.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.18, z: 0.26 },
-    fireRate: 10,
-    mass: 0.45,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -1.18, z: 0.26 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -228,11 +171,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-n",
     modelUrl: "/models/blaster-n.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -0.99, z: 0.22 },
-    fireRate: 10,
-    mass: 0.7,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -0.99, z: 0.22 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -243,11 +182,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-o",
     modelUrl: "/models/blaster-o.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.06, z: 0.19 },
-    fireRate: 10,
-    mass: 1.3,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -1.06, z: 0.19 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -263,11 +198,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-p",
     modelUrl: "/models/blaster-p.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.21, z: 0.14 },
-    fireRate: 10,
-    mass: 0.45,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -1.21, z: 0.14 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -281,11 +212,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-q",
     modelUrl: "/models/blaster-q.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.28, z: 0.19 },
-    fireRate: 10,
-    mass: 0.7,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -1.28, z: 0.19 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },
@@ -299,11 +226,7 @@ export const WEAPON_RECIPES: Record<string, WeaponRecipe> = {
     id: "blaster-r",
     modelUrl: "/models/blaster-r.glb",
     forwardAxis: { x: 0, y: 0, z: 1 },
-    gripOffset: { x: 0, y: -1.18, z: 0.1 },
-    fireRate: 10,
-    mass: 0.7,
-    projectileSpeed: 800,
-    projectileMaxRange: 100,
+    gripOffset: { x: 0, y: -1.18, z: 0.1 },
     bulletModelUrl: "/models/bullet-foam-tip.glb",
     bulletLength: 0.12,
     bulletForwardAxis: { x: 0, y: 1, z: 0 },

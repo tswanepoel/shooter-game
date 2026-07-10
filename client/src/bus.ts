@@ -38,26 +38,11 @@ export class EventBus<Events extends object> {
 }
 
 export interface BusEvents {
-  moveForwardStarted: undefined;
-  moveForwardStopped: undefined;
-  moveBackwardStarted: undefined;
-  moveBackwardStopped: undefined;
-  moveLeftStarted: undefined;
-  moveLeftStopped: undefined;
-  moveRightStarted: undefined;
-  moveRightStopped: undefined;
-  sprintStarted: undefined;
-  sprintStopped: undefined;
-  jumped: undefined;
   respawnRequested: undefined;
   jumpLaunched: undefined;
-  fireStarted: undefined;
-  fireStopped: undefined;
   fired: undefined;
-  weaponSlotToggled: undefined;
   weaponSwitched: { activeSlot: "primary" | "secondary" };
   forfeitRequested: undefined;
-  loadoutPendingChanged: undefined;
   joinSpawnClicked: undefined;
   loadoutCommitted: { primary: string | null; secondary: string | null };
   controlEngaged: undefined;

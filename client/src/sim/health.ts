@@ -1,69 +1,63 @@
 import { bus } from "../bus.ts";
-import { HEALTH } from "../config/combat.ts";
-import { STAMINA } from "../config/physics.ts";
-import { snapCascadeToTarget } from "./aimCascade.ts";
-import { resetRecoil } from "./recoilCascade.ts";
+import { SprintModule } from "../modules/sprint/index.ts";
+import { GazeModule } from "../modules/gaze/index.ts";
+import { PoseModule } from "../modules/pose/index.ts";
+import { ElevationModule } from "../modules/elevation/index.ts";
+import { LateralPositionModule } from "../modules/lateral-position/index.ts";
+import { RecoilModule } from "../modules/recoil/index.ts";
+import { HealthModule } from "../modules/health/index.ts";
 import { getLocalPlayerId, localPlayer, remotePlayers } from "../state/world.ts";
 
 export function initHealth(): void {
   bus.on("welcomed", () => {
-    localPlayer.health = HEALTH.max;
-    localPlayer.alive = true;
+    HealthModule.projectWelcome(localPlayer);
   });
 
   bus.on("healthReceived", ({ id, health, attackerId }) => {
     if (id === getLocalPlayerId()) {
-      localPlayer.health = health;
+      HealthModule.projectHealth(localPlayer, health);
       if (attackerId) bus.emit("damageTaken", { attackerId });
       return;
     }
     const remote = remotePlayers.get(id);
-    if (remote) remote.health = health;
+    if (remote) HealthModule.projectHealth(remote, health);
   });
 
   bus.on("deathReceived", ({ victimId }) => {
     if (victimId === getLocalPlayerId()) {
-      localPlayer.alive = false;
-      localPlayer.targetPitch = 0;
-      snapCascadeToTarget(localPlayer);
-      resetRecoil(localPlayer.recoil);
+      HealthModule.projectDeath(localPlayer);
+      GazeModule.projectOrientation(localPlayer, localPlayer.targetYaw, 0);
+      PoseModule.snapToTarget(localPlayer);
+      RecoilModule.reset(localPlayer.recoil);
       return;
     }
     const remote = remotePlayers.get(victimId);
     if (remote) {
-      remote.alive = false;
-      resetRecoil(remote.recoil);
+      HealthModule.projectDeath(remote);
+      RecoilModule.reset(remote.recoil);
     }
   });
 
   bus.on("respawnReceived", ({ id, position }) => {
     if (id === getLocalPlayerId()) {
-      localPlayer.position.x = position.x;
-      localPlayer.position.y = position.y;
-      localPlayer.position.z = position.z;
-      localPlayer.health = HEALTH.max;
-      localPlayer.stamina = STAMINA.max;
-      localPlayer.alive = true;
-      localPlayer.velocityY = 0;
-      localPlayer.grounded = true;
+      ElevationModule.projectRespawn(localPlayer, position.y);
+      LateralPositionModule.projectRespawn(localPlayer, position.x, position.z);
+      HealthModule.projectRespawn(localPlayer);
+      SprintModule.projectRespawn(localPlayer);
       localPlayer.horizontalSpeed = 0;
-      localPlayer.targetPitch = 0;
-      snapCascadeToTarget(localPlayer);
+      GazeModule.projectOrientation(localPlayer, localPlayer.targetYaw, 0);
+      PoseModule.snapToTarget(localPlayer);
       bus.emit("feedbackReset", undefined);
       return;
     }
     const remote = remotePlayers.get(id);
     if (!remote) return;
-    remote.position.x = position.x;
-    remote.position.y = position.y;
-    remote.position.z = position.z;
+    ElevationModule.projectRespawn(remote, position.y);
+    LateralPositionModule.projectRespawn(remote, position.x, position.z);
     remote.targetPosition.x = position.x;
     remote.targetPosition.y = position.y;
     remote.targetPosition.z = position.z;
-    remote.health = HEALTH.max;
-    remote.alive = true;
-    remote.velocityY = 0;
-    remote.grounded = true;
-    resetRecoil(remote.recoil);
+    HealthModule.projectRespawn(remote);
+    RecoilModule.reset(remote.recoil);
   });
 }

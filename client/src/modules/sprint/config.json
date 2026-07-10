@@ -1,0 +1,6 @@
+{
+  "max": 100,
+  "drainPerSecond": 25,
+  "recoverPerSecond": 15,
+  "enterFloor": 30
+}

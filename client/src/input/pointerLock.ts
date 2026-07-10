@@ -1,4 +1,5 @@
-import { clearPointerDelta } from "./pointerInput.ts";
+import { GazeIntentModule } from "../modules/gaze-intent/index.ts";
+import { gazeIntentState } from "../main.ts";
 
 let gameCaptureTarget: HTMLElement | undefined;
 
@@ -17,7 +18,7 @@ export function isPointerLockActive(): boolean {
  * Clears any queued look delta so the camera does not jump when lock returns.
  */
 export function releasePointerLockForUi(): void {
-  clearPointerDelta();
+  GazeIntentModule.reset(gazeIntentState);
   if (document.pointerLockElement) {
     void document.exitPointerLock();
   }

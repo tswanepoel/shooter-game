@@ -1,14 +1,17 @@
 import * as THREE from "three";
-import { CROSSHAIR } from "../config/feedback.ts";
-import { getActiveWeapon } from "../state/loadout.ts";
-import { localPlayer } from "../state/world.ts";
-import { computeAimRay } from "../sim/aimDirection.ts";
+import { getActiveWeapon, localPlayer } from "../state/world.ts";
+import { aimState } from "../main.ts";
 import { computeWeaponAimWorldPoint } from "../ui/aimScreen.ts";
 
 export interface Crosshair {
   update(camera: THREE.Camera, occlusionRoots: readonly THREE.Object3D[]): void;
   dispose(): void;
 }
+
+const CROSSHAIR = {
+  sizePx: 6,
+  outlinePx: 4,
+} as const;
 
 const TEXTURE_SIZE = 64;
 
@@ -78,7 +81,8 @@ export function createCrosshair(scene: THREE.Scene): Crosshair {
       return;
     }
 
-    computeAimRay(muzzleOrigin, weaponDirection, camera);
+    muzzleOrigin.set(aimState.origin.x, aimState.origin.y, aimState.origin.z);
+    weaponDirection.set(aimState.direction.x, aimState.direction.y, aimState.direction.z);
     sprite.visible = computeWeaponAimWorldPoint(
       muzzleOrigin,
       weaponDirection,

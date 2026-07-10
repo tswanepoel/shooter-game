@@ -5,10 +5,9 @@ import {
   WALK_LOCOMOTION_DAMPENED_HEAD_SWING,
   type CharacterRecipe,
 } from "../config/characters.ts";
-import { LOCOMOTION_SPEED_THRESHOLD } from "../config/physics.ts";
 import type { WeaponRecipe } from "../config/weapons.ts";
-import type { AimCascadeState } from "../sim/aimCascade.ts";
-import type { RecoilPoseOffsets } from "../sim/recoilCascade.ts";
+import type { PoseState } from "../modules/pose/index.ts";
+import type { RecoilPoseOffsets } from "../modules/recoil/index.ts";
 import { makeDampedWalkLocomotionClip } from "./locomotionClips.ts";
 import {
   bakeMuzzleOffsetInWeaponLocal,
@@ -22,6 +21,9 @@ export type LocomotionState = "idle" | "walk" | "sprint";
 const BLEND_RATE = 6;
 const loader = new GLTFLoader();
 const aimEuler = new THREE.Euler(0, 0, 0, "YXZ");
+
+// Safe because movement's diagonal clamp keeps walk speed from ever reaching sprint speed.
+const LOCOMOTION_SPEED_THRESHOLD = { walk: 0.5, sprint: 5.5 };
 
 export function classifyLocomotionFromSpeed(speed: number): LocomotionState {
   if (speed >= LOCOMOTION_SPEED_THRESHOLD.sprint) return "sprint";
@@ -84,8 +86,8 @@ export interface PlayerAvatar {
   readonly armed: boolean;
   setLocomotion(state: LocomotionState): void;
   triggerMuzzleFlash(): void;
-  update(dt: number, aim?: AimCascadeState, recoil?: RecoilPoseOffsets): void;
-  syncAimPose(aim: AimCascadeState, recoil?: RecoilPoseOffsets): void;
+  update(dt: number, aim?: PoseState, recoil?: RecoilPoseOffsets): void;
+  syncAimPose(aim: PoseState, recoil?: RecoilPoseOffsets): void;
   updateDeath(dt: number): void;
   sampleEyeWorldPosition(out: THREE.Vector3): void;
   applyObserverCamera(camera: THREE.PerspectiveCamera): void;
@@ -214,7 +216,7 @@ export async function loadPlayerAvatar(
     setAimPivot(armAimPivot, 0, 0);
   }
 
-  function applyAimPose(aim: AimCascadeState, recoil?: RecoilPoseOffsets): void {
+  function applyAimPose(aim: PoseState, recoil?: RecoilPoseOffsets): void {
     const r = recoil;
     setAimPivot(
       torsoAimPivot,
@@ -288,11 +290,11 @@ export async function loadPlayerAvatar(
     mixer.update(0);
   }
 
-  function syncAimPose(aim: AimCascadeState, recoil?: RecoilPoseOffsets): void {
+  function syncAimPose(aim: PoseState, recoil?: RecoilPoseOffsets): void {
     applyAimPose(aim, recoil);
   }
 
-  function update(dt: number, aim?: AimCascadeState, recoil?: RecoilPoseOffsets): void {
+  function update(dt: number, aim?: PoseState, recoil?: RecoilPoseOffsets): void {
     if (deathActive) {
       deathActive = false;
       restoreAlivePose();

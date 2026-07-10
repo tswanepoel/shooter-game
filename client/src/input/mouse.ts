@@ -1,6 +1,8 @@
 import { bus } from "../bus.ts";
-import { accumulatePointerDelta } from "./pointerInput.ts";
 
+// Pointer-move -> look-delta, mousedown/up -> weapon-fire-intent, and
+// wheel -> weapon-swap-intent capture now live in main.ts. This file still
+// owns pointer-lock mode toggling, which belongs to a module not built yet.
 export function initMouse(target: HTMLElement): void {
   target.addEventListener("click", () => {
     target.requestPointerLock();
@@ -13,30 +15,4 @@ export function initMouse(target: HTMLElement): void {
       bus.emit("controlReleased", undefined);
     }
   });
-
-  document.addEventListener("pointermove", (event) => {
-    if (document.pointerLockElement !== target) return;
-    const { movementX: dx, movementY: dy } = event;
-    if (dx !== 0 || dy !== 0) {
-      accumulatePointerDelta(dx, dy);
-    }
-  });
-
-  document.addEventListener("mousedown", (event) => {
-    if (event.button === 0) bus.emit("fireStarted", undefined);
-  });
-
-  document.addEventListener("mouseup", (event) => {
-    if (event.button === 0) bus.emit("fireStopped", undefined);
-  });
-
-  document.addEventListener(
-    "wheel",
-    (event) => {
-      if (document.pointerLockElement !== target) return;
-      event.preventDefault();
-      bus.emit("weaponSlotToggled", undefined);
-    },
-    { passive: false },
-  );
 }

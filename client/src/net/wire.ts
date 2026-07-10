@@ -1,4 +1,4 @@
-import type { ActiveSlot } from "../state/loadout.ts";
+import type { ActiveSlot } from "../modules/weapon-swap/index.ts";
 import type { Vec3 } from "../types/vec3.ts";
 
 export type Vector3 = Vec3;

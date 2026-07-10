@@ -1,0 +1,57 @@
+{
+  "global": {
+    "propagation": {
+      "shoulderToTorso": 0.58,
+      "torsoToHead": 0.52,
+      "headToCamera": 0.88
+    },
+    "propagateChase": {
+      "torso": 32,
+      "head": 24
+    },
+    "decayRate": {
+      "shoulder": 14,
+      "torso": 11,
+      "head": 9
+    },
+    "baseRecovery": {
+      "shoulder": 0.84,
+      "torso": 0.76,
+      "head": 0.66
+    },
+    "fatigueGainPerShot": 0.09,
+    "fatigueRecoverPerSecond": 0.4,
+    "fatigueRecoveryPenalty": 0.28,
+    "fatiguePlateauLift": 0.38,
+    "maxFatigue": 1,
+    "yawJitter": 0.18,
+    "residualBleedDelay": 0,
+    "residualBleedRate": 8.8,
+    "firingResidualBleedRate": 0.62,
+    "fatigueFiringBleedReduction": 0.48,
+    "impulseSaturationPower": 1.55,
+    "minImpulseScale": 0.1,
+    "steadyStateJitterThreshold": 0.6,
+    "steadyStateJitter": 0.9
+  },
+  "profiles": {
+    "blaster-a": { "fireRate": 14, "kickPitch": 0.044800000000000006, "fatigueScale": 1.35, "maxDriftPitch": 0.058643062867009474 },
+    "blaster-b": { "fireRate": 6, "kickPitch": 0.0084, "fatigueScale": 1.15, "maxDriftPitch": 0.08409434442393025 },
+    "blaster-c": { "fireRate": 7, "kickPitch": 0.0162, "fatigueScale": 1.175, "maxDriftPitch": 0.07849093190746446 },
+    "blaster-d": { "fireRate": 2.5, "kickPitch": 0.014, "fatigueScale": 1.0625, "maxDriftPitch": 0.12656121562871758 },
+    "blaster-e": { "fireRate": 1.5, "kickPitch": 0.05280000000000001, "fatigueScale": 1.0375, "maxDriftPitch": 0.1620187233602352 },
+    "blaster-f": { "fireRate": 10, "kickPitch": 0.0352, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-g": { "fireRate": 10, "kickPitch": 0.0144, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-h": { "fireRate": 11, "kickPitch": 0.0135, "fatigueScale": 1.275, "maxDriftPitch": 0.06463935693230276 },
+    "blaster-i": { "fireRate": 10, "kickPitch": 0.0112, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-j": { "fireRate": 10, "kickPitch": 0.041600000000000005, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-k": { "fireRate": 10, "kickPitch": 0.041600000000000005, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-l": { "fireRate": 10, "kickPitch": 0.0144, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-m": { "fireRate": 10, "kickPitch": 0.0144, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-n": { "fireRate": 10, "kickPitch": 0.0224, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-o": { "fireRate": 10, "kickPitch": 0.041600000000000005, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-p": { "fireRate": 10, "kickPitch": 0.0144, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-q": { "fireRate": 10, "kickPitch": 0.0224, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 },
+    "blaster-r": { "fireRate": 10, "kickPitch": 0.0224, "fatigueScale": 1.25, "maxDriftPitch": 0.06726330341106669 }
+  }
+}

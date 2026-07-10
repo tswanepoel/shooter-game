@@ -1,0 +1,23 @@
+{
+  "dragPerUnitDistance": 0.008,
+  "weapons": {
+    "blaster-a": { "speed": 700, "maxRange": 80 },
+    "blaster-b": { "speed": 600, "maxRange": 60 },
+    "blaster-c": { "speed": 900, "maxRange": 120 },
+    "blaster-d": { "speed": 500, "maxRange": 45 },
+    "blaster-e": { "speed": 1200, "maxRange": 150 },
+    "blaster-f": { "speed": 800, "maxRange": 100 },
+    "blaster-g": { "speed": 800, "maxRange": 100 },
+    "blaster-h": { "speed": 750, "maxRange": 85 },
+    "blaster-i": { "speed": 800, "maxRange": 100 },
+    "blaster-j": { "speed": 800, "maxRange": 100 },
+    "blaster-k": { "speed": 800, "maxRange": 100 },
+    "blaster-l": { "speed": 800, "maxRange": 100 },
+    "blaster-m": { "speed": 800, "maxRange": 100 },
+    "blaster-n": { "speed": 800, "maxRange": 100 },
+    "blaster-o": { "speed": 800, "maxRange": 100 },
+    "blaster-p": { "speed": 800, "maxRange": 100 },
+    "blaster-q": { "speed": 800, "maxRange": 100 },
+    "blaster-r": { "speed": 800, "maxRange": 100 }
+  }
+}

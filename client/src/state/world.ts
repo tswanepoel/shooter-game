@@ -1,24 +1,54 @@
-import { STAMINA } from "../config/physics.ts";
-import type { AimCascadeState } from "../sim/aimCascade.ts";
-import { createRecoilState, type RecoilCascadeState } from "../sim/recoilCascade.ts";
+import { staminaMax } from "../modules/sprint/index.ts";
+import type { PoseState } from "../modules/pose/index.ts";
+import { createInitialState as createRecoilState, type RecoilState } from "../modules/recoil/index.ts";
+import {
+  createInitialState as createLoadoutState,
+  type LoadoutState,
+  type WeaponSlotId,
+} from "../modules/loadout/index.ts";
+import {
+  WeaponSwapModule,
+  createInitialState as createWeaponSwapState,
+  type WeaponSwapState,
+  type ActiveSlot,
+} from "../modules/weapon-swap/index.ts";
+import { tryGetWeaponRecipe, type WeaponRecipe } from "../config/weapons.ts";
 import type { Vec3 } from "../types/vec3.ts";
 
-export interface LocalPlayerState extends AimCascadeState {
-  recoil: RecoilCascadeState;
+export interface LocalPlayerState extends PoseState {
+  recoil: RecoilState;
+  loadout: LoadoutState;
+  weaponSwap: WeaponSwapState;
   id?: string;
-  position: Vec3;
+  x: number;
+  y: number;
+  z: number;
   health: number;
   alive: boolean;
   stamina: number;
   sprinting: boolean;
+  cooldown: number;
+  velocityX: number;
+  velocityZ: number;
   horizontalSpeed: number;
   velocityY: number;
   grounded: boolean;
-  airHorizontal: { x: number; z: number };
+  eagerBuffer: {
+    jumpRequested: boolean;
+  };
+  airHorizontalX: number;
+  airHorizontalZ: number;
+  airCarryBuffer: {
+    jumpRequested: boolean;
+    pendingCarryX: number;
+    pendingCarryZ: number;
+  };
 }
 
 export const localPlayer: LocalPlayerState = {
-  position: { x: 0, y: 0, z: 0 },
+  x: 0,
+  y: 0,
+  z: 0,
   health: 0,
   alive: true,
   targetYaw: 0,
@@ -35,34 +65,49 @@ export const localPlayer: LocalPlayerState = {
   shoulderPitch: 0,
   armPitch: 0,
   recoil: createRecoilState(),
-  stamina: STAMINA.max,
+  loadout: createLoadoutState(),
+  weaponSwap: createWeaponSwapState(),
+  stamina: staminaMax,
   sprinting: false,
+  cooldown: 0,
+  velocityX: 0,
+  velocityZ: 0,
   horizontalSpeed: 0,
   velocityY: 0,
   grounded: true,
-  airHorizontal: { x: 0, z: 0 },
+  eagerBuffer: {
+    jumpRequested: false,
+  },
+  airHorizontalX: 0,
+  airHorizontalZ: 0,
+  airCarryBuffer: {
+    jumpRequested: false,
+    pendingCarryX: 0,
+    pendingCarryZ: 0,
+  },
 };
 
-export interface Projectile {
-  id: number;
-  ownerId?: string;
-  position: Vec3;
-  previousPosition: Vec3;
-  direction: Vec3;
-  distanceTraveled: number;
-}
-
-export const projectiles: Projectile[] = [];
-
-export interface RemotePlayerState extends AimCascadeState {
-  recoil: RecoilCascadeState;
+export interface RemotePlayerState extends PoseState {
+  recoil: RecoilState;
   id: string;
-  position: Vec3;
+  x: number;
+  y: number;
+  z: number;
   targetPosition: Vec3;
   timeSinceLastPos: number;
   measuredSpeed: number;
   velocityY: number;
   grounded: boolean;
+  eagerBuffer: {
+    jumpRequested: boolean;
+  };
+  airHorizontalX: number;
+  airHorizontalZ: number;
+  airCarryBuffer: {
+    jumpRequested: boolean;
+    pendingCarryX: number;
+    pendingCarryZ: number;
+  };
   cascadeInitialized: boolean;
   alive: boolean;
   health: number;
@@ -77,6 +122,18 @@ let localPlayerId: string | undefined;
 
 export function getLocalPlayerId(): string | undefined {
   return localPlayerId;
+}
+
+export function getActiveSlot(): ActiveSlot {
+  return localPlayer.weaponSwap.activeSlot;
+}
+
+export function getActiveWeaponId(): WeaponSlotId {
+  return WeaponSwapModule.resolveSlotWeapon(localPlayer.loadout, localPlayer.weaponSwap.activeSlot);
+}
+
+export function getActiveWeapon(): WeaponRecipe | undefined {
+  return tryGetWeaponRecipe(getActiveWeaponId());
 }
 
 export function setLocalPlayerId(id: string | undefined): void {

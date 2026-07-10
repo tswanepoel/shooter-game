@@ -1,13 +1,18 @@
 import { bus } from "../bus.ts";
-import { HEALTH } from "../config/combat.ts";
+import { maxHealth } from "../modules/health/index.ts";
+import { ElevationModule } from "../modules/elevation/index.ts";
+import { LateralPositionModule } from "../modules/lateral-position/index.ts";
 import { resolveCharacterId } from "../config/characters.ts";
 import { resolveWeaponSlot } from "../config/weapons.ts";
 import type { JoinMessage, PlayerSnapshot, RoomJoinedMessage, WelcomeMessage } from "../net/wire.ts";
-import { snapCascadeToTarget } from "../sim/aimCascade.ts";
-import { createRecoilState, resetRecoil } from "../sim/recoilCascade.ts";
+import { PoseModule } from "../modules/pose/index.ts";
+import { RecoilModule, createInitialState as createRecoilState } from "../modules/recoil/index.ts";
+import { LoadoutModule } from "../modules/loadout/index.ts";
+import { LoadoutIntentModule } from "../modules/loadout-intent/index.ts";
+import { loadoutIntentState } from "../input/loadoutMenu.ts";
+import { WeaponSwapModule } from "../modules/weapon-swap/index.ts";
 import { setActiveCharacterId } from "./character.ts";
 import { setPlayerRole } from "./session.ts";
-import { setLifeLoadout } from "./loadout.ts";
 import {
   localPlayer,
   remotePlayers,
@@ -18,12 +23,24 @@ import {
 function createRemotePlayer(snapshot: PlayerSnapshot): RemotePlayerState {
   const remote: RemotePlayerState = {
     id: snapshot.id,
-    position: { ...snapshot.position },
+    x: snapshot.position.x,
+    y: snapshot.position.y,
+    z: snapshot.position.z,
     targetPosition: { ...snapshot.position },
     timeSinceLastPos: 0,
     measuredSpeed: 0,
     velocityY: 0,
     grounded: true,
+    eagerBuffer: {
+      jumpRequested: false,
+    },
+    airHorizontalX: 0,
+    airHorizontalZ: 0,
+    airCarryBuffer: {
+      jumpRequested: false,
+      pendingCarryX: 0,
+      pendingCarryZ: 0,
+    },
     targetYaw: snapshot.yaw,
     targetPitch: snapshot.pitch,
     lastTargetPitch: snapshot.pitch,
@@ -40,12 +57,12 @@ function createRemotePlayer(snapshot: PlayerSnapshot): RemotePlayerState {
     recoil: createRecoilState(snapshot.id),
     cascadeInitialized: false,
     alive: snapshot.alive,
-    health: HEALTH.max,
+    health: maxHealth,
     displayName: snapshot.displayName,
     characterId: resolveCharacterId(snapshot.characterId),
     weaponId: resolveWeaponSlot(snapshot.weaponId) ?? "",
   };
-  snapCascadeToTarget(remote);
+  PoseModule.snapToTarget(remote);
   return remote;
 }
 
@@ -75,10 +92,11 @@ export function initWorldSync(): void {
     setLocalPlayerId(message.id);
     localPlayer.id = message.id;
     setActiveCharacterId(resolveCharacterId(message.characterId));
-    setLifeLoadout({ primary: null, secondary: null }, "primary");
-    localPlayer.position.x = message.position.x;
-    localPlayer.position.y = message.position.y;
-    localPlayer.position.z = message.position.z;
+    LoadoutModule.set(localPlayer.loadout, { primary: null, secondary: null });
+    LoadoutIntentModule.setPending(loadoutIntentState, { primary: null, secondary: null });
+    WeaponSwapModule.setActiveSlot(localPlayer.weaponSwap, "primary");
+    ElevationModule.projectRespawn(localPlayer, message.position.y);
+    LateralPositionModule.projectRespawn(localPlayer, message.position.x, message.position.z);
     localPlayer.recoil.seedId = message.id;
 
     remotePlayers.clear();
@@ -99,6 +117,6 @@ export function initWorldSync(): void {
     const remote = remotePlayers.get(id);
     if (!remote) return;
     remote.weaponId = resolveWeaponSlot(weaponId) ?? "";
-    resetRecoil(remote.recoil);
+    RecoilModule.reset(remote.recoil);
   });
 }

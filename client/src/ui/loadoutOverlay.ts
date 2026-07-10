@@ -5,7 +5,8 @@ import {
   weaponAllowsSlot,
   weaponsForSlot,
 } from "../config/weapons.ts";
-import type { ActiveSlot, Loadout } from "../state/loadout.ts";
+import type { ActiveSlot } from "../modules/weapon-swap/index.ts";
+import type { LoadoutState as Loadout } from "../modules/loadout/index.ts";
 import {
   beginLoadoutPreviews,
   createLoadoutWeaponPreview,

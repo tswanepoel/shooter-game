@@ -6,9 +6,8 @@
  *    the view. Do not use eye→aim world rays — they graze unrelated colliders.
  */
 import * as THREE from "three";
-import { CROSSHAIR_DISTANCE } from "../config/physics.ts";
-import { getActiveWeapon } from "../state/loadout.ts";
-import { getLocalPlayerId } from "../state/world.ts";
+import { BallisticsModule } from "../modules/ballistics/index.ts";
+import { getActiveWeaponId, getLocalPlayerId } from "../state/world.ts";
 
 const point = new THREE.Vector3();
 const aimWorld = new THREE.Vector3();
@@ -18,6 +17,7 @@ const rayOrigin = new THREE.Vector3();
 const rayDirection = new THREE.Vector3();
 const raycaster = new THREE.Raycaster();
 
+const CROSSHAIR_DISTANCE = 20;
 const AIM_SURFACE_BIAS = 0.03;
 const MUZZLE_SELF_HIT_EPSILON = 0.02;
 /** Hits this close to the aim point in world space are the target surface, not occlusion. */
@@ -65,7 +65,7 @@ function resolveWeaponAimHit(
   rayOrigin.copy(origin);
   rayDirection.copy(direction);
   raycaster.set(rayOrigin, rayDirection);
-  raycaster.far = getActiveWeapon()?.projectileMaxRange ?? CROSSHAIR_DISTANCE;
+  raycaster.far = BallisticsModule.getMaxRange(getActiveWeaponId() ?? "") || CROSSHAIR_DISTANCE;
 
   const hits = raycaster
     .intersectObjects(occlusionRoots as THREE.Object3D[], true)

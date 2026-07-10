@@ -1,37 +1,29 @@
 import * as THREE from "three";
 import { bus } from "../bus.ts";
 import { tryGetWeaponRecipe } from "../config/weapons.ts";
-import { speedAtDistance } from "../config/ballistics.ts";
-import { getActiveWeapon } from "../state/loadout.ts";
 import { sendHit } from "../net/connection.ts";
-import { getLocalPlayerId, localPlayer, projectiles, remotePlayers } from "../state/world.ts";
+import { getActiveWeapon, getLocalPlayerId, localPlayer, remotePlayers } from "../state/world.ts";
 import type { Vec3 } from "../types/vec3.ts";
-import { applyRecoilImpulse } from "./recoilCascade.ts";
-import { computeAimRay } from "./aimDirection.ts";
+import { RecoilModule } from "../modules/recoil/index.ts";
+import { weaponFireIntentState } from "../main.ts";
+import { WeaponFireModule } from "../modules/weapon-fire/index.ts";
+import type { AimState } from "../modules/aim/index.ts";
+import { BallisticsModule, createInitialState as createBallisticsState } from "../modules/ballistics/index.ts";
 
-let fireHeld = false;
+export const ballisticsState = createBallisticsState();
+
 let controlEngaged = false;
-let syncAimPoseBeforeFire: (() => void) | undefined;
 let syncRemoteAimPoseBeforeFire: ((playerId: string) => void) | undefined;
 let sampleRemoteWeaponMuzzleLine:
   | ((playerId: string, outOrigin: THREE.Vector3, outDirection: THREE.Vector3) => boolean)
   | undefined;
-let cooldown = 0;
-let nextId = 1;
 
-const raycaster = new THREE.Raycaster();
-const rayDirection = new THREE.Vector3();
-const rayOrigin = new THREE.Vector3();
 const fireOrigin = new THREE.Vector3();
 const fireDirection = new THREE.Vector3();
 
 let samplePlayerEyeWorldPosition:
   | ((playerId: string, out: THREE.Vector3) => boolean)
   | undefined;
-
-export function bindProjectileAimPoseSync(sync: () => void): void {
-  syncAimPoseBeforeFire = sync;
-}
 
 export function bindRemoteProjectileAimSync(
   syncRemoteAimPose: (playerId: string) => void,
@@ -42,7 +34,7 @@ export function bindRemoteProjectileAimSync(
 }
 
 export function isFireActive(): boolean {
-  return fireHeld && controlEngaged && localPlayer.alive;
+  return weaponFireIntentState.fire && controlEngaged && localPlayer.alive;
 }
 
 export function bindProjectileEyeSampler(
@@ -51,19 +43,20 @@ export function bindProjectileEyeSampler(
   samplePlayerEyeWorldPosition = sampler;
 }
 
+function directionFromYawPitch(yaw: number, pitch: number): Vec3 {
+  return {
+    x: -Math.sin(yaw) * Math.cos(pitch),
+    y: Math.sin(pitch),
+    z: -Math.cos(yaw) * Math.cos(pitch),
+  };
+}
+
 export function initProjectiles(): void {
-  bus.on("fireStarted", () => {
-    fireHeld = true;
-  });
-  bus.on("fireStopped", () => {
-    fireHeld = false;
-  });
   bus.on("controlEngaged", () => {
     controlEngaged = true;
   });
   bus.on("controlReleased", () => {
     controlEngaged = false;
-    fireHeld = false;
   });
 
   bus.on("fireReceived", ({ id }) => {
@@ -73,48 +66,45 @@ export function initProjectiles(): void {
 
     const weapon = tryGetWeaponRecipe(remote.weaponId);
     if (!weapon) return;
-    applyRecoilImpulse(remote.recoil, weapon);
+    RecoilModule.projectInternalImpulse(remote.recoil, weapon.id);
     syncRemoteAimPoseBeforeFire?.(id);
 
     if (sampleRemoteWeaponMuzzleLine?.(id, fireOrigin, fireDirection)) {
-      spawnProjectile(
+      BallisticsModule.spawnProjectile(
+        ballisticsState,
         { x: fireOrigin.x, y: fireOrigin.y, z: fireOrigin.z },
-        fireDirection,
+        { x: fireDirection.x, y: fireDirection.y, z: fireDirection.z },
         id,
       );
       return;
     }
 
     if (!samplePlayerEyeWorldPosition?.(id, fireOrigin)) return;
-    spawnProjectile(
+    BallisticsModule.spawnProjectile(
+      ballisticsState,
       { x: fireOrigin.x, y: fireOrigin.y, z: fireOrigin.z },
-      { yaw: remote.torsoYaw, pitch: remote.armPitch },
+      directionFromYawPitch(remote.torsoYaw, remote.armPitch),
       id,
     );
   });
 }
 
-export function tickProjectileFire(dt: number, camera: THREE.Camera): void {
+export function tickProjectileFire(dt: number, aimState: AimState): void {
   const weapon = getActiveWeapon();
   if (!weapon) return;
 
-  const fireInterval = 1 / weapon.fireRate;
+  const didFire = WeaponFireModule.tick(
+    localPlayer,
+    weaponFireIntentState.fire,
+    localPlayer.alive,
+    controlEngaged,
+    weapon.id,
+    dt,
+  );
 
-  cooldown = Math.max(0, cooldown - dt);
-
-  if (fireHeld && controlEngaged && localPlayer.alive && cooldown <= 0) {
-    applyRecoilImpulse(localPlayer.recoil, weapon);
-    syncAimPoseBeforeFire?.();
-    computeAimRay(fireOrigin, fireDirection, camera);
-    spawnProjectile(
-      {
-        x: fireOrigin.x,
-        y: fireOrigin.y,
-        z: fireOrigin.z,
-      },
-      fireDirection,
-    );
-    cooldown += fireInterval;
+  if (didFire) {
+    RecoilModule.projectInternalImpulse(localPlayer.recoil, weapon.id);
+    BallisticsModule.spawnProjectile(ballisticsState, aimState.origin, aimState.direction, getLocalPlayerId());
     bus.emit("fired", undefined);
   }
 }
@@ -123,117 +113,19 @@ export function advanceProjectiles(dt: number, hitRoots: THREE.Object3D[]): void
   const weapon = getActiveWeapon();
   if (!weapon) return;
 
-  for (let i = projectiles.length - 1; i >= 0; i--) {
-    const projectile = projectiles[i];
-    const previous = projectile.previousPosition;
+  const hits = BallisticsModule.tick(
+    ballisticsState,
+    weapon.id,
+    dt,
+    hitRoots,
+    getLocalPlayerId(),
+    (playerId) => remotePlayers.get(playerId)?.alive === true,
+  );
 
-    const speed = speedAtDistance(weapon, projectile.distanceTraveled);
-    const step = speed * dt;
-
-    projectile.position.x += projectile.direction.x * step;
-    projectile.position.y += projectile.direction.y * step;
-    projectile.position.z += projectile.direction.z * step;
-    projectile.distanceTraveled += step;
-
-    if (hitRoots.length > 0) {
-      const hit = sweepHit(previous, projectile.position, hitRoots);
-      if (hit) {
-        if (hit.kind === "player" && projectile.ownerId === getLocalPlayerId()) {
-          sendHit(hit.playerId, hit.bodyPart, speed);
-          bus.emit("hitConfirmed", undefined);
-        }
-        projectiles.splice(i, 1);
-        continue;
-      }
-    }
-
-    projectile.previousPosition.x = projectile.position.x;
-    projectile.previousPosition.y = projectile.position.y;
-    projectile.previousPosition.z = projectile.position.z;
-
-    if (projectile.distanceTraveled >= weapon.projectileMaxRange) {
-      projectiles.splice(i, 1);
-    }
-  }
-}
-
-function spawnProjectile(
-  origin: Vec3,
-  direction: THREE.Vector3 | { yaw: number; pitch: number },
-  ownerId: string = getLocalPlayerId() ?? "",
-): void {
-  let dir: Vec3;
-  if (direction instanceof THREE.Vector3) {
-    dir = { x: direction.x, y: direction.y, z: direction.z };
-  } else {
-    const { yaw, pitch } = direction;
-    dir = {
-      x: -Math.sin(yaw) * Math.cos(pitch),
-      y: Math.sin(pitch),
-      z: -Math.cos(yaw) * Math.cos(pitch),
-    };
-  }
-
-  projectiles.push({
-    id: nextId++,
-    ownerId,
-    position: { ...origin },
-    previousPosition: { ...origin },
-    direction: dir,
-    distanceTraveled: 0,
-  });
-}
-
-type SweepHit = { kind: "player"; playerId: string; bodyPart: string } | { kind: "world" };
-
-const BODY_PART_NAMES = new Set(["head", "torso", "arm-left", "arm-right", "leg-left", "leg-right"]);
-
-function sweepHit(from: Vec3, to: Vec3, hitRoots: THREE.Object3D[]): SweepHit | undefined {
-  rayDirection.set(to.x - from.x, to.y - from.y, to.z - from.z);
-  const distance = rayDirection.length();
-  if (distance <= 0) return undefined;
-
-  rayDirection.divideScalar(distance);
-  rayOrigin.set(from.x, from.y, from.z);
-  raycaster.set(rayOrigin, rayDirection);
-  raycaster.far = distance;
-
-  const hits = raycaster.intersectObjects(hitRoots, true).sort((a, b) => a.distance - b.distance);
   for (const hit of hits) {
-    const playerId = findPlayerId(hit.object);
-    if (playerId && playerId !== getLocalPlayerId()) {
-      const remote = remotePlayers.get(playerId);
-      if (remote?.alive) return { kind: "player", playerId, bodyPart: findBodyPart(hit.object) };
+    if (hit.kind === "player" && hit.ownerId === getLocalPlayerId() && hit.playerId && hit.bodyPart) {
+      sendHit(hit.playerId, hit.bodyPart, hit.speed);
+      bus.emit("hitConfirmed", undefined);
     }
-    if (isWorldCollider(hit.object)) return { kind: "world" };
   }
-  return undefined;
-}
-
-function findPlayerId(object: THREE.Object3D): string | undefined {
-  let node: THREE.Object3D | null = object;
-  while (node) {
-    const id = node.userData.playerId;
-    if (typeof id === "string") return id;
-    node = node.parent;
-  }
-  return undefined;
-}
-
-function findBodyPart(object: THREE.Object3D): string {
-  let node: THREE.Object3D | null = object;
-  while (node) {
-    if (BODY_PART_NAMES.has(node.name)) return node.name;
-    node = node.parent;
-  }
-  return "torso";
-}
-
-function isWorldCollider(object: THREE.Object3D): boolean {
-  let node: THREE.Object3D | null = object;
-  while (node) {
-    if (node.userData.isWorldCollider === true) return true;
-    node = node.parent;
-  }
-  return false;
 }

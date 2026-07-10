@@ -3,10 +3,9 @@ import { bus } from "../bus.ts";
 import { getCharacterRecipe } from "../config/characters.ts";
 import type { CharacterRecipe } from "../config/characters.ts";
 import { getWeaponRecipe, resolveWeaponSlot, type WeaponRecipe } from "../config/weapons.ts";
-import type { AimCascadeState } from "../sim/aimCascade.ts";
-import { getRecoilPoseOffsets } from "../sim/recoilCascade.ts";
+import type { PoseState } from "../modules/pose/index.ts";
+import { RecoilModule, type RecoilPoseOffsets } from "../modules/recoil/index.ts";
 import { getLocalPlayerId, localPlayer, remotePlayers } from "../state/world.ts";
-import type { Vec3 } from "../types/vec3.ts";
 import {
   classifyLocalLocomotion,
   classifyLocomotionFromSpeed,
@@ -58,15 +57,17 @@ export function getAimOcclusionRoots(worldRoots: readonly THREE.Object3D[]): THR
 
 function syncAvatar(
   avatar: PlayerAvatar,
-  position: Vec3,
+  x: number,
+  y: number,
+  z: number,
   torsoYaw: number,
   alive: boolean,
   locomotion: LocomotionState,
   dt: number,
-  aim?: AimCascadeState,
-  recoil?: ReturnType<typeof getRecoilPoseOffsets>,
+  aim?: PoseState,
+  recoil?: RecoilPoseOffsets,
 ): void {
-  avatar.root.position.set(position.x, position.y, position.z);
+  avatar.root.position.set(x, y, z);
   avatar.root.rotation.y = torsoYaw + Math.PI;
 
   if (alive) {
@@ -214,10 +215,12 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
     if (!localAvatar) return;
 
     localAvatar.weaponMesh.visible = localPlayer.alive && localAvatar.armed;
-    const recoilPose = getRecoilPoseOffsets(localPlayer.recoil);
+    const recoilPose = RecoilModule.getPoseOffsets(localPlayer.recoil);
     syncAvatar(
       localAvatar,
-      localPlayer.position,
+      localPlayer.x,
+      localPlayer.y,
+      localPlayer.z,
       localPlayer.torsoYaw,
       localPlayer.alive,
       classifyLocalLocomotion(localPlayer.sprinting, localPlayer.horizontalSpeed),
@@ -229,14 +232,14 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
 
   function syncLocalAimPose(): void {
     if (!localAvatar || !localPlayer.alive) return;
-    localAvatar.syncAimPose(localPlayer, getRecoilPoseOffsets(localPlayer.recoil));
+    localAvatar.syncAimPose(localPlayer, RecoilModule.getPoseOffsets(localPlayer.recoil));
   }
 
   function syncRemoteAimPose(playerId: string): void {
     const entry = remotes.get(playerId);
     const remote = remotePlayers.get(playerId);
     if (!entry || !remote?.alive) return;
-    entry.avatar.syncAimPose(remote, getRecoilPoseOffsets(remote.recoil));
+    entry.avatar.syncAimPose(remote, RecoilModule.getPoseOffsets(remote.recoil));
   }
 
   function applyCamera(camera: THREE.PerspectiveCamera): void {
@@ -275,13 +278,15 @@ export function createPlayerSceneManager(scene: THREE.Scene): PlayerSceneManager
       }
       syncAvatar(
         entry.avatar,
-        remote.position,
+        remote.x,
+        remote.y,
+        remote.z,
         remote.torsoYaw,
         remote.alive,
         classifyLocomotionFromSpeed(remote.measuredSpeed),
         dt,
         remote,
-        getRecoilPoseOffsets(remote.recoil),
+        RecoilModule.getPoseOffsets(remote.recoil),
       );
     }
 

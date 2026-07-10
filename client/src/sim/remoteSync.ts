@@ -1,24 +1,24 @@
 import { bus } from "../bus.ts";
-import { GRAVITY, JUMP_SPEED, REMOTE_POSITION_LERP_RATE } from "../config/physics.ts";
+import { ElevationModule } from "../modules/elevation/index.ts";
+import { GazeModule } from "../modules/gaze/index.ts";
 import { remotePlayers } from "../state/world.ts";
-import { tryGetWeaponRecipe } from "../config/weapons.ts";
-import { snapCascadeToTarget, tickCascade } from "./aimCascade.ts";
-import { isRecoilFiring, tickRecoilCascade } from "./recoilCascade.ts";
-import { getShipmentGroundHeight } from "./shipmentCollision.ts";
+import { PoseModule } from "../modules/pose/index.ts";
+import { RecoilModule } from "../modules/recoil/index.ts";
+
+const REMOTE_POSITION_LERP_RATE = 12;
 
 export function initRemoteSync(): void {
   bus.on("positionReceived", (message) => {
     const remote = remotePlayers.get(message.id);
     if (!remote) return;
 
-    remote.targetYaw = message.yaw;
-    remote.targetPitch = message.pitch;
+    GazeModule.projectOrientation(remote, message.yaw, message.pitch);
 
     if (!remote.cascadeInitialized) {
       // Roster/join snapshots carry a placeholder orientation (the server
       // never tracks it); the first real pos update is the true starting
       // orientation, so snap all cascade layers to it instead of chasing there.
-      snapCascadeToTarget(remote);
+      PoseModule.snapToTarget(remote);
       remote.cascadeInitialized = true;
     }
 
@@ -35,8 +35,7 @@ export function initRemoteSync(): void {
   bus.on("jumpReceived", ({ id }) => {
     const remote = remotePlayers.get(id);
     if (!remote || !remote.grounded) return;
-    remote.velocityY = JUMP_SPEED;
-    remote.grounded = false;
+    ElevationModule.projectImmediateJump(remote);
   });
 }
 
@@ -46,31 +45,13 @@ export function tickRemoteSync(dt: number): void {
   for (const remote of remotePlayers.values()) {
     remote.timeSinceLastPos += dt;
 
-    remote.position.x += (remote.targetPosition.x - remote.position.x) * lerpFactor;
-    remote.position.z += (remote.targetPosition.z - remote.position.z) * lerpFactor;
+    remote.x += (remote.targetPosition.x - remote.x) * lerpFactor;
+    remote.z += (remote.targetPosition.z - remote.z) * lerpFactor;
 
-    if (remote.grounded) {
-      const ground = getShipmentGroundHeight(remote.position.x, remote.position.z);
-      remote.position.y += (ground - remote.position.y) * lerpFactor;
-    } else {
-      remote.velocityY += GRAVITY * dt;
-      remote.position.y += remote.velocityY * dt;
+    ElevationModule.tick(remote, remote.x, remote.z, dt);
 
-      const ground = getShipmentGroundHeight(
-        remote.position.x,
-        remote.position.z,
-        remote.position.y,
-      );
-      if (remote.position.y <= ground) {
-        remote.position.y = ground;
-        remote.velocityY = 0;
-        remote.grounded = true;
-      }
-    }
+    PoseModule.tick(remote, dt);
 
-    tickCascade(remote, dt);
-
-    const weapon = tryGetWeaponRecipe(remote.weaponId);
-    tickRecoilCascade(remote.recoil, dt, isRecoilFiring(remote.recoil, weapon?.fireRate));
+    RecoilModule.tick(remote.recoil, dt, RecoilModule.isFiring(remote.recoil, remote.weaponId));
   }
 }

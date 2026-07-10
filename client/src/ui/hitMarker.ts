@@ -1,6 +1,5 @@
 import * as THREE from "three";
-import { HIT_MARKER } from "../config/feedback.ts";
-import { computeAimRay } from "../sim/aimDirection.ts";
+import { aimState } from "../main.ts";
 import {
   applyAimScreenPosition,
   resolveWeaponAimScreenPosition,
@@ -11,6 +10,18 @@ export interface HitMarker {
   flash(): void;
   tick(dt: number, camera: THREE.Camera, occlusionRoots: readonly THREE.Object3D[]): void;
 }
+
+const HIT_MARKER = {
+  holdDuration: 0.03,
+  fadeDuration: 0.01,
+  tickLength: 6,
+  centerGap: 4,
+  strokePx: 1.5,
+  outlinePx: 0.75,
+  cornerRadius: 999,
+  scale: 1,
+  tickAngles: [45, 135, 225, 315],
+} as const;
 
 function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
@@ -81,7 +92,8 @@ export function createHitMarker(): HitMarker {
     camera: THREE.Camera,
     occlusionRoots: readonly THREE.Object3D[],
   ): void {
-    computeAimRay(muzzleOrigin, weaponDirection, camera);
+    muzzleOrigin.set(aimState.origin.x, aimState.origin.y, aimState.origin.z);
+    weaponDirection.set(aimState.direction.x, aimState.direction.y, aimState.direction.z);
     frozenScreen = resolveWeaponAimScreenPosition(
       camera,
       muzzleOrigin,
